@@ -215,6 +215,27 @@ Detection of "long-running":
 
 User can override via env var `PHPJAVA_AOT_MODE = eager | lazy | interpret`.
 
+## 5.5. Data-structure rules (rank 1, from `docs/PATTERNS.md`)
+
+Five mechanical rules for hot-path code. Justified by measurements;
+PRs that violate these need their own measurements.
+
+1. **Bytecode is a pre-decoded int array.** `unpack('C*', $code)` once
+   at class load. Index by `$pc` thereafter.
+2. **Frame state is PHP locals**, never frame objects or state arrays.
+   `$stack`, `$sp`, `$L`, `$pc` are scalars or arrays in the
+   function's local scope.
+3. **Operand stack is a regular PHP array**. Not SplFixedArray (loses
+   by 7×), not a wrapper class. Indexed by `$sp` (a local).
+4. **Primitives are PHP scalars** on the operand stack. No
+   `Int_`/`Long_`/`Double_`/`Boolean_` wrappers — they cost 7–9× per
+   arithmetic op. Wrap only at autoboxing sites (statically
+   determinable from method descriptors).
+5. **Dispatch is switch in a static function** (interpreter) or
+   inlined PHP via eval (AOT). Both are static-function PHP that JIT
+   can trace. No closure tables, no eval'd dispatch closures, no
+   threaded code.
+
 ## 6. Method dispatch — type matrix
 
 The four JVM call types map to PHP as follows:

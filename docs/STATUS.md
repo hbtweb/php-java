@@ -81,33 +81,48 @@ Switch dispatch alone is at 22 ns/op, well under the 1 µs threshold.
 ~130 stubs). Bigger than the earlier "~383" estimate but a meaningful
 fraction is generator-amenable stubs.
 
-## Ranked next steps
+## Ranked next steps (revised after pattern validation)
 
-1. **Value-rep refactor.** Drop `Int_`/`Long_`/`Double_` wrappers per
-   `docs/CONTRACTS.md` §1. ~2 weeks. Unblocks: AOT codegen quality
-   improvements, test-suite parity, JIT efficacy on AOT'd code.
-2. **Test suite to green.** The 49 errors / 48 failures are mostly
-   value-rep symptoms. After step 1, most resolve naturally. ~1 week
-   of residual fixes.
-3. **Full opcode coverage in AOT compiler.** Mechanical extension of
-   `src/Aot/Compiler.php`. ~200 cases, each ~5 LOC. ~2 weeks.
-4. **AOT classloader integration.** Wire `AotEager` and `AotLazy`
-   strategies into `JavaClass::load`. New `JavaClassAotMethodInvoker`.
-   ~1 week.
-5. **Lambda metafactory.** Single biggest capability unlock for "any
-   modern Java code." ~2 weeks.
-6. **`defineClass(byte[])` extension surface.** ~3 days. Enables
-   downstream Clojure-on-PHPJava work.
-7. **Stub generator.** For the ~130 JDK-internal classes that just
-   need to exist. ~3 days of tooling.
-8. **Long-running soak test.** Swoole daemon, 24h, measure cache hit
-   rate, memory growth, request latency. ~2 days.
+The pattern measurements (`docs/PATTERNS.md`) collapse the prior 8-step
+sequence to **3 weeks of focused work**. Most H1–H8 / M1–M4 fixes from
+the original ROADMAP collapse to one structural change.
 
-This is a 6–10 week sequence to reach a state where: a typical Java
-library AOT-compiles successfully, runs at within 10× HotSpot
-interpreted, deploys as PHP files, and serves request traffic in a
-Swoole daemon. The Clojure-on-PHPJava ambition follows from there
-(steps 6 + the curated 233-class set + Clojure's own infrastructure).
+**Week 1 — interpreter rewrite + AOT opcode coverage**
+1. Rewrite `JavaMethodCallable::call` as switch over pre-decoded int
+   array, frame state in PHP locals. Cut the per-opcode class tree
+   (`Kernel/Mnemonics/_*::execute()` ~200 files). H1–H8 + M1–M4 mostly
+   collapse to this single change.
+2. Expand `src/Aot/Compiler.php` to full opcode coverage. ~200 cases
+   each ~5 LOC. The compiler's emit functions mirror the new
+   interpreter's switch cases — same pattern, different consumer.
+
+**Week 2 — boxing refactor + test suite**
+3. Drop `Int_`/`Long_`/`Double_`/`Boolean_`/`Char_` wrappers from
+   runtime use. Keep type-tag constants for descriptor parsing.
+   Touches ~50 files. Most of the 49 errors / 48 failures are value-rep
+   symptoms; they resolve naturally.
+4. Run test suite to 100%. Residual fixes for cases that aren't
+   value-rep.
+
+**Week 3 — integration + capability**
+5. AOT classloader integration: wire `AotEager` and `AotLazy`
+   strategies into `JavaClass::load` per CONTRACTS.md §3 + §5. New
+   `JavaClassAotMethodInvoker`.
+6. Lambda metafactory implementation (`StringConcatFactory` +
+   `LambdaMetafactory`). Single biggest capability unlock.
+7. `defineClass(byte[])` extension surface (~3 days). Enables
+   Clojure-on-PHPJava follow-on work.
+8. Long-running soak test in Swoole. Measure cache hit rate, memory,
+   latency.
+
+End-of-three-weeks milestone: **~9 ns/op interpreter, ~3-5 ns/op AOT,
+test suite green, real Java library AOT-compiles successfully, callable
+from PHP code with idiomatic types at the boundary, runs in a Swoole
+daemon for 24h without memory growth.**
+
+The longer-tail T2 surface (233 classes from `docs/CLOJURE-BOOT-ANALYSIS.md`)
+runs after this milestone. That tail is mechanical implementation work,
+not architecture.
 
 ## Risk register
 
@@ -120,20 +135,17 @@ Swoole daemon. The Clojure-on-PHPJava ambition follows from there
 | PHP 9 breaking changes when it ships | low | high | Track PHP RFC; test against alpha |
 | Self-hosting cljp diverges, breaks shared patterns | low | low | cljp and PHPJava are peers; bridge is small enough that drift is contained |
 
-## What 3–6 weeks looks like
+## What 3 weeks looks like (revised)
 
-**Weeks 1–2:** Value-rep refactor + test suite to green. Lock
-`CONTRACTS.md` §1 in code.
+The pattern validation (`docs/PATTERNS.md`) showed the H1–H8 + M1–M4
+fixes collapse to one structural change. Original 6-week target now
+3 weeks.
 
-**Weeks 3–4:** Full opcode coverage in AOT compiler + classloader
-integration. AOT'd code runs through the full `JavaClass::load`
-classloader pipeline transparently.
+**Week 1:** Interpreter rewrite + AOT opcode expansion.
+**Week 2:** Boxing refactor + test suite to green.
+**Week 3:** Integration + lambda metafactory + `defineClass(byte[])` +
+soak test.
 
-**Weeks 5–6:** Lambda metafactory + `defineClass(byte[])`. Modern Java
-code starts to AOT-compile correctly. Clojure-on-PHPJava becomes a
-runnable hypothesis.
-
-End of week 6 milestone: **AOT compile a small real Java library
-(e.g. a single-class JSON parser) and call it from PHP code with idiomatic
-types at the boundary.** That's the demonstration that the architecture
-delivers on its promise.
+End-of-three milestone: **AOT compile a small real Java library, call
+it from PHP code with idiomatic types at the boundary, run a 24h
+Swoole soak test.** Demonstrates the architecture delivers.
