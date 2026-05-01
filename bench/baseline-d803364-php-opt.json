@@ -1,0 +1,24 @@
+{
+  "comment": "PHPJava bench under PHP CLI with three optimisation levels. Run via bench-cli.php (CLI, not FFM, because libphp8.4-embed on this Debian system does not load Zend extensions — see bench/README.md). All timings nanoseconds-per-iteration unless noted.",
+  "php-version": "8.4.20",
+  "hostname": "HBT-LAP-04",
+  "configurations": {
+    "no-opcache":  {"opcache.enable_cli": false, "opcache.jit": "off"},
+    "opcache":     {"opcache.enable_cli": true,  "opcache.jit": "off"},
+    "opcache-jit": {"opcache.enable_cli": true,  "opcache.jit": "tracing", "opcache.jit_buffer_size": "256M"}
+  },
+  "results": {
+    "empty-method-100":      {"no-opcache":   13268, "opcache":   22860, "opcache-jit":  110171, "note": "100 calls. JIT regresses by 8x — JIT compile cost not amortised."},
+    "iadd-1k":               {"no-opcache": 43034801, "opcache": 42444263, "opcache-jit": 38199677, "note": "5.4us / 5.3us / 4.78us per JVM bytecode op (1000-iter inner loop = ~8000 ops/call)."},
+    "invoke-100":            {"no-opcache":  8408203, "opcache":  8548918, "opcache-jit":  7919459, "note": "84us / 85us / 79us per Java method invocation."},
+    "helloworld":            {"no-opcache":   971389, "opcache":   893378, "opcache-jit":  3341985, "note": "Class-load + tiny main(). JIT regresses 3.4x — short workload."}
+  },
+  "headline": {
+    "best-case-per-op-ns":   4780,
+    "best-case-per-call-ns": 79200,
+    "vs-hotspot-interp-per-op":   "~9,200x slower",
+    "vs-hotspot-interp-per-call": "~6,300x slower",
+    "opcache-jit-improvement-on-hot-loops": "6-11% (not orders of magnitude)",
+    "opcache-jit-regression-on-cold-paths": "2-8x (JIT compile cost dominates)"
+  }
+}
