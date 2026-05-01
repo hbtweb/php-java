@@ -27,7 +27,7 @@ class Base extends TestCase
             if (isset(static::$initiatedJavaClasses[$fixture])) {
                 continue;
             }
-            exec('javac -classpath ' . $pathRoot . ' -encoding UTF8 ' . $pathRoot . str_replace(['../', './'], '', $fixture) . '.java -d ' . __DIR__ . '/caches');
+            exec('javac --release 11 -classpath ' . $pathRoot . ' -encoding UTF8 ' . $pathRoot . str_replace(['../', './'], '', $fixture) . '.java -d ' . __DIR__ . '/caches');
             static::$initiatedJavaClasses[$fixture] = JavaClass::load(
                 $fixture
             );
