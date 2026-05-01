@@ -1,0 +1,35 @@
+{
+  "phpjava-version": "8.4.20",
+  "php-version": "8.4.20",
+  "hostname": "HBT-LAP-04",
+  "ffm-eval-rtt": {
+    "label": "ffm-eval-rtt",
+    "iters": 10000,
+    "total-ms": 0.029087066999999998,
+    "ns-per-iter": 2.9087066999999998
+  },
+  "phpjava-helloworld": {
+    "label": "phpjava-helloworld",
+    "iters": 10,
+    "total-ms": 27.919054030999998,
+    "ns-per-iter": 2791905.4030999998
+  },
+  "phpjava-empty-method": {
+    "label": "phpjava-empty-method",
+    "iters": 100,
+    "total-ms": 90.763807297,
+    "ns-per-iter": 907638.0729700001
+  },
+  "phpjava-iadd-1k": {
+    "label": "phpjava-iadd-1k",
+    "iters": 50,
+    "total-ms": 2298.681020737,
+    "ns-per-iter": 4.5973620414739996E7
+  },
+  "phpjava-invokevirtual-100": {
+    "label": "phpjava-invokevirtual-100",
+    "iters": 50,
+    "total-ms": 516.264915466,
+    "ns-per-iter": 1.0325298309320001E7
+  }
+}

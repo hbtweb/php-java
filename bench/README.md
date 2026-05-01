@@ -18,12 +18,38 @@ two functions needed (`php_embed_init`, `zend_eval_string`).
 
 ```bash
 clj -M:run
+
+# To enable opcache + JIT + xhprof under FFM (Debian — see "FFM and Zend extensions" below):
+LD_PRELOAD=/usr/lib/libphp8.so PHPRC=/path/to/php-opt.ini clj -M:run
 ```
 
 Requires:
 - JDK 22+ (FFM final API)
 - `libphp8.4-embed` Debian package (or equivalent providing libphp.so)
 - PHPJava `vendor/` populated (`composer install` from repo root)
+
+### FFM and Zend extensions
+
+Initial FFM-mode runs showed only 16 statically-built extensions loaded
+(no opcache, no xhprof). This was misdiagnosed as "embed SAPI doesn't
+support Zend extensions on this Debian build."
+
+Actual cause: Java's `SymbolLookup.libraryLookup` opens libphp via
+`dlopen` without `RTLD_GLOBAL`. When PHP later tries to load a Zend
+extension (xhprof, opcache), that extension's `dlopen` can't see
+libphp's symbols — they're in a separate loader scope. `nm -D
+/usr/lib/libphp8.so` confirms the symbols ARE exported (as `B` data,
+not just `T` functions).
+
+Fix: `LD_PRELOAD=/usr/lib/libphp8.so` puts libphp in the global
+loader scope, so subsequently dlopen'd extensions can see its symbols.
+Extensions go from 16 to 59 with the preload set; opcache, JIT,
+xhprof, swoole, redis, etc. all load.
+
+(Credit: this diagnosis came from a parallel cljp-tooling investigation
+that built `cljp.tools.audit-verify` — an FFM-mode profiler that runs
+cljp.core under xhprof to verify static-audit dead-code claims against
+runtime profiles. The same LD_PRELOAD trick applies here.)
 
 ## Baseline @ d803364 (master + roadmap branch, no optimisations)
 
