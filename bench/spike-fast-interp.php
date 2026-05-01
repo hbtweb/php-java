@@ -170,6 +170,43 @@ function sum1k_closure_table(): int {
 }
 
 // =============================================================================
+// Version C2 — naive AOT (emit each opcode inline, operand stack still array)
+// =============================================================================
+//
+// What a non-optimising AOT compiler would produce. Each JVM bytecode op
+// becomes inline PHP statements, but the operand stack is preserved as a
+// PHP array — same way the interpreter sees it. NO opcode dispatch loop;
+// each method is its own PHP function. Tests the "remove dispatch but keep
+// stack model" middle ground between interpreter and idiomatic AOT.
+
+function sum1k_naive_aot(): int {
+    $L = [0, 0];
+    $stack = []; $sp = 0;
+    // iconst_0; istore_0
+    $stack[$sp++] = 0; $L[0] = $stack[--$sp];
+    // iconst_0; istore_1
+    $stack[$sp++] = 0; $L[1] = $stack[--$sp];
+    L_4:
+        // iload_1; sipush 1000; if_icmpge L_18
+        $stack[$sp++] = $L[1];
+        $stack[$sp++] = 1000;
+        $b = $stack[--$sp]; $a = $stack[--$sp];
+        if ($a >= $b) goto L_18;
+        // iload_0; iload_1; iadd; istore_0
+        $stack[$sp++] = $L[0];
+        $stack[$sp++] = $L[1];
+        $b = $stack[--$sp]; $stack[$sp - 1] += $b;
+        $L[0] = $stack[--$sp];
+        // iinc 1, 1
+        $L[1] += 1;
+        // goto L_4
+        goto L_4;
+    L_18:
+        // iload_0; ireturn
+        return $L[0];
+}
+
+// =============================================================================
 // Version C — hand-translated AOT (no interpreter; PHP-native)
 // =============================================================================
 //
@@ -225,22 +262,24 @@ function bench_loop(string $label, int $iters, callable $body): array {
     ];
 }
 
-// Sanity: all three must produce 499500.
+// Sanity: all four must produce 499500.
 $x1 = sum1k_switch();
 $x2 = sum1k_closure_table();
 $x3 = sum1k_aot();
-if ($x1 !== 499500 || $x2 !== 499500 || $x3 !== 499500) {
-    fwrite(STDERR, "Sanity FAIL: switch=$x1 closure=$x2 aot=$x3\n");
+$x4 = sum1k_naive_aot();
+if ($x1 !== 499500 || $x2 !== 499500 || $x3 !== 499500 || $x4 !== 499500) {
+    fwrite(STDERR, "Sanity FAIL: switch=$x1 closure=$x2 aot=$x3 naive=$x4\n");
     exit(1);
 }
 
 $phpjava = sum1k_phpjava_setup();
 
 $results = [
-    'phpjava'         => bench_loop('A: phpjava (current)',  ITERS, $phpjava),
-    'spike_switch'    => bench_loop('B: switch dispatch',     ITERS, 'sum1k_switch'),
-    'spike_closure'   => bench_loop('C: array of closures',   ITERS, 'sum1k_closure_table'),
-    'spike_aot'       => bench_loop('D: AOT (inline PHP)',    ITERS, 'sum1k_aot'),
+    'phpjava'         => bench_loop('A: phpjava (current)',     ITERS, $phpjava),
+    'spike_switch'    => bench_loop('B: switch dispatch',        ITERS, 'sum1k_switch'),
+    'spike_closure'   => bench_loop('C: array of closures',      ITERS, 'sum1k_closure_table'),
+    'spike_naive_aot' => bench_loop('D: naive AOT (stack-keep)', ITERS, 'sum1k_naive_aot'),
+    'spike_aot'       => bench_loop('E: AOT (idiomatic PHP)',    ITERS, 'sum1k_aot'),
 ];
 
 echo str_pad('label',                   30)
