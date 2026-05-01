@@ -1,0 +1,63 @@
+PHP Warning:  Module "xhprof" is already loaded in Unknown on line 0
+PHPJava sum1k profile (10 runs = ~80k JVM bytecode ops)
+==========================================================================================
+function                                                       wt(us)      calls  us/call     %
+------------------------------------------------------------------------------------------
+                                                              5856897          1 5856897.00 29.2%
+PHPJava\Core\JVM\Invoker\JavaClassMethodInvoker::call         5856720         10 585672.00 29.2%
+PHPJava\Kernel\Mnemonics\AbstractOperationCode::setParamet     677633      90090     7.52  3.4%
+PHPJava\Core\JVM\Stream\BinaryReader::readUnsignedByte         535820     100090     5.35  2.7%
+PHPJava\Core\JVM\Parameters\GlobalOptions::get                 526772     360410     1.46  2.6%
+PHPJava\Kernel\Maps\Map::getName                               514668      90110     5.71  2.6%
+PHPJava\Kernel\Mnemonics\_iinc::execute                        370199      10000    37.02  1.8%
+PHPJava\Core\JVM\Stream\BinaryReader::read                     329056     140110     2.35  1.6%
+PHPJava\Kernel\Mnemonics\_if_icmpge::execute                   294076      10010    29.38  1.5%
+PHPJava\Core\JVM\JavaClassInvoker::getJavaClass                235431      90130     2.61  1.2%
+PHPJava\Kernel\Mnemonics\AbstractOperationCode::readShort      232877      30020     7.76  1.2%
+PHPJava\Utilities\DebugTool::getLogLevel                       228087      90090     2.53  1.1%
+PHPJava\Kernel\Mnemonics\_goto::execute                        223338      10000    22.33  1.1%
+PHPJava\Kernel\Mnemonics\_sipush::execute                      212343      10010    21.21  1.1%
+PHPJava\Core\JVM\Stream\BinaryReader::readShort                199316      30020     6.64  1.0%
+PHPJava\Kernel\Mnemonics\_iinc::getOperands                    196345      20000     9.82  1.0%
+ReflectionClass::getConstants                                  190218      90120     2.11  0.9%
+PHPJava\Kernel\Mnemonics\_iadd::execute                        177158      10000    17.72  0.9%
+PHPJava\Core\JVM\Stream\BinaryReader::readUnsignedShort        164451      30020     5.48  0.8%
+PHPJava\Kernel\Mnemonics\_iload_1::execute                     146666      20010     7.33  0.7%
+PHPJava\Core\JavaClass::__call                                 142559      90160     1.58  0.7%
+PHPJava\Kernel\Filters\Normalizer::getPrimitiveValue           142143      50020     2.84  0.7%
+explode                                                        141571     360410     0.39  0.7%
+PHPJava\Core\JavaClass::of                                     138173      90130     1.53  0.7%
+PHPJava\Kernel\Mnemonics\AbstractOperationCode::execute        135103      90090     1.50  0.7%
+PHPJava\Kernel\Mnemonics\_goto::getOperands                    118284      10000    11.83  0.6%
+PHPJava\Kernel\Mnemonics\_sipush::getOperands                  115684      10010    11.56  0.6%
+PHPJava\Kernel\Mnemonics\_if_icmpge::getOperands               114006      10010    11.39  0.6%
+PHPJava\Kernel\Types\Type::get                                  92352      60050     1.54  0.5%
+PHPJava\Kernel\Resolvers\TypeResolver::extractPrimitiveVal      84949      50020     1.70  0.4%
+
+Roll-up by namespace prefix
+==========================================================================================
+namespace                                                      wt(us)      calls     %
+------------------------------------------------------------------------------------------
+PHPJava\Core\JVM                                              7987147     951230 39.8%
+                                                              5856897          1 29.2%
+PHPJava\Kernel\Mnemonics                                      3828226    1281100 19.1%
+PHPJava\Kernel\Maps                                            514708      90120  2.6%
+PHPJava\Core\JavaClass                                         316426     270430  1.6%
+PHPJava\Utilities\DebugTool                                    228108      90140  1.1%
+ReflectionClass                                                221599     180240  1.1%
+PHPJava\Kernel\Filters                                         142143      50020  0.7%
+explode                                                        141571     360410  0.7%
+PHPJava\Kernel\Types                                           111863     110070  0.6%
+PHPJava\Kernel\Resolvers                                        85736      50100  0.4%
+PHPJava\Kernel\Provider                                         76223     180230  0.4%
+unpack                                                          59879     140110  0.3%
+is_callable                                                     59681     180180  0.3%
+fread                                                           54678     140110  0.3%
+current                                                         45789     140110  0.2%
+strlen                                                          43743     140130  0.2%
+class_exists                                                    42762      90090  0.2%
+array_search                                                    40420      90110  0.2%
+PHPJava\Core\JavaCompiledClass                                  39174      90140  0.2%
+
+Total wall time (sum of all functions): 20,044,812 us
+Per-bytecode op estimate: 250.56 us/op (approx)
