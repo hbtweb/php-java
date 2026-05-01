@@ -42,20 +42,36 @@ Both expose the same data; the choice is which interface the caller
 goes through. PHP-side users default to `->a`; bytecode interop goes
 through ArrayAccess. Pattern from `mesh/coll.php`'s `Coll`.
 
-### Eliminated: the `Int_` / `Long_` / `Double_` / `Boolean_` wrapper objects
+### Eliminated entirely: the `Int_` / `Long_` / `Double_` / `Boolean_` wrapper objects
 
-The current PHPJava interpreter wraps every primitive on the operand
-stack in a wrapper object. This is the H6/H7 cost in `bench/profile-c930e2c.md`
-and contributes ~1.5 µs/op. **We unbox.** PHP scalars travel the
-operand stack directly. Wrapping happens only when:
+**See `docs/BOXING.md` for full rationale.** Summary: the wrapper instances
+exist *nowhere* at runtime. PHP scalars travel through every layer.
 
-1. A scalar is stored into a reference field where the Java type is
-   `java.lang.Integer` (autoboxing site)
-2. A scalar is passed to a method expecting `Object` (autoboxing site)
-3. A wrapped value is read out of an autoboxed location (unwrap on read)
+The wrapper *classes* (`\PHPJava\Packages\java\lang\Integer`, etc.) exist
+only as namespaces of static methods (`valueOf`, `parseInt`, `toString`,
+etc.) and as reflection metadata (Class object for `Class.forName`).
+**They are never instantiated.**
 
-The autoboxing sites are statically determinable at AOT time from the
-method descriptors. The interpreter performs them on the fly.
+Calls that look like wrapper-method invocation lower at AOT time:
+- `Integer.valueOf(x)` → `$x` (no-op)
+- `i.intValue()` → `$i` (no-op)
+- `i.equals(j)` → `$i === $j`
+- `i.hashCode()` → `$i` (Integer's hashCode IS the int value per JVMS)
+- `i.toString()` → `(string) $i`
+
+`instanceof` checks resolve via static type tracking from the AOT
+compiler's slot-type table:
+- Statically known type → constant `true`/`false`
+- Statically `Object` (single primitive) → `is_int($o)` / `is_float($o)` / etc.
+- Control-flow-merged across primitive types → tagged tuple `['I', $v]` at
+  autobox sites only (rare; ~5% of code paths, ~25 ns/op cost)
+
+### Documented divergence
+
+`Integer.valueOf(200) == Integer.valueOf(200)` returns `false` in Java
+(identity). Returns `true` in PHPJava (value equality). Affects only
+buggy Java code that uses `==` on boxed types (every style guide forbids
+this). We accept the divergence; document it.
 
 ### Eliminated: tagged-string conventions for non-string values
 
