@@ -2,6 +2,7 @@
 
 > Snapshot of where we are, what's measured, what's next.
 > Updated as work lands. The roadmap is a hypothesis; this is reality.
+> Last updated after JVM-PHP-DELTA.md committed (commit `b633bbe`).
 
 ## Headline
 
@@ -28,18 +29,58 @@ coverage, capability completeness, surface fill.
 **Falsifier F1 (per-op > 1 µs after Phase 2) — lifted by measurement.**
 Switch dispatch alone is at 22 ns/op, well under the 1 µs threshold.
 
-## What's documented (consolidated)
+### Decisions locked (with measurement backing)
 
-| Doc | Purpose |
-|---|---|
-| `ROADMAP.md` | what's done, what's next, exit criteria |
-| `docs/MODEL.md` | strategic framing — *why* the architecture is what it is |
-| `docs/CONTRACTS.md` | normative spec — interface boundaries, value-rep decisions |
-| `docs/GAP-JDK.md` | concrete deltas Java 19 → 21 → 25 |
-| `docs/CLOJURE-BOOT-ANALYSIS.md` | empirical class-load trace from Clojure boot |
-| `docs/ADJACENT-SHAPES.md` | TeaVM, DoppioJVM, bb, cljp landscape |
-| `bench/README.md` | bench methodology + LD_PRELOAD finding |
-| `bench/profile-c930e2c.md` | xhprof attribution of accidental costs |
+- **Drop primitive wrappers entirely.** 7–9× cost per arithmetic op
+  measured (`bench/validate-boxing.php` §3). Wrapper classes shrink to
+  static-method namespaces + reflection metadata. See `docs/BOXING.md`.
+- **Switch in static function for interpreter dispatch.** 9–10 ns/op
+  with JIT — beats closure-table by 3–6×. See `docs/PATTERNS.md` Rule 5.
+- **Regular array, never `SplFixedArray`.** Loses by 2–7× across all
+  measurements (`bench/validate-datastructures.php`).
+- **Frame state in PHP locals**, not arrays/objects. 5–13× faster.
+- **Pre-decoded int array bytecode**, not stream. 2–3× faster per byte.
+- **Java int overflow semantics preserved** via `& 0xFFFFFFFF` mask +
+  sign extend. 1 ns extra per op.
+- **PHP scalars throughout**; only tagged tuples at CFG-merge autobox sites
+  (rare, ~5% of code paths).
+- **No shared `$GLOBALS` runtime with cljp.** They're peers on Zend; bridge
+  marshals at language boundary.
+- **No separate IR for naive AOT.** JVM bytecode IS the IR (PHPJava parses).
+- **PHP 8.1 minimum** (Fibers needed for Thread emulation). 8.4+ recommended.
+- **Java 21 LTS target** for capability scope (lambda metafactory, indy,
+  records, sealed, virtual threads).
+
+## What's documented (consolidated, current)
+
+Read in this order if landing fresh:
+
+| Order | Doc | Purpose |
+|---|---|---|
+| 1 | `README-hbtweb.md` | orientation; doc map |
+| 2 | `docs/MODEL.md` | strategic framing — *why* the architecture is what it is |
+| 3 | `docs/CONTRACTS.md` | normative spec — interfaces, value-rep, dispatch decisions |
+| 4 | `docs/PATTERNS.md` | the 5 measured rules + what to subtract |
+| 5 | `docs/BOXING.md` | gut the wrappers; rationale + JVM contract mapping |
+| 6 | `docs/BOTTLENECKS.md` | every measured cost + type emulation guidance |
+| 7 | `docs/JVM-PHP-DELTA.md` | platform/semantic/API differences, version evolution (rank 1 verified) |
+| 8 | `docs/STATUS.md` | this doc — where we are now |
+| 9 | `ROADMAP.md` | tier ordering, exit criteria |
+| ref | `docs/GAP-JDK.md` | concrete JDK version deltas (Java 19 → 21 → 25) |
+| ref | `docs/CLOJURE-BOOT-ANALYSIS.md` | empirical class-load trace from Clojure boot |
+| ref | `docs/ADJACENT-SHAPES.md` | TeaVM, DoppioJVM, bb, cljp landscape |
+| ref | `bench/README.md` | bench methodology + LD_PRELOAD finding |
+| ref | `bench/profile-c930e2c.md` | xhprof attribution of accidental costs |
+| ref | `bench/PATTERN-VALIDATION.md` | dispatch/array/boxing pattern measurements |
+
+Plus 7 measurement harnesses in `bench/`:
+- `validate-patterns.php` — dispatch shape comparison
+- `validate-hotloop.php` — tight-loop variants
+- `validate-datastructures.php` — array vs SplFixedArray vs object frame
+- `validate-boxing.php` — 6 boxing patterns × 5 workloads
+- `validate-remaining.php` — strings, exceptions, numeric, static fields
+- `spike-fast-interp.php` — interpreter vs AOT spike
+- `aot-compile.php` — real AOT compiler verification
 
 ## What's built (rank 1, in repo)
 

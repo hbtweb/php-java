@@ -36,22 +36,39 @@ it from PHP code with idiomatic types at the boundary.**
 
 ## Document map
 
-Strategic / why:
+Read in this order if landing fresh on the repo:
+
+**Strategic / why:**
 - [`docs/MODEL.md`](docs/MODEL.md) — architectural model (the keystone)
 - [`docs/ADJACENT-SHAPES.md`](docs/ADJACENT-SHAPES.md) — TeaVM, bb, cljp, where we sit
 
-Specs / what:
-- [`docs/CONTRACTS.md`](docs/CONTRACTS.md) — interface boundaries, value-rep decisions (normative)
-- [`docs/GAP-JDK.md`](docs/GAP-JDK.md) — Java 19 → 21 → 25 deltas
+**Specs / what (normative):**
+- [`docs/CONTRACTS.md`](docs/CONTRACTS.md) — interface boundaries, value-rep, dispatch decisions
+- [`docs/PATTERNS.md`](docs/PATTERNS.md) — the five measured rules + what to subtract
+- [`docs/BOXING.md`](docs/BOXING.md) — wrappers gutted; rationale + JVM-contract mapping
 
-Empirical / measured:
-- [`docs/STATUS.md`](docs/STATUS.md) — where we are right now
+**Empirical / measured:**
+- [`docs/STATUS.md`](docs/STATUS.md) — where we are right now (decisions, measurements)
+- [`docs/BOTTLENECKS.md`](docs/BOTTLENECKS.md) — every measured cost + type emulation guidance
+- [`docs/JVM-PHP-DELTA.md`](docs/JVM-PHP-DELTA.md) — platform/semantic/API differences (rank-1 verified, with PHP and Java behaviors probed locally)
+- [`docs/GAP-JDK.md`](docs/GAP-JDK.md) — Java 19 → 21 → 25 deltas, prioritised work list
 - [`docs/CLOJURE-BOOT-ANALYSIS.md`](docs/CLOJURE-BOOT-ANALYSIS.md) — empirical Clojure class-load trace
-- [`bench/README.md`](bench/README.md) — benchmark methodology
-- [`bench/profile-c930e2c.md`](bench/profile-c930e2c.md) — profile attribution
+- [`bench/README.md`](bench/README.md) — benchmark methodology + LD_PRELOAD finding
+- [`bench/profile-c930e2c.md`](bench/profile-c930e2c.md) — xhprof profile attribution
+- [`bench/PATTERN-VALIDATION.md`](bench/PATTERN-VALIDATION.md) — dispatch/array/boxing measurements
 
-Operational / next:
+**Operational / next:**
 - [`ROADMAP.md`](ROADMAP.md) — tier ordering, exit criteria
+- [`HANDOVER.md`](HANDOVER.md) — what was done in the rework session, what's next
+
+**Measurement harnesses (in `bench/`):**
+- `validate-patterns.php` — dispatch shape comparison
+- `validate-hotloop.php` — tight-loop variants (interp vs AOT)
+- `validate-datastructures.php` — array vs SplFixedArray vs frame object
+- `validate-boxing.php` — 6 boxing patterns × 5 workloads
+- `validate-remaining.php` — strings, exceptions, numeric, static fields
+- `spike-fast-interp.php` — interpreter vs AOT comparison
+- `aot-compile.php` — real AOT compiler verification
 
 ## Original PHPJava docs
 
