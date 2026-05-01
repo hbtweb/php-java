@@ -274,12 +274,24 @@ if ($x1 !== 499500 || $x2 !== 499500 || $x3 !== 499500 || $x4 !== 499500) {
 
 $phpjava = sum1k_phpjava_setup();
 
+// Real-AOT: compiled by Aot\Compiler from BenchAdd.class via the same path
+// PHPJava already parses .class files. Validates the unified-compiler claim.
+$realAotPath = __DIR__ . '/aot-out/BenchAdd.php';
+if (file_exists($realAotPath)) {
+    require_once $realAotPath;
+    $realAot = fn() => \PHPJava\Aot\Generated\BenchAdd::sum1k();
+} else {
+    fwrite(STDERR, "Run 'php aot-compile.php' first to generate {$realAotPath}\n");
+    $realAot = null;
+}
+
 $results = [
-    'phpjava'         => bench_loop('A: phpjava (current)',     ITERS, $phpjava),
-    'spike_switch'    => bench_loop('B: switch dispatch',        ITERS, 'sum1k_switch'),
-    'spike_closure'   => bench_loop('C: array of closures',      ITERS, 'sum1k_closure_table'),
-    'spike_naive_aot' => bench_loop('D: naive AOT (stack-keep)', ITERS, 'sum1k_naive_aot'),
-    'spike_aot'       => bench_loop('E: AOT (idiomatic PHP)',    ITERS, 'sum1k_aot'),
+    'phpjava'         => bench_loop('A: phpjava (current)',         ITERS, $phpjava),
+    'spike_switch'    => bench_loop('B: switch dispatch',            ITERS, 'sum1k_switch'),
+    'spike_closure'   => bench_loop('C: array of closures',          ITERS, 'sum1k_closure_table'),
+    'spike_naive_aot' => bench_loop('D: hand-translated naive AOT',  ITERS, 'sum1k_naive_aot'),
+    'real_naive_aot'  => $realAot ? bench_loop('E: REAL naive AOT (compiler-emitted)', ITERS, $realAot) : ['ns_per_op' => 0, 'ns_per_call' => 0, 'total_ms' => 0, 'iters' => 0, 'label' => 'E: skipped'],
+    'spike_aot'       => bench_loop('F: hand-translated idiomatic AOT', ITERS, 'sum1k_aot'),
 ];
 
 echo str_pad('label',                   30)
