@@ -1,0 +1,13 @@
+{
+  "comment": "HotSpot reference run, same fixtures, for comparison against bench/baseline-d803364.json (PHPJava). Run via bench/fixtures/BenchRunner.java with `java -Xint` and default JIT. JIT noise at 50 iters — JIT compilation overhead exceeds savings on this small workload, so JIT numbers are not load-bearing here.",
+  "java-version": "OpenJDK 25.0.2 2026-01-20",
+  "hostname": "HBT-LAP-04",
+  "hotspot-interpreted": {
+    "sum1k":     {"ns-per-call": 4193,  "ns-per-bytecode-op": 0.52},
+    "invoke100": {"ns-per-call": 1247,  "ns-per-individual-call": 12.5}
+  },
+  "hotspot-jit": {
+    "sum1k":     {"ns-per-call": 6039,  "ns-per-bytecode-op": 0.75},
+    "invoke100": {"ns-per-call": 3618,  "ns-per-individual-call": 36.2}
+  }
+}
