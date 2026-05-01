@@ -123,20 +123,47 @@ cljp's architecture from this team's repo:
 
 PHP-side runtime: `src/clj/cljp/core.cljp` — ~8.4kloc of Clojure that compiles to PHP, providing PersistentVector, PersistentHashMap, Atom, Var, etc. as PHP classes.
 
-If we build a `.class → PHP` AOT compiler:
+If we build a `.class → PHP` AOT compiler — **revised after measurement
+2026-05-01.** The earlier draft of this section claimed cljp's IR was a
+suitable target. That was wrong:
 
 ```
 .class file
-  → ClassReader (PHPJava's Compiler/Builder/ has parts of this — reusable)
-  → IR (could be cljp's IR — `:ps/*` and `:pl/*` are JVM-shaped)
-  → Java→Clojure-IR lowerer (the new piece — ~5–10kloc of work)
-  → cljp's emitter → PHP source string
-  → write to disk
+  → ClassReader (PHPJava already has it — `Core/JVM/`)
+  → walk parsed bytecode (no separate IR for naive AOT)
+  → emit PHP source per opcode
+  → write to disk / opcache
 ```
 
-**The runtime is shared.** Java's `int` becomes PHP `int`; Java's `String` becomes whatever PHP representation cljp uses for Clojure strings; Java's collections become Clojure persistent collections (with the surface methods that Java code expects).
+For naive AOT, **JVM bytecode is the IR.** PHPJava already parses it.
+A one-pass walker emits PHP per opcode. Spike measured this at 5.6 ns/op.
 
-This is a real architectural alignment — not a metaphor. cljp.core's representations were chosen with JVM Clojure parity in mind (per `docs/CLJP-DECISIONS.md`); they're already Java-shaped.
+For idiomatic AOT (0.4 ns/op spike), a **TeaVM-shape IR** is needed
+(SSA + CFG + decompilation pass). cljp's IR doesn't fit either need:
+
+- cljp IR is shaped for Clojure semantics (multi-arity, protocols,
+  persistent collections); JVM bytecode has Java semantics (narrow
+  numerics, exception tables, monitors, object init).
+- cljp IR is at the wrong abstraction level — it's macroexpanded
+  Lisp forms. Naive AOT needs bytecode-level shape; idiomatic AOT
+  needs SSA-level shape. Neither matches.
+
+**The runtime is NOT shared with cljp.** Java values map to natural
+PHP values (int → int, String → string, HashMap → idiomatic PHP class
+with ArrayAccess/Countable). cljp's `$GLOBALS`-closures + persistent
+collections + tagged strings serve Clojure semantics; forcing Java
+through them would distort Java for the dominant user (P1 in
+`docs/MODEL.md`). cljp and PHPJava are peers on Zend, not nested.
+
+What IS reusable from cljp:
+- Patterns (the closures-in-array dispatch from `mesh/sig.php`,
+  the opcache-cacheable PHP emission shape, the parity test harness)
+- The classloader cache shape (similar to cljp's `_loaded` map)
+- The deployment philosophy (pure PHP files, `opcache`-cacheable)
+- DX harness (parity tests, contract gates)
+
+Not reusable: the value representation, the `$GLOBALS` runtime
+namespace, the IR.
 
 ---
 
@@ -152,45 +179,67 @@ The SCI-on-PHP path doesn't compete with the AOT path; it complements it. AOT is
 
 ---
 
-## 8. The strategic picture
+## 8. The strategic picture (revised 2026-05-01)
 
-Putting it all together, the shape that emerges:
+The earlier draft of this section depicted a "shared runtime" across cljp
+and PHPJava. That framing was wrong — Java and Clojure values have
+different shapes; forcing both into one runtime distorts at least one.
+The corrected picture is **two peers on Zend**:
 
 ```
-                      ┌───────────────────────────────────┐
-                      │                                   │
-                      │     SHARED PHP RUNTIME            │
-                      │     (from cljp.core)              │
-                      │                                   │
-                      │  + java.* curated shims           │
-                      │    (from PHPJava Packages/)       │
-                      │                                   │
-                      └─────────▲─────────▲──────────▲────┘
-                                │         │          │
-                       emits    │  emits  │  shims   │
-                                │         │          │
-                  ┌─────────────┴─┐ ┌─────┴──────┐ ┌─┴─────────────┐
-                  │  cljp         │ │  Java AOT  │ │  PHPJava       │
-                  │  Clojure→PHP  │ │ .class→PHP │ │  interpreter   │
-                  │  (compile)    │ │  (compile) │ │  (fallback)    │
-                  └───────▲───────┘ └─────▲──────┘ └────────▲───────┘
-                          │               │                 │
-                       .cljp /          .class             .class
-                       .cljc           (modern              (legacy /
-                       source           Java/Kotlin)          dynamic-load)
-                                          ↑
-                       SCI-on-PHP ────────┘
-                       (interp Clojure source dynamically)
+.cljp source                                      .class files
+     │                                                  │
+     │  cljp compiler                                   │  PHPJava
+     │  (Clojure→PHP — Clojure semantics)               │  (Java bytecode→PHP — JVM semantics)
+     │                                                  │
+     ▼                                                  ▼
+  ┌──────────────────────────────────────────────────────┐
+  │                      Zend Engine                     │
+  │     opcache caches, JIT optimises, refcount GC,      │
+  │           x86 execution underneath                   │
+  └──────────────────────────────────────────────────────┘
+                              │
+                              ▼
+                            CPU
 ```
 
-Four front ends, one shared runtime. Each front end fills a different deployment niche:
+cljp and PHPJava sit at the same layer above Zend, neither hosting the
+other. Each maintains its own value representation:
 
-- **cljp**: write Clojure code, compile ahead of time, deploy `.php` files.
-- **Java AOT**: compile existing Java/Kotlin libraries ahead of time, deploy `.php` files.
-- **PHPJava interpreter**: load `.class` files at runtime (from disk, network, dynamically generated) — slow but flexible.
-- **SCI-on-PHP**: evaluate Clojure source at runtime — for plugin systems, REPL access, ad-hoc scripting.
+- **cljp** emits PHP that uses persistent collections, tagged strings,
+  `$GLOBALS` closures — Clojure semantics preserved.
+- **PHPJava** emits PHP that uses idiomatic native types — Java
+  semantics preserved.
 
-The PHPJava roadmap currently focuses on making the interpreter usable. The strategic upgrade is to **build the AOT compiler as the primary path** and keep the interpreter for the dynamic-load case only.
+When code crosses the language boundary (Clojure code calling Java
+code, or vice versa), values are **marshalled at the boundary** by a
+thin `cljp/java/bridge` adapter. Cost is paid only at the crossing,
+not throughout each runtime.
+
+Inside PHPJava itself, the `InvokerInterface` boundary already supports
+multiple implementations. The classloader picks per-class:
+
+```
+                ┌─────────────────────────────────┐
+                │  PHPJava JVM contract           │
+                │  (ClassLoader + InvokerIF)      │
+                └─────────┬───────────────────────┘
+                          │
+       ┌──────────────────┼──────────────────┐
+       │                  │                  │
+       ▼                  ▼                  ▼
+  ┌───────────┐    ┌───────────┐     ┌─────────────┐
+  │ Interp    │    │ AOT'd     │     │ Curated PHP │
+  │ (cold or  │    │ PHP       │     │ shim        │
+  │ runtime-  │    │ closures  │     │ (Packages/  │
+  │ generated │    │ (eager OR │     │  java/*)    │
+  │ classes)  │    │ lazy)     │     │             │
+  └───────────┘    └───────────┘     └─────────────┘
+```
+
+These three are not separate projects — they're cache-strategy variants
+of one compiler (per `docs/MODEL.md`). The classloader chooses based on
+what's available for a given class.
 
 ---
 
@@ -211,12 +260,38 @@ The PHPJava roadmap currently focuses on making the interpreter usable. The stra
 
 ---
 
-## 10. Concrete decisions this analysis surfaces
+## 10. Concrete decisions this analysis surfaces (revised 2026-05-01)
 
-1. **AOT is the primary path, not a stretch goal.** TeaVM has proven the architecture; cljp has built the runtime; PHPJava has built the parser. The compiler middle is ~5–10kloc of new work.
-2. **Don't reinvent IR.** Use cljp's `:ps/*` / `:pl/*` two-tier as the AOT target. The lowerer (`.class` → Clojure IR) becomes the new piece; everything downstream is shared.
-3. **Keep the interpreter** for dynamic-load fallback (`Class.forName`, runtime class generation). Mark it as "slow path" explicitly. The Phase 2 switch-dispatch rewrite is still worth doing because it's bounded work that gives a 200× speedup *for the cases that need the interpreter at all*.
-4. **SCI-on-PHP** is third priority — fills a real niche but isn't on the critical path for "Clojure / Java libs on shared PHP hosting."
-5. **The deployment story is the moat.** Quercus's lesson: pure-PHP-files-runs-anywhere-PHP-runs is what makes this worth doing. Anything that requires a non-standard PHP build, a Zend extension, a coprocess, or a JVM coprocess defeats the point.
+1. **AOT is a cache-mode of the same compiler, not a separate project.**
+   The interpreter and AOT share opcode-handler structure; each is a
+   different consumer of the same parsed bytecode. See `docs/MODEL.md`
+   for the unified model.
+2. **JVM bytecode is the IR for naive AOT.** No separate IR layer
+   needed. Idiomatic AOT (later) adds a TeaVM-shape SSA+CFG pass.
+3. **cljp and PHPJava are peers on Zend, not one hosting the other.**
+   Independent runtimes. Marshalling at language boundary when needed.
+4. **Long-running deployments (Swoole / AMPHP / RoadRunner /
+   FrankenPHP) are the primary target.** Lazy AOT is the natural
+   default in those processes; eager AOT supports request-scoped FPM.
+5. **The interpreter remains** as the cold-method / runtime-generated-
+   bytecode path. Phase 2 rewrite still earns its keep — 200× speedup
+   makes it usable as the fallback.
+6. **The deployment story is the moat.** Pure-PHP-files-runs-on-any-PHP
+   is what makes this worth doing. Anything that requires a JVM
+   coprocess or a custom PHP build defeats the point. (Optional
+   accelerators — Swoole, FFI, opcache JIT — degrade gracefully.)
+7. **Capability work and optimisation work are different tracks.**
+   Optimisation = subtraction (remove layers between bytecode and
+   Zend). Capability = addition (implement more of the JVM contract).
+   Both proceed in parallel, with different success criteria.
 
-This frames Phase 5+ of the roadmap differently. The Clojure-boot probe should target the AOT path specifically, not the interpreter path. Boot Clojure means: AOT-compile the slim jar's `.class` files to `.php` files once, deploy them, run.
+This frames Phase 5+ of the roadmap differently. The Clojure-boot
+probe targets the **interpreter path** (Clojure synthesises classes at
+runtime via `defineClass(byte[])` — those CAN'T be eagerly AOT'd).
+Then a per-process lazy AOT cache catches synthesised classes on second
+call onward. Pre-compiled `.class` files in the JAR (most of
+`clojure.core`) AOT eagerly at build time.
+
+The clean form: **eager AOT for everything we can predict; lazy AOT for
+everything the runtime produces; interpreter for cold and one-shot.**
+All three are the same compiler with different cache TTLs.

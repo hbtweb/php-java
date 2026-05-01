@@ -1,170 +1,176 @@
 # PHPJava Roadmap (hbtweb fork)
 
-> Status: roadmap-stage. No code changes yet beyond unblocking the test suite on JDK 25.
 > Forked from php-java/php-java at SHA `b34a90a` (last upstream activity 2021).
-> Date written: 2026-05-01.
+> Strategic framing in [`docs/MODEL.md`](docs/MODEL.md) — read first.
+> JDK gap analysis in [`docs/GAP-JDK.md`](docs/GAP-JDK.md).
+> Cross-project landscape in [`docs/ADJACENT-SHAPES.md`](docs/ADJACENT-SHAPES.md).
+> First written: 2026-05-01. Revised after spike: same day.
 
 ## Goal
 
-A pure-PHP JVM implementation usable to run **Clojure** (initially) and a curated set of Java libraries on commodity PHP hosting (no extensions required at minimum, with optional acceleration via Swoole/opcache where available).
+A JVM-bytecode-to-PHP translator for **long-running PHP processes**
+(Swoole / AMPHP / RoadRunner / FrankenPHP) and request-scoped FPM
+deployments. Run Java libraries from PHP code with idiomatic types at
+the boundary; serve as a JVM substrate for languages that target it.
 
-Concrete success line: a vanilla `clojure-1.13.0-slim.jar` boots to a `clojure.main` REPL prompt under PHPJava in under 60 seconds on a standard PHP-FPM host. Then: babashka-equivalent class surface (≈383 classes) covered well enough to run bb's compatibility list of pure-Clojure libraries.
+**Concrete success line for v1:** the test suite passes 100%, the
+interpreter runs at ≤ 100 ns/op, AOT runs at ≤ 5 ns/op, and the bb
+allowlist surface (~80 most-used classes from babashka's
+`src/babashka/impl/classes.clj`) is non-stub. From there, Clojure boot
+and the long tail are probes against existing infrastructure rather
+than new architecture.
 
-## Falsifiers
+## Falsifiers (revised after measurement)
 
-If any of these prove true, the project re-scopes or stops:
-
-1. **F1 — Perf floor.** After the dispatch-loop rewrite (Phase 2), per-bytecode cost remains > 1µs measured. At that floor a Clojure REPL boot stays > 30 minutes regardless of stub coverage. → re-scope to "Java-source AOT-compile to PHP" sibling project.
-2. **F2 — Stub combinatorics.** After Phase 4, the stub-resolution dependency graph for `clojure.lang.RT.<clinit>` shows > 200 transitively required new classes beyond bb's 383 list. → narrow goal to "single-file Java utilities" tier and abandon Clojure target.
-3. **F3 — Concurrency model mismatch.** `clojure.lang.Var`/`Atom`/`Agent` semantics cannot be reproduced on PHP's process model + Swoole atomics within a 2kloc concurrency adapter. → narrow goal as F2.
-4. **F4 — Bridge cost.** A method call from cljp-compiled PHP into a PHPJava-loaded class measures > 50µs amortized after Phase 5. → keep PHPJava and cljp as independent runtimes, drop the bridge.
-
-Each phase has its own exit gate. A failed gate triggers re-evaluation against the falsifiers above, not an automatic continuation.
-
-## Current state (rank 3, from reading source 2026-05-01)
-
-- Test suite: **476 tests, 813 assertions, 49 errors, 48 failures, 1 skipped** (~79% pass) after unblocking JDK 25 compatibility (`javac --release 11`) and disabling `stopOnFailure`.
-- Failure clusters:
-  - Type-wrapping (`Boolean`/`Char` returning `Int_`, `Float_` collapsed into `Double_`)
-  - `Long` arithmetic (sub/mul wrong)
-  - `OutputDebugTrace` constant-pool index drift (likely Java-version-related)
-  - `java.io.PrintStream` char-printing prints int values
-- Smoke test: `HelloWorld.class` (Java 11 release) prints "hello from phpjava" + `55` correctly. Trailing Symfony Console TypeError is a return-type API mismatch (`RunCommand::execute` returns null, Symfony 5 wants int) — cosmetic.
-- Stub coverage: **295 of 366 files in `src/Packages/` reference `NotImplementedException`** — i.e., ~80% of the user-facing Java surface is unfinished.
-- JDK ceiling: `Kernel/Resolvers/SDKVersionResolver.php:11–29` maps up to class-file version 63 = Java 19. Java 25 = class-file 69.
-- Architecture: two-tier dispatch — bytecode interp for `.class` files (`Core/JVM/Invoker/JavaClass*`) and PHP-shim invoker for `Packages/java/...` (`Core/JVM/Invoker/PHPClass*` → `ReflectionMethod::invokeArgs`). Both reachable through one `InvokerInterface`. `INVOKEVIRTUAL` doesn't distinguish. Architecture is sound; execution is encrusted with accidental cost.
-
-## Identified hot-loop accidental costs (rank 3, from reading)
-
-Per JVM bytecode op in `Core/JVM/Invoker/Extended/JavaMethodCallable.php:174–260`:
-
-| # | Cost | Location | Fix |
+| ID | Original | Status | Notes |
 |---|---|---|---|
-| H1 | `microtime(true)` every iteration for timeout safety | line 191 | Sample every N=1000 iterations |
-| H2 | `new $fullName()` per opcode dispatch | line 226 | Pre-allocated opcode singletons keyed by opcode byte |
-| H3 | `class_exists($fullName)` per iteration | line 213 | Resolved-class cache, populate once |
-| H4 | 3-method setter chain on new opcode (`setConstantPool().setParameters().setDebugTool()`) | lines 229–245 | Pass via constructor or shared frame-state object |
-| H5 | DI provider re-add of `OperandStacks`/`LocalStorages` per iteration | lines 175–178 | Set once outside the loop; mutate in place |
-| H6 | `Int_::get()` / `Long_::get()` / `Double_::get()` boxing every arithmetic op | `Kernel/Mnemonics/_iadd.php:27` etc. | Keep PHP scalars on operand stack; box only when entering object slots |
-| H7 | `Normalizer::getPrimitiveValue()` unbox every arithmetic op | mirror of H6 | Same fix |
-| H8 | Two trigger-callable checks per iteration (`is_callable($beforeTrigger)` etc.) | lines 247–258 | Hoist outside loop when no triggers configured |
+| F1 | Per-op > 1 µs after Phase 2 → abandon interpreter | **lifted** | Spike measured 22 ns/op switch dispatch; 5.6 ns/op naive AOT; 0.4 ns/op idiomatic AOT |
+| F2 | bb allowlist transitive deps > 200 unknowns → narrow goal | open | needs probe after T1 lands |
+| F3 | Concurrency adapter > 2kloc → narrow goal | open | depends on Swoole/FFI work |
+| F4 | cljp-bridge cost > 50 µs → drop bridge | open | only meaningful after AOT lands |
 
-Per Java method invocation in `JavaMethodCallable::call`:
+## Current state (2026-05-01)
 
-| # | Cost | Location | Fix |
+- **Tests:** 476 / 813 assertions / 49 errors / 48 failures / 1 skipped (~79%)
+- **Smoke:** HelloWorld.class runs ✓
+- **Interpreter perf:** measured 5.22 µs/op (current); 22 ns/op (spike with Phase 2 fixes); 5.6 ns/op (naive AOT spike); 0.4 ns/op (idiomatic AOT spike) — see `bench/`
+- **JDK ceiling:** declared up to 19 (class file 63), practical ceiling is Java 8 + partial Java 9–11; details in `docs/GAP-JDK.md`
+- **Stub coverage:** ~80% of `src/Packages/` files raise `NotImplementedException`
+- **Architecture:** dispatch boundary already polymorphic via `InvokerInterface`; AOT slots in as a third invoker alongside the existing bytecode interpreter and PHP-shim invoker
+
+## The work, in tiers
+
+The model (per `docs/MODEL.md`) treats interpreter and AOT as two cache
+modes of one compiler, not two separate projects. Phases below reflect
+that — there is no "interpreter optimisation track" running parallel to
+"AOT track"; both rewrites share the same opcode-handler tree, with one
+emitting state mutation (interpret) and one emitting PHP source (AOT).
+
+### Tier 0 — foundation (do first)
+
+The contracts must be explicit before more code lands. Without this,
+Tier 1 strategies and Tier 2 shim work re-derive their own assumptions
+and conflict.
+
+| Deliverable | Exit |
+|---|---|
+| `docs/CONTRACTS.md` — names `ClassLoaderInterface`, `InvokerInterface`, `NativeMethodInterface`, value-representation rules | document committed |
+| Refactor existing code to satisfy contracts strictly | `Core/JVM/Invoker/` cleaned; `JavaClass` decoupled from `JavaCompiledClass` |
+| Test suite restructured: contract tests vs implementation tests separated | parity test that runs against any invoker |
+| Decision: PHP scalars on operand stack (drop `Int_`/`Long_`/`Double_` boxing) | written + tests for Boolean/Char preservation |
+| Decision: classloader cache shape ≈ cljp's `_loaded` pattern | written |
+| Bench harness ✓ (already done — `bench/baseline.clj`, `bench-cli.php`, `spike-fast-interp.php`) | done |
+| Profile harness ✓ (`bench/profile-xhprof.php` + LD_PRELOAD finding) | done |
+
+**Estimate:** 3–5 weeks. Falsifier: if we can't write a parity test that
+runs against both interpreter and a stub AOT after this, the contract
+isn't separated cleanly enough.
+
+### Tier 1 — implementation strategies (parallel after Tier 0)
+
+Three strategies behind the same `InvokerInterface`. Built on shared
+infrastructure (parser, constant pool, attribute readers, shim layer).
+
+| Strategy | Status | Per-op cost (spike) | Effort |
 |---|---|---|---|
-| M1 | **`fopen(temp_file)` + `fwrite($code)` every method call** — bytecode written to disk so `BinaryReader` can stream it | lines 100–108 | Replace with byte-string pointer; keep `BinaryReader` interface or replace with `StringByteReader` |
-| M2 | New `OperationCache`, new DI provider, new `BinaryReader` per call | lines 47, 121, 154 | Pool / reuse |
-| M3 | Method-name beautification + signature reparse per call | line 80, `_invokevirtual.php:48` | Cache by method ref |
-| M4 | Annotation lookup even when none exist | `_invokevirtual.php:79` | Skip when `getAnnotations()` returns empty cheaply |
+| **1a — Interpreter (optimised)** | spike validated | 22 ns/op (no opt), 36 ns/op (JIT — regresses) | 4–8 weeks |
+| **1b — AOT compiler (naive)** | spike validated by hand-translation | 5.6 ns/op (no opt), 1.5 ns/op (JIT helps) | 2–4 weeks after 1a |
+| **1c — AOT compiler (idiomatic, optional)** | spike validated by hand-translation | 0.4 ns/op (no opt), 0.2 ns/op (JIT) | 3–6 months |
+| 1d — PHP-shim invoker | exists | n/a (depends on shim implementation) | shim coverage tracked in Tier 2 |
 
-M1 alone is the single largest accidental cost in the codebase. Every Java method invocation does real filesystem I/O.
+**1a — Interpreter rewrite.** Address H1–H8, M1–M4 from
+`bench/profile-c930e2c.md`:
 
-## Phases
+- **H1** sample `microtime()` every 1000 iters
+- **H2** opcode singletons (or switch dispatch)
+- **H3** resolved-class cache for opcode handlers
+- **H4** kill the 3-method setter chain
+- **H5** hoist DI provider rebuild
+- **H6/H7** unbox primitives — PHP scalars on stack
+- **H8** hoist trigger-callable checks
+- **M1** kill `fopen`+`fwrite` per method (string-byte-reader; this is the largest single accidental cost)
+- **M2** pool `OperationCache` / `BinaryReader`
+- **M3** cache method-name + signature parse
+- **M4** skip annotation lookup when none
 
-### Phase 0 — Validation baseline (next)
+**1b — Naive AOT.** A parallel `Aot/Emit/_*::emit($builder)` tree that
+mirrors `Kernel/Mnemonics/_*::execute()`. Each emitter walks the same
+parsed bytecode but produces a PHP statement instead of mutating runtime
+state. Shared with the interpreter: the classloader, parser, and shim
+layer. New piece: per-method PHP file generation, opcache integration,
+classloader fallback when AOT cache misses.
 
-**Exit criterion:** measured per-op and per-method-call cost numbers in `bench/` for current `master`.
+**1c — Idiomatic AOT.** Adds a TeaVM-shape IR (SSA + CFG) and a
+decompiler pass that lifts bytecode to expression trees and reconstructs
+structured control flow. Optional — naive AOT is already 5.6 ns/op.
+Idiomatic gets 0.4 ns/op for hot library code.
 
-- Microbenchmarks: tight `iadd` loop (1M ops), tight `INVOKEVIRTUAL` to a no-op method (100k calls), HelloWorld end-to-end (already works).
-- Profile under XDebug or vld to confirm the hot-cost ranking H1–H8 / M1–M4.
-- Compare against HotSpot interpreted (`java -Xint`) on identical code for a reference ratio.
-- Output: `bench/baseline-<sha>.json` with measured numbers, committed to the repo.
+### Tier 2 — surface coverage (shared by all Tier 1 strategies)
 
-If actual baseline is meaningfully better than my read-only estimates predicted (~3–8µs/op), proceed. If it's worse, the cost model has unknowns to diagnose first.
+The JDK API surface implemented in PHP (`src/Packages/java/...`).
+Required by every implementation strategy; written once, used by all.
 
-### Phase 1 — Test suite to green
+| Sub-tier | Scope | Effort |
+|---|---|---|
+| T1 — class file format up to Java 21 | `CONSTANT_Dynamic`, `Record`, `PermittedSubclasses`, `NestHost`, `Module` attrs; lambda metafactory + StringConcatFactory | 3–5 weeks |
+| T2 — bb allowlist core (~80 classes) | `String`, `Class`, `Object`, `Throwable`, `Thread`, `java.io.*`, `java.util.regex.Pattern` | 2–4 months |
+| T3 — concurrency adapter | `java.util.concurrent.atomic.*`, `locks.*`, `Thread.ofVirtual` on Fiber/Swoole | 4–6 weeks |
+| T4 — bb allowlist tail (~300 classes) | `java.util.concurrent.*`, `javax.crypto`, `java.net.http`, etc. | 4–8 months |
+| T5 — extension surfaces | `defineClass(byte[])`, `Instrumentation`, `Unsafe` (FFI when available) | 4–8 weeks |
 
-**Exit criterion:** 476/476 passing on JDK 11 release target, on PHP 8.4.
+T2 + T3 together unblock most P1 use cases (single Java library called
+from PHP). T5 unblocks Clojure-on-PHPJava and dynamic-language hosting.
 
-- Already done: `javac --release 11`, `stopOnFailure="false"`. To commit.
-- Diagnose and fix:
-  - `Boolean`/`Char` returning `Int_` (likely `TypeResolver::convertPHPTypeToJavaType` doesn't preserve boolean/char tags)
-  - `Float_`/`Double_` collapse (likely `Normalizer` widens implicitly)
-  - `Long` sub/mul (32-bit truncation somewhere)
-  - `PrintStream.println(char)` printing int values (missing override)
-  - `OutputDebugTrace` const-pool index drift (likely a Java-11 vs older bytecode shape)
+Strategy: each shim class gets a focused integration test that exercises
+every method against a JVM-side oracle (real JVM via FFM transport). The
+parity test infrastructure from Tier 0 makes shim-writing mechanical.
 
-These are bugs in the existing implementation — fixing them doesn't change the architecture. Each gets its own focused PR. Estimated 1–2 weeks.
+License note: OpenJDK is GPL+CE; PHPJava is MIT. Re-implementing from
+spec rather than transliterating OpenJDK source. bb's allowlist is
+narrow enough that this is tractable.
 
-### Phase 2 — Hot-loop rewrite
+### Tier 3 — probes (questions, not features)
 
-**Exit criterion:** per-bytecode op cost ≤ 200ns measured; HelloWorld ≤ 100ms total; test suite still green.
+Each is a question answered by running, not built features.
 
-Address H1–H8, M1–M4 in order of measured contribution. Most impactful first (M1, then H2, then H6/H7 unboxing).
+| Probe | Question |
+|---|---|
+| Q3.1 — Java library call | Does PDFBox / Tika / iText work end-to-end from PHP? |
+| Q3.2 — Clojure boot | Does `clojure-1.13.0-slim.jar` reach `user=>` REPL? |
+| Q3.3 — cljp interop | Can a cljp `defn` call into AOT'd Java code at < 5 µs? |
+| Q3.4 — bb compatibility | Do bb's pure-Clojure libs run on cljp+PHPJava? |
+| Q3.5 — hot reload | Edit `.java`, re-AOT, callers see new methods? |
 
-**Falsifier gate:** if after fixing all of H1–H8, M1–M4 the per-op cost is > 1µs measured (F1 above), pause and investigate. The interpreter model may be more expensive than analysis predicted; rewriting the dispatch as a single `switch` statement (no per-op class objects at all) is the next thing to try before declaring failure.
+## What's not on the roadmap
 
-Estimated 4–8 weeks.
-
-### Phase 3 — Modern JDK support
-
-**Exit criterion:** loads class files compiled with `--release 17` and `--release 21`. Class-file versions 53–65 in `SDKVersionResolver`.
-
-- Extend `SDKVersionResolver::VERSION_MAP`.
-- Constant pool entries added in 7+ (`CONSTANT_MethodHandle`, `CONSTANT_MethodType`, `CONSTANT_InvokeDynamic`, `CONSTANT_Module`, `CONSTANT_Package`, `CONSTANT_Dynamic`).
-- Records (16+), sealed classes (17+), pattern matching attributes — most are metadata, the bytecode shape is stable.
-- The big one: `invokedynamic` with bootstrap methods. `Packages/java/lang/invoke/` exists but is mostly stub. Real lambda metafactory is needed for any code compiled with lambdas (most modern Java/Clojure). Order of magnitude: 1–2kloc of lambda metafactory + bootstrap method handling.
-
-Estimated 3–5 weeks.
-
-### Phase 4 — Stub fill: bb-equivalent surface
-
-**Exit criterion:** the 383 classes/javax classes from babashka's `src/babashka/impl/classes.clj` allowlist are non-stub in `Packages/`. Coverage gauged by integration tests, not method-count.
-
-Strategy:
-1. Generate a shared class allowlist from bb's source.
-2. For each class, port behavior from OpenJDK 21 source (LGPL→MIT compatibility check first; alternative is reading specs and writing fresh).
-3. Order by Clojure boot dependency: `String`, `Class`, `Object`, `Throwable`, `System`, `Thread`, `ThreadLocal` first; then `java.io.*` Reader/Writer/PrintStream chain; then `java.util.*` collections; then `java.util.regex.Pattern`; then `java.util.concurrent.*`; then `java.lang.invoke` if not already done in Phase 3; then `javax.crypto`/`javax.net.ssl`/`java.net.http`.
-4. Each class gets a focused integration test that exercises every method against a JVM-side oracle.
-
-This is the bulk of the work. Realistic estimate: **6–18 person-months**, dominated by `java.io`, `java.util.regex`, `java.util.concurrent`.
-
-### Phase 4.5 — Concurrency adapter
-
-**Exit criterion:** `java.util.concurrent.atomic.AtomicReference` + `java.util.concurrent.locks.ReentrantReadWriteLock` work correctly under both pure-PHP fallback (process-local locking) and Swoole atomics (when extension present). `Thread.sleep`, `Thread.start`, `Thread.join` work on Fibers as a fallback.
-
-Falsifier F3 lives here. If the adapter exceeds 2kloc or correctness can't be proven, narrow scope.
-
-### Phase 5 — Clojure boot probe
-
-**Exit criterion:** `clojure-1.13.0-slim.jar` reaches the `user=>` REPL prompt within 60s.
-
-This is a probe, not a phase of work — it tests whether Phases 1–4.5 are sufficient. Failure here triggers stub-list expansion (back to Phase 4 for the missing classes) or perf re-evaluation (back to Phase 2).
-
-### Phase 6 — cljp bridge
-
-**Exit criterion:** cljp-compiled PHP can call methods on PHPJava-loaded classes and vice versa, with arg/return marshaling cost < 5µs per crossing. Falsifier F4 lives here.
-
-The bridge: `Packages/PHPJava/cljp/` PHP classes that expose cljp PersistentVector/PersistentHashMap/Keyword as `clojure.lang.IPersistentVector`/`IPersistentMap`/`Keyword` to bytecode-running code. Likely shared underlying representation between cljp and PHPJava — the bridge becomes nominal.
-
-### Phase 7 — Babashka-equivalent
-
-**Exit criterion:** bb's compatibility list of pure-Clojure libraries runs unmodified on the PHPJava+cljp combo (with cljp AOT-compiling Clojure source where available, PHPJava interpreting `.class` files where not).
-
-This is the long tail. Library-by-library validation, perf tuning, surface gap-fills.
-
-## Open questions (require investigation, not commitment)
-
-- **Q1: Compiler/Emulator/ tree.** `src/Compiler/Lang/Assembler/` is a Java-source-to-bytecode compiler in PHP, ~200 files. Useful as a fallback when the user only has source? Or scope ballast? Decision deferred until Phase 4.
-- **Q2: Direct switch dispatch.** Replacing the `new $opcodeClass()` model with a single `switch ($opcode)` statement in the loop body — eliminates dispatch class allocation entirely. Possibly a Phase 2 follow-on if H2 alone doesn't bring per-op cost low enough.
-- **Q3: AOT-compile bytecode → PHP.** A `.class` → `.php` compiler that emits one PHP method per Java method. This is the path that would actually approach native speed (vs ~10–50× HotSpot for an optimal interpreter). Architecture sibling of cljp. Likely the right answer for hot-path libraries but explicitly out of scope for this roadmap — would be a separate project that consumes PHPJava's class loader and surface emulation but skips the interpreter.
-- **Q4: License compatibility for OpenJDK porting.** OpenJDK is GPL+CE, PHPJava is MIT. Porting OpenJDK source directly is an issue. Need to either re-implement from spec or get explicit clarification.
-- **Q5: Symfony Console version.** PHPJava uses `symfony/console: ^5.2`; current 6.x and 7.x require `int` return from `Command::execute()`. Cosmetic but visible.
-
-## Non-goals
-
-- **Full OpenJDK parity.** No `java.awt`, `javax.swing`, `java.beans`, `org.w3c.dom`, JNDI, JAXB, javax.management.
-- **Performance parity with HotSpot.** Best-case interpreted target is ~10–50× HotSpot interpreted. Acceptable for scripting/library use; unacceptable for hot loops.
-- **Heavyweight Java frameworks.** Spring, Hibernate, Netty are out — wrong shape for PHP request lifecycle, perf-prohibitive.
-- **JVM bytecode verification.** PHPJava trusts class files. Out of scope.
+- Shared `$GLOBALS` runtime with cljp. cljp and PHPJava are peers on
+  Zend, not nested. Marshalling at language boundary, not runtime
+  unification. (See `docs/MODEL.md` §"Two peers on Zend".)
+- Universal redefinability via Var indirection. Java doesn't have it
+  natively; languages above (Clojure) provide their own.
+- A separate IR for naive AOT. JVM bytecode is the IR.
+- Full bytecode verifier semantics. Trust the input; verifier costs more
+  than it saves.
+- HotSpot perf parity. Cap is ~50× HotSpot interpreted with optimal AOT;
+  acceptable for scripting/library use, not for tight inner loops in
+  performance-critical code.
 
 ## Cadence
 
-- Roadmap is a hypothesis. Each phase produces measured evidence; phases that fail their exit gate trigger re-evaluation against falsifiers above.
-- Public progress: phase exit reports posted as PRs against this file with the relevant `bench/<sha>.json` numbers attached.
-- Estimated minimum to Phase 5 (Clojure boot probe): 6–12 person-months, assuming Phases 1–4 land cleanly and no falsifiers fire.
+- Each tier produces measured evidence before the next is started.
+- Phase exit reports as PRs against this file with `bench/<sha>.json`.
+- Strategic shifts go in `docs/MODEL.md`, not here. ROADMAP.md tracks
+  what's done and what's next; MODEL.md tracks why.
 
----
+## Open questions
 
-*This document supersedes any earlier informal estimates ("30–50 classes", etc.) made before the architecture analysis on 2026-05-01.*
+- **Symfony Console version.** PHPJava uses `symfony/console: ^5.2`;
+  current 6.x and 7.x require `int` return from `Command::execute()`.
+  Cosmetic but visible. Tier 0 housekeeping.
+- **`Compiler/Emulator/` repurposing.** The existing parallel mnemonics
+  tree at `Compiler/Emulator/Mnemonics/` does abstract type tracking at
+  build time. Tier 1b's emit pass shares 90% of that pattern. Possibly
+  rename / repurpose rather than create a third parallel tree.
+- **License posture for shim port.** Spec-based reimplementation is the
+  default. Specific cases (e.g., a complex `String.format` parser) may
+  benefit from referencing OpenJDK in the abstract — never copy.
