@@ -27,7 +27,20 @@ analysis) or be rejected.
 | `Object` reference | PHP `object` | actual class is a PHP class implementing the JVM-shaped interface |
 | `String` | PHP `string` | Java strings are UTF-16; PHP strings are bytes. `mbstring` used for length / char-at semantics; encoding declared per call site |
 | `T[]` (array) | PHP indexed `array` | length tracked separately for primitive arrays where Java semantics require fixed length |
-| Generic Java collections | idiomatic PHP class implementing `ArrayAccess`, `Countable`, `Iterator` | `java.util.HashMap`, `ArrayList`, etc. |
+| Generic Java collections | idiomatic PHP class implementing `ArrayAccess`, `Countable`, `Iterator` **+ public underlying-array property** | `java.util.HashMap`, `ArrayList`, etc. — see Collection contract below |
+
+**Collection shim contract** (refined per `bench/PATTERN-VALIDATION.md` §4):
+Java collection shims provide two access paths:
+
+1. **JVM-shaped surface** — `ArrayAccess`, `Countable`, `IteratorAggregate`
+   for bytecode-running and AOT'd-code use. ~2× slower per op than raw
+   array access; matches Java semantics for INVOKEVIRTUAL targets.
+2. **Direct underlying-array property** (e.g. `$collection->a`) — for
+   PHP-side hot loops. Essentially free (~27 ns vs 28 ns raw under JIT).
+
+Both expose the same data; the choice is which interface the caller
+goes through. PHP-side users default to `->a`; bytecode interop goes
+through ArrayAccess. Pattern from `mesh/coll.php`'s `Coll`.
 
 ### Eliminated: the `Int_` / `Long_` / `Double_` / `Boolean_` wrapper objects
 
@@ -53,15 +66,19 @@ concept. If Clojure code running on PHPJava needs symbols, that's
 provided by `clojure.lang.Symbol` (a Java class running on PHPJava),
 not by PHPJava's value layer.
 
-### Rationale
+### Rationale (rank 1, measured 2026-05-01)
 
 - P1 (the dominant user) expects `var_dump`, `print_r`, IDE inspection
   of Java objects to look like normal PHP. Wrappers would surprise.
-- The 1.5 µs/op boxing cost is the second-largest accidental cost in
-  the profile (after M1 temp file). Unboxing is the second-biggest
-  perf win available.
+- **Measured cost of boxing primitives** (`bench/PATTERN-VALIDATION.md` §3):
+  - Raw scalar `$a + $b`: 19–29 ns/op
+  - Boxed via `new Int_($v)`: 140–150 ns/op (**~5–7× slower**)
+  - Boxed via `Int_::get($v)`: 169–240 ns/op (**~6–9× slower**)
+  - JIT cannot eliminate the allocation
 - AOT-emitted code can use Zend's native arithmetic opcodes directly
   if scalars are unwrapped; with wrappers, JIT can't trace.
+- **The value-rep refactor is the single highest-ROI optimisation in the
+  codebase** — 5–9× speedup per arithmetic op for ~50 files of refactor.
 
 ## 2. ClassLoader contract
 
