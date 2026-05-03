@@ -19,6 +19,7 @@ use PHPJava\Kernel\Structures\InterfaceMethodrefInfo;
 use PHPJava\Kernel\Structures\InvokeDynamicInfo;
 use PHPJava\Kernel\Structures\LongInfo;
 use PHPJava\Kernel\Structures\MethodHandleInfo;
+use PHPJava\Kernel\Structures\MethodTypeInfo;
 use PHPJava\Kernel\Structures\MethodrefInfo;
 use PHPJava\Kernel\Structures\NameAndTypeInfo;
 use PHPJava\Kernel\Structures\StringInfo;
@@ -1202,10 +1203,92 @@ final class Builder
             return;
         }
 
-        // Other bootstraps: emit a sentinel.
+        // Other bootstraps: emit a runtime IndyRegistry::resolve call.
+        // Per CONTRACTS.md §3 + §5 — extension hook for non-whitelisted
+        // indy patterns (JRuby / Groovy 3+ / Scala 3 dynamic dispatch).
+        // Default behaviour throws UnsupportedIndyBootstrapException
+        // with a clear message; consumers register a handler via
+        // \PHPJava\Aot\Runtime\IndyRegistry::register('<bsmClass>',
+        // '<bsmMethod>', $callable). Replaces the prior UNHANDLED_INDY
+        // string sentinel which silently corrupted operand-stack values.
+        $this->emitUnknownIndy($bsm, $bsmClass, $bsmMethod, $callSiteName, $callSiteDesc);
+    }
+
+    /** Emit a runtime-resolved indy call site for non-whitelisted bootstraps. */
+    private function emitUnknownIndy(
+        $bsm,
+        string $bsmClass,
+        string $bsmMethod,
+        string $callSiteName,
+        string $callSiteDesc
+    ): void {
+        // Pop call-site args from the abstract stack (reverse order).
         [$argTypes, ] = $this->parseDescriptor($callSiteDesc);
-        for ($i = 0; $i < count($argTypes); $i++) $this->pop();
-        $this->push(new StringLit("UNHANDLED_INDY:{$bsmClass}.{$bsmMethod}"));
+        $argc = count($argTypes);
+        $callSiteArgs = [];
+        for ($i = $argc - 1; $i >= 0; $i--) {
+            $callSiteArgs[$i] = $this->pop();
+        }
+        ksort($callSiteArgs);
+        $callSiteArgs = array_values($callSiteArgs);
+
+        // Encode bootstrap args from the constant pool. Best-effort:
+        // primitives + class/method-type FQNs as strings; complex
+        // values (MethodHandle, dynamic constants) as null. Handlers
+        // that need the full structure can resolve via their own
+        // reflection — the AOT-emitted call passes the registry the
+        // bootstrap class+method names so the handler knows which
+        // bootstrap method to consult.
+        $bsmArgExprs = [];
+        foreach ($bsm->getBootstrapArguments() as $arg) {
+            $bsmArgExprs[] = $this->encodeBsmArg($arg);
+        }
+
+        $this->push(new \PHPJava\Aot\Ir\StaticCall(
+            '\\PHPJava\\Aot\\Runtime\\IndyRegistry::resolve',
+            '',
+            [
+                new StringLit($bsmClass),
+                new StringLit($bsmMethod),
+                new StringLit($callSiteName),
+                new StringLit($callSiteDesc),
+                new \PHPJava\Aot\Ir\ArrayLit($bsmArgExprs),
+                new \PHPJava\Aot\Ir\ArrayLit($callSiteArgs),
+            ]
+        ));
+    }
+
+    /** Encode a single bootstrap-argument CP entry as an Expr. */
+    private function encodeBsmArg($arg): Expr
+    {
+        if ($arg instanceof StringInfo) {
+            return new StringLit($this->utf8At($arg->getStringIndex()));
+        }
+        if ($arg instanceof IntegerInfo) {
+            return new IntLit((int) $arg->getBytes());
+        }
+        if ($arg instanceof FloatInfo) {
+            return new FloatLit((float) $arg->getBytes());
+        }
+        if ($arg instanceof LongInfo) {
+            return new IntLit((int) $arg->getBytes());
+        }
+        if ($arg instanceof DoubleInfo) {
+            return new FloatLit((float) $arg->getBytes());
+        }
+        if ($arg instanceof ClassInfo) {
+            // Pass the JVM-form FQN so handlers can resolve via PHPJava
+            // ClassLoader if needed.
+            return new StringLit($this->utf8At($arg->getClassIndex()));
+        }
+        if ($arg instanceof MethodTypeInfo) {
+            return new StringLit($this->utf8At($arg->getDescriptorIndex()));
+        }
+        // MethodHandleInfo + dynamic constants + others — null
+        // placeholder. Handlers needing these wire up their own
+        // reflection. Better to be honest about the missing data than
+        // to fabricate a fake value.
+        return new NullLit();
     }
 
     /**

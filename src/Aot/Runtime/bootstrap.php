@@ -131,6 +131,98 @@ function jvm_multianewarray(int ...$dims): array
     return $build($dims);
 }
 
+/**
+ * Lazy CallSite registry for invokedynamic bootstraps the AOT compiler
+ * doesn't whitelist (StringConcatFactory, LambdaMetafactory, ObjectMethods,
+ * SwitchBootstraps are handled directly in the IR Builder). Custom
+ * dynamic-language patterns — JRuby, Groovy 3+, Scala 3 — emit indy
+ * sites that go through arbitrary bootstrap classes; the AOT can't
+ * pre-compile them statically.
+ *
+ * The AOT emits a `IndyRegistry::resolve(...)` call at unknown indy
+ * sites. Default behaviour throws UnsupportedIndyBootstrapException
+ * with the bootstrap class+method named, so consumers see a clear
+ * error instead of silently wrong output (was: a literal
+ * "UNHANDLED_INDY:..." string left on the operand stack).
+ *
+ * Consumers can register handlers per (bootstrap-class, bootstrap-
+ * method) tuple via `IndyRegistry::register(...)`. The handler
+ * receives the bootstrap arguments and the call-site arguments, and
+ * returns whatever value the indy site should evaluate to. This lets
+ * a JRuby/Groovy host plug its dispatch into the AOT'd code without
+ * touching the compiler.
+ *
+ * Per CONTRACTS.md §3 + §5 — extension surface for non-whitelisted
+ * indy patterns. The full MethodHandle/CallSite API is deferred to
+ * Tier 5; this is the minimum reachable hook.
+ */
+class IndyRegistry
+{
+    /** @var array<string, callable>  key = "bsmClass.bsmMethod" */
+    private static array $handlers = [];
+
+    public static function register(string $bsmClass, string $bsmMethod, callable $handler): void
+    {
+        self::$handlers[self::key($bsmClass, $bsmMethod)] = $handler;
+    }
+
+    public static function unregister(string $bsmClass, string $bsmMethod): void
+    {
+        unset(self::$handlers[self::key($bsmClass, $bsmMethod)]);
+    }
+
+    public static function isRegistered(string $bsmClass, string $bsmMethod): bool
+    {
+        return isset(self::$handlers[self::key($bsmClass, $bsmMethod)]);
+    }
+
+    /** Reset all registered handlers. Tests, hot-reload paths. */
+    public static function reset(): void
+    {
+        self::$handlers = [];
+    }
+
+    /**
+     * Called at AOT'd indy sites. $bsmArgs are the static bootstrap
+     * arguments from the constant pool (decoded by the IR Builder);
+     * $callSiteArgs are the dynamic arguments popped from the operand
+     * stack at the call site. Handler returns whatever the indy site
+     * should push onto the stack.
+     */
+    public static function resolve(
+        string $bsmClass,
+        string $bsmMethod,
+        string $callSiteName,
+        string $callSiteDesc,
+        array $bsmArgs,
+        array $callSiteArgs
+    ) {
+        $key = self::key($bsmClass, $bsmMethod);
+        if (!isset(self::$handlers[$key])) {
+            throw new UnsupportedIndyBootstrapException(
+                "No handler registered for invokedynamic bootstrap "
+                . "{$bsmClass}.{$bsmMethod} at call site '{$callSiteName}' "
+                . "with descriptor '{$callSiteDesc}'. Register a handler "
+                . "via \\PHPJava\\Aot\\Runtime\\IndyRegistry::register("
+                . "'{$bsmClass}', '{$bsmMethod}', \$callable)."
+            );
+        }
+        return (self::$handlers[$key])(
+            $callSiteName,
+            $callSiteDesc,
+            $bsmArgs,
+            $callSiteArgs
+        );
+    }
+
+    private static function key(string $bsmClass, string $bsmMethod): string
+    {
+        return $bsmClass . '.' . $bsmMethod;
+    }
+}
+
+class UnsupportedIndyBootstrapException extends \RuntimeException {}
+
 // One-time init. Idempotent — safe to require_once any number of times.
 if (\PHPJava\Aot\Runtime\java\lang\System::$out === null) {
     \PHPJava\Aot\Runtime\java\lang\System::$out =
