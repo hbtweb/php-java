@@ -1,7 +1,7 @@
 <?php
 namespace PHPJava\Aot\Generated;
 
-final class BenchAdd
+final class BenchAddFromBytes
 {
     // sum1k ()I
     public static function sum1k()

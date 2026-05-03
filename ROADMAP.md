@@ -102,8 +102,37 @@ classloader fallback when AOT cache misses.
 
 **1c — Idiomatic AOT.** Adds a TeaVM-shape IR (SSA + CFG) and a
 decompiler pass that lifts bytecode to expression trees and reconstructs
-structured control flow. Optional — naive AOT is already 5.6 ns/op.
-Idiomatic gets 0.4 ns/op for hot library code.
+structured control flow.
+
+**Sub-step 1c-α: stack-erasure peephole — DONE 2026-05-03.** A 5-pattern
+post-emit peephole over the statement list, iterated to fixpoint,
+catches the common javac-generated stack patterns: push+ireturn,
+push+istore, push+push+arith+istore, push+push+if_icmp,
+push+if-single-op. Pure-source restriction (only `$L[N]` reads or
+literals can be erased) preserves side-effect ordering for
+invoke/getstatic/getfield. Rank-1 measured: BenchAdd::sum1k() JIT
+**0.82 → 0.18 ns/op** (4.5× speedup), beating the hand-emit idiomatic
+AOT spike (0.2 ns/op) and reaching within 1.8× of HotSpot JIT
+(~0.10 ns/op). ~150 LOC. See `docs/PATTERNS.md` "Stack-erasure
+peephole" for patterns + emit before/after.
+
+**Sub-step 1c-β: full abstract-stack tracking.** Catches the cases the
+peephole misses — push+push+arith-without-immediate-store, cross-block
+stack flow, exception-handler entry stacks. Estimated 4–8h on top of
+1c-α. Probably ~1.5× additional headroom (per spike's hand-emit
+idiomatic at 0.2 ns/op vs our 0.18 — the peephole already absorbed
+most of the value).
+
+**Sub-step 1c-γ: cross-method inlining.** Addresses the 22× static-call
+cost the JIT-claims battery surfaced. With stack erasure done, calls
+are clean PHP expressions and inlining becomes string substitution
+plus local-var renaming. Estimated days, biggest perf headroom for
+invokestatic-heavy workloads.
+
+**Sub-step 1c-δ: escape analysis on Java arrays.** Drop the
+`stdClass{v}` wrapper for arrays whose lifetime is bounded to the
+emitting method (no escape via field write, return, or method-arg).
+Closes the 10× property-access cost the JIT-claims battery surfaced.
 
 ### Tier 2 — surface coverage (shared by all Tier 1 strategies)
 

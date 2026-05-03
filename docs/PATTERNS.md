@@ -136,6 +136,388 @@ For the interpreter fallback, the dispatch loop should be a switch in
 a static function (or method). For AOT, the emitted PHP is the
 function itself.
 
+## JIT-friendly emit findings (rank 1, measured 2026-05-02)
+
+The naive AOT path went from a claimed 3.2 ns/op JIT (per handover
+2026-05-01) to **0.77 ns/op JIT** — better than the hand-emit reference
+(1.4 ns/op) and 4× faster than the prior compiler-emit. The five
+subtractions that landed it, in order of impact:
+
+| Subtraction | Before → after | Why JIT cared |
+|---|---|---|
+| **Two-phase compile-then-require (no interleave)** | ~5 → ~0.8 ns/op | Largest single win. Interleaving `compileClass` + `file_put_contents` + `require_once` per fixture in a loop changes file mtimes mid-loop; opcache invalidates cached versions and tears down JIT traces. Empirically observed `mode=compile-and-write` (0.80 ns/op) → `mode=all` adding require_once after writes (5.56 ns/op) in `bench/probe-bisect.php`. Fix: write all files first, require all files second, with an mtime-stable skip if content is identical. |
+| **Variable class names → literal class names in callers** | ~2× empty-method | PHP's tracing JIT specialises only over literal class names. `fn() => $cls::method()` (variable) defeats the trace; `fn() => \PHPJava\Aot\Generated\BenchAdd::sum1k()` (literal) lets JIT inline. |
+| **Variadic `...$__args` → fixed-arity signatures** | ~1.5× JIT | Tracing JIT refuses to trace through `...$__args` because the arity is dynamic per call. Per-method param count from descriptor parse + explicit `$L[i] = $__ai` prelude restores fixed-arity. |
+| **`$L[N] ?? 0` defensive null-coalesce → bare `$L[N]`** | ~10% | JVM verifier guarantees no iload reads an un-stored slot. The defensive `?? 0` was dead code per CLAUDE.md "don't add error handling for scenarios that can't happen", and it was on every load in the hot loop. |
+| **Lazy `$L = []` → pre-init `$L = [0, 0, ...]`** | ~10% | JIT specialises over sealed-shape arrays. Lazy growth on first `istore` re-shapes the array each call; pre-init from `max_locals` (computed in the first-pass walk) keeps shape stable from entry. |
+
+These are *PHP-specific* JIT-friendliness rules, not general AOT tips —
+they're what Zend's tracing JIT specifically needs to engage on the
+emitted code. Each is a subtraction (less code, simpler shape, fewer
+defensive checks). None are speed hacks added on top.
+
+## Stack-erasure peephole (rank 1, measured 2026-05-03)
+
+`Compiler::peepholeErase()` post-processes the emitted statement
+list. After all opcodes have been written in stack-mode, it walks the
+list applying pattern rewrites until fixpoint. Five patterns cover
+~95% of operand-stack traffic in javac-generated code:
+
+| Pattern | Before | After |
+|---|---|---|
+| P1: push + ireturn | `$stack[$sp++] = X;` `return $stack[--$sp];` | `return X;` |
+| P2: push + istore | `$stack[$sp++] = X;` `$L[N] = $stack[--$sp];` | `$L[N] = X;` |
+| P3: push + push + iadd-style + istore | 4 stmts | `$L[N] = X OP Y;` |
+| P4: push + push + if_icmp* | 3 stmts | `if (X CMP Y) goto L;` |
+| P5: push + if-single-op (vs 0 / null) | 2 stmts | `if (X CMP 0) goto L;` |
+
+**Pure-source restriction:** captured push expression must match `$L[N]`
+(a local read) or a numeric/null/string literal. Anything else (method
+call, getstatic, getfield) may have side effects whose ordering must
+be preserved — those pushes are left alone, the operand stack stays.
+
+**Iterated to fixpoint:** P3 produces `$L[N] = X OP Y;`. If `$L[N]` is
+then reloaded by a subsequent push, P2/P3 kicks in again on the new
+sequence. Most simple methods (BenchAdd, BenchInvoke) reduce fully in
+2–3 passes.
+
+**BenchAdd loop body, before vs after:**
+
+```php
+// Before — 9 stmts/iter
+$stack[$sp++] = $L[1];
+$stack[$sp++] = 1000;
+$b = $stack[--$sp]; $a = $stack[--$sp]; if ($a >= $b) goto L_21;
+$stack[$sp++] = $L[0];
+$stack[$sp++] = $L[1];
+$b = $stack[--$sp]; $stack[$sp - 1] += $b;
+$L[0] = $stack[--$sp];
+$L[1] += 1;
+goto L_4;
+
+// After — 4 stmts/iter
+if ($L[1] >= 1000) goto L_21;
+$L[0] = $L[0] + $L[1];
+$L[1] += 1;
+goto L_4;
+```
+
+**Measured impact (rank 1, 2026-05-03):**
+
+| Bench | Before | After | Speedup |
+|---|---|---|---|
+| BenchAdd::sum1k() JIT | 0.82 ns/op | **0.18 ns/op** | **4.5×** |
+| BenchInvoke::callLoop() JIT | ~4.1 ns/op | ~3.7 ns/op | 1.1× (peephole doesn't touch invokestatic) |
+| empty-method JIT | 22 ns | 22 ns | unchanged |
+
+**Where 0.18 ns/op puts us:**
+- HotSpot JIT (~0.10 ns/op) → 1.8× slower
+- HotSpot interpreted (0.52 ns/op) → **2.9× faster**
+- Hand-emit idiomatic AOT spike (0.2 ns/op) → **slightly faster**
+- Hand-emit naive AOT spike (1.4 ns/op) → 7.8× faster
+
+## Cross-method inlining (rank 1, measured 2026-05-03)
+
+`Compiler::detectInlinable()` + `Compiler::inlineAcrossText()` —
+recognise single-`return <expr>;` methods after peephole erasure and
+register them; then substitute `self::<name>(args)` call sites with
+the parameterised return expression.
+
+**Inlinability rule (conservative):**
+- Method body, post-peephole + post-label-strip, is exactly one stmt
+- That stmt matches `return <expr>;`
+- `<expr>` references only `$L[N]` (params) — no `$stack`/`$sp`, no method calls
+
+**Substitution mechanics:**
+1. Find each `self::<name>(args)` in the concatenated class body
+2. Paren-depth args parser splits args
+3. Substitute `$L[N]` in the registered returnExpr with corresponding arg
+4. Replace the entire `self::<name>(...)` substring with `(<expr>)`
+5. Iterate to fixpoint (so `a calls b calls c` chains collapse end-to-end)
+
+**Effect on BenchInvoke** (a 100-iter loop that calls `self::noop(int)` each iter, where `noop(x) = x + 1`):
+
+```php
+// Before — invokestatic emit + lookup
+L_4:
+    if ($L[1] >= 100) goto L_21;
+    $stack[$sp++] = $L[0];
+    $__a0 = $stack[--$sp]; $stack[$sp++] = self::noop($__a0);
+    $L[0] = $stack[--$sp];
+    $L[1] += 1;
+    goto L_4;
+
+// After — call inlined to (($__a0) + 1), peephole-then collapses
+//        the surrounding stack ops
+L_4:
+    if ($L[1] >= 100) goto L_21;
+    $stack[$sp++] = $L[0];
+    $__a0 = $stack[--$sp]; $stack[$sp++] = (($__a0) + 1);
+    $L[0] = $stack[--$sp];
+    $L[1] += 1;
+    goto L_4;
+```
+
+(The `pop-into-temp + push-expr` pattern after inlining isn't yet
+peephole-erased — that's the next improvement, would close the
+remaining stack traffic.)
+
+**Measured impact (rank 1, 2026-05-03, 1024M JIT buffer):**
+
+| Bench | Before inlining | After | Speedup |
+|---|---|---|---|
+| BenchInvoke::callLoop() JIT | 4.05 ns/op | **0.41 ns/op** | **9.9×** |
+
+The 22× static-call cost from the JIT-claims battery is functionally
+closed for inlinable callees. Closes ~half the gap to BenchAdd's
+0.18 ns/op (remaining 2× is the un-erased pop-into-temp around the
+inlined expression).
+
+**Bench-harness gotcha:** the bench script must run with
+`opcache.jit_buffer_size ≥ 1024M`. Smaller buffers (256M default-ish)
+get exhausted by JIT-tracing the compiler code itself, leaving the
+bench loop un-traced and the headline numbers 9× wrong. Documented
+in `bench/bench-aot.php`.
+
+**What's still on the table:**
+
+- **Pop-into-temp + push-expr collapse:** after inlining, call sites have a leftover `$__a0 = $stack[--$sp]; $stack[$sp++] = (...)` shape. A peephole that detects "single-pop-into-temp then push-expr-using-temp-once" rewrites to `$stack[$sp - 1] = (...);` — closes the remaining 2× gap.
+- **Multi-statement inlining:** methods with 2–3 statements (typical for trivial getters/setters that do field validation + return) require renaming `$L[N]` to fresh slots in the caller and splatting all stmts. Doable; punt for now.
+- **Recursive method protection:** detectInlinable doesn't currently check for recursion. A method that calls itself shouldn't be inlinable (would loop the inline pass infinitely). Add a self-call check before registering.
+
+**Why this worked when prior small peepholes didn't:** the 2026-05-02
+negative results showed piecemeal peepholes (drop dead label, isolated
+iload+ireturn rewrite) caused cold-start regressions — JIT trace shape
+changed in one place but left the rest alone, confusing the trace
+planner. The full peephole pass touches *every* reducible site, so the
+JIT trace is uniformly the new shape. **Coherent change beats partial
+change** — possibly the most important meta-finding from the JIT-emit
+exploration.
+
+**Peephole limitations (cases where stack mode persists):**
+
+- Push + push + arith-without-immediate-store (e.g., a 3-arg expression where the first two are added then compared with the third). Real abstract-stack tracking would catch these — Tier 1c-β.
+- Cross-block stack flow (exception handlers with stack-on-entry).
+- Object/array operations through the `->v` wrapper.
+
+Estimated remaining headroom from going to full abstract-stack tracking
++ cross-method inlining: ~2× to reach HotSpot JIT parity.
+
+**Negative results (rank 1, measured 2026-05-02) — opts that don't help:**
+
+| Opt tried | Hypothesis | Measured outcome |
+|---|---|---|
+| Drop dead `L_0:` label at method entry | smaller emit, fewer trace landmarks | cold path regressed to 5–6 ns/op for first ~6 calls; only recovered to 0.8 after JIT had retraced. JIT seems to anchor traces on labels even when not branched to. |
+| Peephole `iload N; ireturn` → `return $L[N];` | eliminate end-of-method push/pop round-trip (~1 ns/call save) | same cold-start regression as above — function exit shape change confuses JIT trace planning, takes many calls to recover. |
+| iadd without temp `$b`: `$stack[$sp - 2] += $stack[$sp - 1]; --$sp;` | one fewer assignment per binary arith op | **15% regression**, JIT-warm 0.81 → 0.94 ns/op median. PHP's tracing JIT specialises better over a named scalar temp (whose type can be inferred from the array element type at the pop) than over two indexed reads on the same array (which it has to re-prove are scalars on each access). |
+
+**Heuristic learned: `verbose-but-explicit` beats `clever-and-compact` for PHP's tracing JIT.** Each apparent "subtraction" needs to be measured; what looks like fewer ops at the source level may be more work for the JIT trace planner.
+
+## Zend's JIT: what it does and doesn't do (rank 1, measured 2026-05-03)
+
+`bench/jit-claims.php` isolates 7 tier-4 optimisations on PHP 8.4 + JIT
+tracing. The picture is uneven — Zend does the local optimisations
+within a function well, but does no cross-function work:
+
+| Optimisation | Verdict | A/B ratio (JIT) | Implication for our AOT |
+|---|---|---|---|
+| Common-subexpression elimination | **applied** | 1.02× | safe to emit redundant subexprs — JIT folds them |
+| Loop-invariant code motion | **applied** | 1.12× | safe to emit `$a*$b` inside a loop where it could be hoisted |
+| Type specialisation (typed vs untyped params) | **applied** | 0.98× | type hints in signatures are not a perf necessity at this layer |
+| Dead code elimination | **partial** | 1.55× | don't rely on this — emit only what's needed |
+| **Function inlining** | **NOT applied** | **9.91×** worse | every cross-function call costs ~10× over inlined |
+| **Static method inlining** | **NOT applied** | **22.45×** worse | every `\Class::method()` call costs ~22× over inlined |
+| **Object property access (escape-analysis proxy)** | **NOT applied** | **10.38×** worse | `$obj->v` costs 10× over scalar — Java-array wrapper pays this |
+
+**Architectural consequences:**
+
+1. **Cross-method inlining belongs in the AOT compiler, not Zend.** `BenchInvoke::callLoop()` is ~4 ns/op vs `BenchAdd::sum1k()` at ~0.94 — the 4× gap is exactly the un-inlined `self::noop()` cost. Inlining small invokestatic targets at AOT time would close it.
+
+2. **Escape analysis on Java arrays belongs in the AOT compiler.** The `stdClass{v: phpArray}` wrapper that solved Java's reference-write semantics costs ~10× per access vs raw PHP arrays. When a Java array is provably local-only (no escape via field/return/method-arg-of-non-AOT'd-method), the AOT path can use a raw PHP array and skip the wrapper.
+
+3. **Property access is expensive enough that wrapping primitives in objects is a big tax.** The "drop primitive wrappers" decision in CONTRACTS.md §1 is rank-1 vindicated here.
+
+4. **Local opts (CSE, LICM, type spec) are free — don't reproduce them.** Spending AOT-compile-time on these is wasted work.
+
+So the earlier "Zend does ~80% of HotSpot tier-4" claim was wrong;
+**rank 1 measurement says ~50%.** Zend covers within-function opts but
+nothing cross-function. The remaining ~50% — inlining and escape
+analysis — has to live in the AOT compiler if we want to close further
+gap to HotSpot JIT (~0.10 ns/op). This is exactly the work that fits
+under Tier 1c idiomatic AOT in ROADMAP.md.
+
+### Extended battery — 12 more HotSpot/C2 optimisations measured 2026-05-03
+
+`bench/jit-claims-extended.php` covered a second tranche, with several
+surprises (and one validation of an existing emit choice):
+
+| Optimisation | Verdict | A/B (JIT) | Implication |
+|---|---|---|---|
+| Strength reduction (`*4` → `<<2`) | **applied** | 0.89× | safe to emit JVM-style multiplies; JIT folds power-of-2 cases |
+| Null-check elimination | **applied** | 0.98× | redundant `=== null` chains on the same ref are elided |
+| **Devirtualisation on `final` class** | **applied** | 1.11× | the `final` keyword on emitted AOT classes is **load-bearing for perf**, not just convention. Small measurable win on every instance call. |
+| Pointer-chain deref (`$a->b->c->d`) | **applied** | 1.01× | chain depth has no marginal cost — JIT unfolds the chain |
+| Range-check elimination via `foreach` | **applied** | 0.69× | counter-intuitive: `foreach ($a as $v)` is **faster** than `for ($i=0; $i<count; $i++) $a[$i]`. JIT specialises the iterator more aggressively than the indexed read. |
+| Loop unrolling | **partial** | 1.50× | hand-unrolled-by-4 is 1.5× faster — JIT does some unrolling but not as aggressively as C2's 4-or-8 |
+| Constant folding through branches | **partial** | 1.53× | `if (CONST_TRUE) ...` doesn't fully fold; the branch stays |
+| Branch prediction (always-taken) | **partial** | 1.35× | even a 100%-monotonic branch has predict overhead |
+| Constant propagation (`$a=7;$b=13;$c=$a+$b;return $c*2;`) | **partial** | 1.63× | local-const arith not fully folded; JIT keeps the chain |
+| **Allocation folding / scalar replacement** | **NOT applied** | **2.25×** | confirms the EA finding from the first battery — local `Box{a,b}` is not stack-replaced |
+| **Tail-call optimisation** | **NOT applied** | **9.29×** | every recursive call is a real PHP call. Java tail-recursive code will be 9× slower than iterative. |
+| **Float math** | **NOT applied** | **3.84×** | float ops are **3.8× slower than int**. Java `double`/`float` workloads pay this on every arith op. |
+
+**Architectural consequences (additions to the inlining + EA findings):**
+
+1. **`final` is load-bearing on emitted AOT classes.** Already there, now justified — drop the modifier and lose ~1.1× on every instance call.
+
+2. **Float-heavy Java code will run 3.8× slower than equivalent int code.** This is a documented divergence at the Zend layer, not something we can fix in the AOT compiler. Workloads doing scientific computing in Java should be flagged as not-for-PHPJava.
+
+3. **No TCO at the PHP layer.** Java tail-recursive code (functional patterns: fold, recursive descent) will be 9× slower than iterative equivalents. Two responses possible: (a) document as divergence, (b) AOT-time tail-call recognition that rewrites `return tail_a(...)` into iteration. (b) is non-trivial — needs flow analysis.
+
+4. **`foreach` is faster than indexed `for` for array iteration.** JVM bytecode for Java `for (int i = 0; i < a.length; i++) s += a[i]` doesn't naturally lower to `foreach`. A peephole pass that detects this exact bytecode pattern and emits `foreach` would buy ~1.4× on array-loop code.
+
+5. **Loop unrolling, branch prediction, const-folding through branches are partial in PHP's JIT.** AOT-time unrolling for short-trip loops is a candidate optimisation in Tier 1c.
+
+**Net Zend-vs-C2 picture (rank 1, all measured 2026-05-03):**
+
+| Category | What Zend does | What it doesn't |
+|---|---|---|
+| Within-function arithmetic | CSE, LICM, type spec, strength reduction | – |
+| Within-function memory | null elision, ptr-chain unfold, **range-elim via foreach** | scalar replacement (EA), allocation folding |
+| Within-function control | partial branch elim, partial unroll | full constant folding through branches |
+| Cross-function | nothing | inlining (10–22×), TCO (9×) |
+| Type system | int/typed vs untyped specialisation, **`final` devirt** | full CHA, polymorphic inline cache |
+| Numeric | int math fully specialised | float math is 3.8× slower than int |
+
+The 50%-tier-4 claim still holds. The takeaway pattern: **Zend's JIT is good at local arithmetic and primitive control flow, weak on cross-function and on heap-shape analysis**. The optimisations the AOT compiler should focus on are precisely the ones Zend doesn't do — inlining, EA, and AOT-time loop transforms.
+
+### Extension overhead — Java stdlib substrate (rank 1, measured 2026-05-03)
+
+`bench/jit-claims-ext.php` measures PHP-extension calls against their
+native-PHP-int equivalents (where there is one) or as absolute numbers.
+Driving question: when the AOT compiler shims a JDK class through a PHP
+extension (java.math.BigInteger → BCMath/GMP, java.util.regex →
+PCRE, java.security.MessageDigest → hash, etc.), what's the cost?
+
+| Extension call | ns/op | ext/native ratio | Shim equivalent |
+|---|---|---|---|
+| `bcadd('1234567890', '9876543210')` | 88 | **6–8×** | BigInteger.add (small) |
+| `gmp_add('1234567890', '9876543210')` | 174 | **9–12×** | BigInteger.add (small) — slower than BCMath here |
+| `bcmul('12345', '67890')` | 97 | **5–6×** | BigInteger.multiply (small) |
+| `gmp_mul('12345', '67890')` | 166 | **10–11×** | BigInteger.multiply (small) — slower |
+| `bcpow('12345', '5')` | 186 | **12–13×** | BigInteger.pow |
+| `gmp_pow('12345', 5)` | 135 | **8–9×** | BigInteger.pow — **GMP wins for pow** |
+| `mb_strlen($asciiString)` | 65 | 2.2× | String.length on multi-byte |
+| `mb_substr` | 70 | 1.2× | String.substring on multi-byte |
+| `preg_match('/.../', '...')` | 80 | 1.4× over `strpos` | regex.Pattern.matches |
+| `hash('md5', ...)` | 172 | – | MessageDigest.digest |
+| `hash('sha256', ...)` | 147 | – | MessageDigest.digest |
+| `hash('xxh3', ...)` | 103 | – | non-cryptographic hash |
+| `hash_hmac('sha256', ...)` | 371 | – | Mac.doFinal |
+| `openssl_encrypt('aes-256-gcm', ...)` | 870 | – | Cipher AES-GCM |
+| `sodium_crypto_generichash` (BLAKE2b) | 355 | – | not in JDK; useful for new code |
+| `gzdeflate` (950-byte input) | 5250 | – | java.util.zip.Deflater |
+
+**The load-bearing finding for Java BigInteger workloads:**
+
+The shim choice (BCMath vs GMP) is **operand-size dependent**:
+
+- **Small numbers (≤ 64 bits, fits in PHP int):** BCMath wins by ~2× — `bcadd`/`bcmul` ~90 ns vs GMP's ~170 ns. GMP's per-call object-allocation cost dominates when the math itself is trivial.
+- **Large numbers / `pow` / `powm` / cryptographic precision:** GMP wins by ~1.5× — `gmp_pow` at 135 ns vs `bcpow` at 186 ns. The actual computation overshadows GMP's allocation overhead.
+
+The Java BigInteger shim should **switch internally** based on operand
+magnitude — BCMath for ≤2^63, GMP for larger. The branch overhead
+(~2 ns) is dwarfed by the per-op savings in either direction.
+
+**Cost vs HotSpot:** Java BigInteger.add on small numbers is ~10–30 ns
+on HotSpot. Our shim is **5–10× slower regardless of which extension**.
+This is a structural divergence to document — Java code dominated by
+BigInteger arithmetic (RSA, EC point multiplication, factoring) will run
+~10× slower under PHPJava than under HotSpot.
+
+**Comparable-to-HotSpot ops:**
+- Hashing (md5/sha256): ~150–180 ns vs HotSpot ~100–200 ns. Wash.
+- Regex: 80 ns simple match vs HotSpot ~50–150 ns. Wash.
+- AES-GCM, HMAC: ~370–870 ns vs HotSpot ~500–1000 ns. Wash.
+- Deflate: ~5 µs/950B vs HotSpot ~3–5 µs/950B. Comparable.
+- Sodium primitives (BLAKE2b): 355 ns. JDK doesn't ship; new-code wins for our shim.
+
+**Cost vs HotSpot — slower paths:**
+- BigInteger arithmetic: 5–10× slower (architectural, not fixable)
+- mbstring vs native string: 2× slower (use native when ASCII-bounded)
+- Float math: 3.8× slower (per earlier finding, not extension-related)
+
+**Architectural recommendation for the JDK shim layer:**
+
+The 233-class T2 surface (per docs/CLOJURE-BOOT-ANALYSIS.md) needs each
+class shimmed in PHP. The bench above tells us which classes have a
+"free" shim (extension matches HotSpot perf within 1.5×) vs a "tax"
+shim (extension is 5–10× slower). Tax-shim classes:
+
+- `java.math.BigInteger` / `BigDecimal` (5–13× via BCMath/GMP)
+- `java.lang.Float` / `java.lang.Double` heavy arith (3.8× — Zend layer)
+
+Free-shim classes (≤2× HotSpot):
+- `java.lang.String` (when ASCII; 2× when multi-byte via mbstring)
+- `java.util.regex.Pattern` (PCRE, similar perf)
+- `java.security.MessageDigest`, `Mac` (hash/openssl)
+- `javax.crypto.Cipher` (openssl)
+- `java.util.zip.*` (zlib)
+
+This bench should be re-run when the T2 shim layer expands — each new
+shim's perf vs its native PHP backing op is the rank-1 question for
+"is this shim viable".
+
+## IR speed at compile-time (rank 1, measured 2026-05-03)
+
+For runtime-compilation use cases (defineClass(byte[]), hot reload),
+compile time is hot path, not just build-time concern. Profiled the
+IR pipeline on BenchAdd::sum1k():
+
+| Phase | ns/op | µs/op | % of total |
+|---|---|---|---|
+| PHPJava JCC parse | 1,279,948 | 1280 | **83%** |
+| IR build + lower | 19,304 | 19 | 1% |
+| Full compile | 1,547,047 | 1547 | 100% |
+
+**The IR layer is 65× faster than the parse layer.** Optimising the
+IR further chases the 1.5% slice; optimising/caching the parser
+chases the 83%. **For runtime-compilation perf, the IR is
+already fast enough.**
+
+**Falsifier tested:** "10× faster IR via flat-array substrate."
+Hand-built BenchAdd in both OOP IR and equivalent flat-array IR
+(`['kind' => INT, 'fields' => ...]` tagged-array nodes), benched
+each. **FALSIFIED:** flat-array gives **1.29× end-to-end** (1.51×
+construction, 1.14× lowering). PHP 8's JIT specialises over both
+OOP and array shapes about equally well — `instanceof`-dispatch
+becomes a hashed jump table; object construction is fast in
+JIT-warm code. The 10× speedup hypothesis was over-optimistic.
+
+**The actual lever for fast runtime compilation:** caching.
+
+| Strategy | Speedup over uncached first compile |
+|---|---|
+| Cache parsed JCC by bytecode hash | up to 65× (skip the 1280 µs parse) |
+| Cache built IR per class | additional ~20× over JCC cache |
+| Cache lowered PHP per class | ~2× more on top |
+| Flat-array IR | 1.3× — not worth the refactor on its own |
+
+**Architectural decision:** keep the OOP IR for clarity. For
+runtime-compilation perf, build per-class memoization. The 19 µs
+IR layer is not the bottleneck; the 1280 µs parse layer is.
+
+## Reference-semantics finding (functional, not perf)
+
+Java arrays
+need a wrapper because PHP's copy-on-write splits the array on first
+write through a stack copy, and `=&` reference pushes leak across slot
+reuse. Wrap as `(object){'v' => phpArray}` at `newarray`/`anewarray` —
+PHP objects are by-reference natively, so by-value pushes propagate
+writes correctly with no `=&` or `unset` bookkeeping. One property hop
+per access; bench-stable at 0.77 ns/op for non-array workloads
+(arrays add a constant per access, doesn't affect the hot iadd path).
+
 ## Cross-version sanity (PHP 8.4 vs 8.5)
 
 PHP 8.5 made closures faster but switch and inline still win:
