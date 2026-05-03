@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Double_;
 
 final class _l2d extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -25,6 +24,6 @@ final class _l2d extends AbstractOperationCode implements OperationCodeInterface
             $this->popFromOperandStack()
         );
 
-        $this->pushToOperandStack(Double_::get($value));
+        $this->pushToOperandStack((float) $value);
     }
 }

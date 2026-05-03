@@ -2,8 +2,6 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Double_;
-use PHPJava\Kernel\Types\Long_;
 use PHPJava\Packages\java\lang\UnsupportedOperationException;
 
 final class _ldc2_w extends AbstractOperationCode implements OperationCodeInterface
@@ -31,9 +29,9 @@ final class _ldc2_w extends AbstractOperationCode implements OperationCodeInterf
         $value = null;
 
         if (($data instanceof \PHPJava\Kernel\Structures\LongInfo)) {
-            $value = Long_::get($data->getBytes());
+            $value = (int) $data->getBytes();
         } elseif ($data instanceof \PHPJava\Kernel\Structures\DoubleInfo) {
-            $value = Double_::get($data->getBytes());
+            $value = (float) $data->getBytes();
         } else {
             throw new UnsupportedOperationException('Unsupported operation.');
         }

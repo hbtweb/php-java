@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Double_;
 use PHPJava\Kernel\Types\Type;
 
 final class _dastore extends AbstractOperationCode implements OperationCodeInterface
@@ -23,7 +22,7 @@ final class _dastore extends AbstractOperationCode implements OperationCodeInter
     public function execute(): void
     {
         parent::execute();
-        $value = $this->popFromOperandStack();
+        $value = (float) Normalizer::getPrimitiveValue($this->popFromOperandStack());
         $index = Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
         /**
@@ -31,7 +30,6 @@ final class _dastore extends AbstractOperationCode implements OperationCodeInter
          */
         $arrayref = $this->popFromOperandStack();
 
-        // The value is a ref.
-        $arrayref[$index] = Double_::get($value);
+        $arrayref[$index] = $value;
     }
 }
