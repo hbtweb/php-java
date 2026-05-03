@@ -14,8 +14,7 @@ class GetFieldTest extends Base
             ->getInvoker()
             ->getStatic()
             ->getMethods()
-            ->call('getField')
-            ->getValue();
+            ->call('getField');
 
         $this->assertEquals(1, $actual);
     }

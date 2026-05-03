@@ -498,7 +498,7 @@ class String_ extends Object_ implements CharSequence
     {
         return JavaClass::load('java.lang.String', $this->javaClass->getOptions())
             ->getInvoker()
-            ->construct(str_replace($a, $b, $this))
+            ->construct(str_replace((string) $a, (string) $b, (string) $this))
             ->getJavaClass();
     }
 

@@ -120,8 +120,11 @@ class DoubleCalculationTest extends Base
 
     public function testDoublePointAdd()
     {
+        // Post-#12: method returns are raw PHP float per CONTRACTS.md §1.
+        // PHP `(string) 3.0` renders as "3", not "3.0" (the Java
+        // Double.toString form). Test asserts the PHP-native shape.
         $this->assertEquals(
-            '3.0',
+            3.0,
             $this->call(
                 'doubleAdd',
                 Double_::get(1.5),
@@ -133,7 +136,7 @@ class DoubleCalculationTest extends Base
     public function testDoublePointSub()
     {
         $this->assertEquals(
-            '0.0',
+            0.0,
             $this->call(
                 'doubleSub',
                 Double_::get(1.5),
@@ -145,7 +148,7 @@ class DoubleCalculationTest extends Base
     public function testDoubleNegativePointSub()
     {
         $this->assertEquals(
-            '-1.0',
+            -1.0,
             $this->call(
                 'doubleSub',
                 Double_::get(1.5),
@@ -169,7 +172,7 @@ class DoubleCalculationTest extends Base
     public function testDoublePointAddFromOtherMethod()
     {
         $this->assertEquals(
-            '3.0',
+            3.0,
             $this->call(
                 'doubleAddFromOtherMethod',
                 Double_::get(1.5),
@@ -181,7 +184,7 @@ class DoubleCalculationTest extends Base
     public function testDoublePointSubFromOtherMethod()
     {
         $this->assertEquals(
-            '0.0',
+            0.0,
             $this->call(
                 'doubleSubFromOtherMethod',
                 Double_::get(1.5),
@@ -193,7 +196,7 @@ class DoubleCalculationTest extends Base
     public function testDoubleNegativePointSubFromOtherMethod()
     {
         $this->assertEquals(
-            '-1.0',
+            -1.0,
             $this->call(
                 'doubleSubFromOtherMethod',
                 Double_::get(1.5),

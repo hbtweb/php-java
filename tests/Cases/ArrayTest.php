@@ -22,9 +22,9 @@ class ArrayTest extends Base
         $actual = $this->call('createIntArray');
 
         $this->assertEquals(3, $actual->count());
-        $this->assertEquals(1, $actual->offsetGet(0)->getValue());
-        $this->assertEquals(2, $actual->offsetGet(1)->getValue());
-        $this->assertEquals(3, $actual->offsetGet(2)->getValue());
+        $this->assertEquals(1, $actual->offsetGet(0));
+        $this->assertEquals(2, $actual->offsetGet(1));
+        $this->assertEquals(3, $actual->offsetGet(2));
     }
 
     public function testCreateStringArray()
