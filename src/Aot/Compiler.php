@@ -238,13 +238,17 @@ final class Compiler
         /** @var \PHPJava\Aot\Ir\Method[] $irMethods */
         $irMethods = [];
         $stringEmittedMethods = []; // for fallback case
+        $hasClinit = false;
         foreach ($methods as $method) {
             $name = $this->utf8At($method->getNameIndex());
             $desc = $this->utf8At($method->getDescriptorIndex());
-            // Skip <clinit> (static initialiser) — needs a separate
-            // "run-once" trigger we don't model yet. <init> emits as
-            // __construct (instance) so `new \Class(args)` works.
-            if ($name === '<clinit>') continue;
+            // <clinit> emits as __staticConstruct (mangleMethod). Triggered
+            // post-class-definition, after the class+field declarations
+            // are in place — see the trailing `::__staticConstruct()` call
+            // appended below.
+            if ($name === '<clinit>') {
+                $hasClinit = true;
+            }
 
             try {
                 $codeAttr = AttributionResolver::resolve(
@@ -328,6 +332,19 @@ final class Compiler
             foreach ($this->lambdaClasses as $lc) {
                 $main .= "\n" . $lc['php'];
             }
+        }
+        // Trigger Java's <clinit> (now mangled to __staticConstruct).
+        // JVM spec: class is initialised on first active use (static
+        // method invocation, static field read/write, instantiation).
+        // For our deployment model — AOT classes loaded eagerly through
+        // Loader::loadClass / defineClass and called via Loader::callStatic
+        // — eval-time trigger is JVM-correct enough: every load is
+        // followed by use, and static-field defaults emitted by
+        // emitFieldDeclarations are overwritten by the initialiser body
+        // before any reader can observe them.
+        if ($hasClinit) {
+            $fqn = '\\PHPJava\\Aot\\Generated\\' . $this->mangle($classPath);
+            $main .= "\n{$fqn}::__staticConstruct();\n";
         }
         return $main;
     }
