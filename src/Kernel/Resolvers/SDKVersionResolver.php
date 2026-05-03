@@ -27,6 +27,12 @@ class SDKVersionResolver
         '61.0' => '17',
         '62.0' => '18',
         '63.0' => '19',
+        '64.0' => '20',
+        '65.0' => '21',
+        '66.0' => '22',
+        '67.0' => '23',
+        '68.0' => '24',
+        '69.0' => '25',
     ];
 
     public static function resolveByVersion(string $version): array

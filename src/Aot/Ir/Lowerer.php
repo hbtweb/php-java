@@ -179,6 +179,11 @@ final class Lowerer
         if ($e instanceof FloatLit) return is_finite($e->value) ? (string)$e->value : 'NAN';
         if ($e instanceof StringLit) return var_export($e->value, true);
         if ($e instanceof NullLit) return 'null';
+        if ($e instanceof ArrayLit) {
+            return '[' . implode(', ', array_map(
+                fn($x) => $this->lowerExpr($x), $e->elements
+            )) . ']';
+        }
         if ($e instanceof LocalRead) return "\$L[{$e->slot}]";
         if ($e instanceof ParamRead) return "\$__a{$e->idx}";
         if ($e instanceof BinOp) {

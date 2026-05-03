@@ -40,6 +40,25 @@ final class StringLit extends Expr {
 }
 final class NullLit extends Expr {}
 
+/**
+ * PHP array literal — `[expr, expr, ...]`. Used by the Builder for
+ * call sites that need a concrete array argument (e.g. SwitchBootstraps
+ * label list passed to the runtime helper). Pure if all elements are
+ * pure.
+ */
+final class ArrayLit extends Expr {
+    public function __construct(
+        /** @var Expr[] */
+        public readonly array $elements,
+    ) {}
+    public function isPure(): bool {
+        foreach ($this->elements as $e) {
+            if (!$e->isPure()) return false;
+        }
+        return true;
+    }
+}
+
 /** Read of JVM local slot N. Pure (slot reads have no side effects). */
 final class LocalRead extends Expr {
     public function __construct(public readonly int $slot) {}

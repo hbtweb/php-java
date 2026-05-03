@@ -88,6 +88,31 @@ function jvm_lushr(int $v, int $n): int
 }
 
 /**
+ * SwitchBootstraps.typeSwitch / enumSwitch helper. Walks the labels
+ * array; first match wins, returns the case index. -1 = default.
+ * Labels: null (catchall), int (constant int case), string (class FQN).
+ */
+function jvm_typeswitch($selector, array $labels): int
+{
+    foreach ($labels as $idx => $label) {
+        if ($label === null) {
+            if ($selector === null) return $idx;
+            continue;
+        }
+        if (is_int($label)) {
+            if ($selector === $label) return $idx;
+            continue;
+        }
+        // String → class FQN; \is_a handles instanceof + accepts string
+        // representing class name.
+        if (is_string($label) && \is_a($selector, $label, true)) {
+            return $idx;
+        }
+    }
+    return -1;
+}
+
+/**
  * Allocate a multi-dimensional array per JVM MULTIANEWARRAY (0xC5).
  * Inner dimensions filled with 0 for primitive elements (the AOT
  * doesn't currently distinguish primitive vs reference for this op);

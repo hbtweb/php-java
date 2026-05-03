@@ -1077,6 +1077,37 @@ final class Builder
             return;
         }
 
+        // SwitchBootstraps.{typeSwitch,enumSwitch} — Java 21+ pattern
+        // switch. Bootstrap returns int: matched case index, or -1 for
+        // default. Bootstrap args are the case labels (ClassInfo for
+        // type cases, IntegerInfo for int-constant cases, null for
+        // catchall). Call site descriptor pops (selector, restartIdx)
+        // and pushes int. We ignore restartIdx (assume 0) — fall-through
+        // restart-from-N is rare and a runtime bug if encountered.
+        if ($bsmClass === 'java/lang/runtime/SwitchBootstraps'
+            && in_array($bsmMethod, ['typeSwitch', 'enumSwitch'], true)) {
+            $this->emitSwitchBootstrapsIndy($idy, $bsm, $callSiteDesc);
+            return;
+        }
+
+        // ObjectMethods.bootstrap — Java records' synthetic equals /
+        // hashCode / toString. Bootstrap args:
+        //   [0] = ClassInfo for the record
+        //   [1] = StringInfo of semicolon-separated field names
+        //   [2..] = MethodHandles for each field's getter (REF_getField)
+        // callSiteName selects the operation: 'equals', 'hashCode', 'toString'.
+        //
+        // Note: emit is structurally valid PHP, but runtime correctness
+        // requires AOT to emit record instance methods AND <init> as PHP
+        // instance methods (currently all emitted public-static; field
+        // declarations also missing). End-to-end record execution
+        // pending a future "instance-method emit" task.
+        if ($bsmClass === 'java/lang/runtime/ObjectMethods'
+            && $bsmMethod === 'bootstrap') {
+            $this->emitObjectMethodsIndy($idy, $bsm, $callSiteName, $callSiteDesc);
+            return;
+        }
+
         // StringConcatFactory: decode recipe + concat with PHP `.`.
         if ($bsmClass === 'java/lang/invoke/StringConcatFactory'
             && $bsmMethod === 'makeConcatWithConstants') {
@@ -1181,6 +1212,170 @@ final class Builder
         for ($i = $captureCount - 1; $i >= 0; $i--) $captures[$i] = $this->pop();
         ksort($captures);
         $this->push(new New_("\\PHPJava\\Aot\\Ir\\Generated\\{$lambdaClassName}", array_values($captures)));
+    }
+
+    /**
+     * SwitchBootstraps.typeSwitch / enumSwitch — Java 21+ pattern switch.
+     * Bootstrap returns int matched-case-index (-1 = default). bsmArgs
+     * are the case labels: ClassInfo (type-pattern), IntegerInfo (int
+     * constant case), null (catchall).
+     *
+     * Call site descriptor: `(Object, int)int` — pop selector + restart.
+     * We ignore restart (treat as 0): the int restart-from-N variant
+     * is for fall-through patterns; first emit unsupported until a
+     * fixture surfaces it.
+     */
+    private function emitSwitchBootstrapsIndy(
+        InvokeDynamicInfo $idy, $bsm, string $callSiteDesc
+    ): void {
+        // Pop callsite args: selector (Object), restart (int).
+        [$argTypes, ] = $this->parseDescriptor($callSiteDesc);
+        $argc = count($argTypes);
+        // Drop restart (top of stack); keep selector.
+        $popped = [];
+        for ($i = $argc - 1; $i >= 0; $i--) $popped[$i] = $this->pop();
+        ksort($popped);
+        $popped = array_values($popped);
+        $selector = $popped[0] ?? new \PHPJava\Aot\Ir\NullLit();
+
+        // Build labels array from bsmArgs.
+        $labelExprs = [];
+        foreach ($bsm->getBootstrapArguments() as $arg) {
+            if ($arg === null) {
+                $labelExprs[] = new \PHPJava\Aot\Ir\NullLit();
+                continue;
+            }
+            if ($arg instanceof ClassInfo) {
+                $bin = $this->utf8At($arg->getClassIndex());
+                $fqn = '\\PHPJava\\Aot\\Generated\\'
+                    . str_replace(['.', '/', '\\', '$'], '_', $bin);
+                $labelExprs[] = new StringLit($fqn);
+                continue;
+            }
+            if ($arg instanceof IntegerInfo) {
+                $labelExprs[] = new IntLit($arg->getValue());
+                continue;
+            }
+            if ($arg instanceof StringInfo) {
+                // Some bootstraps include string-constant cases.
+                $labelExprs[] = new StringLit(
+                    $this->utf8At($arg->getStringIndex())
+                );
+                continue;
+            }
+            // Unknown label kind — push null catchall as conservative
+            // default; full coverage requires recognising EnumDesc,
+            // MethodHandle-wrapped values, etc.
+            $labelExprs[] = new \PHPJava\Aot\Ir\NullLit();
+        }
+
+        $this->push(new \PHPJava\Aot\Ir\StaticCall(
+            '\\PHPJava\\Aot\\Runtime\\jvm_typeswitch', '',
+            [$selector, new \PHPJava\Aot\Ir\ArrayLit($labelExprs)]
+        ));
+    }
+
+    /**
+     * ObjectMethods.bootstrap — emit equals/hashCode/toString as inline
+     * Exprs at the indy site. Structurally-valid emit; full runtime
+     * correctness pending instance-method-emit refactor (records'
+     * <init> + getfield writes need PHP instance-method shape, not
+     * current public-static-with-$L[0]-as-this).
+     */
+    private function emitObjectMethodsIndy(
+        InvokeDynamicInfo $idy, $bsm, string $methodName, string $callSiteDesc
+    ): void {
+        $bsmArgs = $bsm->getBootstrapArguments();
+        $recordClass = $bsmArgs[0] ?? null;
+        $fieldNamesInfo = $bsmArgs[1] ?? null;
+        if (!($recordClass instanceof ClassInfo)
+            || !($fieldNamesInfo instanceof StringInfo)) {
+            $this->push(new StringLit('UNRESOLVED_OBJECTMETHODS'));
+            return;
+        }
+        $recordBin = $this->utf8At($recordClass->getClassIndex());
+        // classFqn shortens to 'self' for the current class, which won't
+        // work as a runtime string passed to \is_a. Use the absolute
+        // \PHPJava\Aot\Generated\... form unconditionally for the type
+        // check; classFqn-style 'self' optimisation is for static-call
+        // emit, not class-name strings.
+        $recordFqn = '\\PHPJava\\Aot\\Generated\\'
+            . str_replace(['.', '/', '\\', '$'], '_', $recordBin);
+        $names = $this->utf8At($fieldNamesInfo->getStringIndex());
+        $fields = $names === '' ? [] : explode(';', $names);
+
+        // Pop callsite args.
+        [$argTypes, ] = $this->parseDescriptor($callSiteDesc);
+        $argc = count($argTypes);
+        $args = [];
+        for ($i = $argc - 1; $i >= 0; $i--) $args[$i] = $this->pop();
+        ksort($args);
+        $args = array_values($args);
+
+        if ($methodName === 'equals' && count($args) >= 2) {
+            $self = $args[0];
+            $other = $args[1];
+            // \is_a($other, '\\FQN', true)
+            $check = new \PHPJava\Aot\Ir\StaticCall(
+                '\\is_a', '',
+                [$other, new StringLit($recordFqn), new IntLit(1)]
+            );
+            // && $self->fieldI === $other->fieldI for each field
+            foreach ($fields as $field) {
+                $check = new BinOp('&&', $check,
+                    new BinOp('===',
+                        new \PHPJava\Aot\Ir\FieldRead($self, $field),
+                        new \PHPJava\Aot\Ir\FieldRead($other, $field),
+                    ),
+                );
+            }
+            // Java boolean = JVM int; intval the bool.
+            $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                '\\intval', '', [$check]
+            ));
+            return;
+        }
+
+        if ($methodName === 'hashCode' && count($args) >= 1) {
+            $self = $args[0];
+            // Standard Java records hashCode: 31*h + field per field.
+            // For ref fields this should call .hashCode(); for primitives
+            // and Strings, value used directly. For now, treat all as
+            // value-equal — improves later with type-aware emit.
+            $h = new IntLit(0);
+            foreach ($fields as $field) {
+                $h = new BinOp('+',
+                    new BinOp('*', new IntLit(31), $h),
+                    new \PHPJava\Aot\Ir\FieldRead($self, $field),
+                );
+            }
+            $this->push($h);
+            return;
+        }
+
+        if ($methodName === 'toString' && count($args) >= 1) {
+            $self = $args[0];
+            // Java record toString: SimpleName[f1=v1, f2=v2, ...].
+            // SimpleName = part of binary name after the last `$` or `/`.
+            $simple = preg_replace('#^.*[$/]#', '', $recordBin);
+            $expr = new StringLit($simple . '[');
+            $first = true;
+            foreach ($fields as $field) {
+                if (!$first) {
+                    $expr = new BinOp('.', $expr, new StringLit(', '));
+                }
+                $first = false;
+                $expr = new BinOp('.', $expr, new StringLit($field . '='));
+                $expr = new BinOp('.', $expr,
+                    new \PHPJava\Aot\Ir\FieldRead($self, $field));
+            }
+            $expr = new BinOp('.', $expr, new StringLit(']'));
+            $this->push($expr);
+            return;
+        }
+
+        // Unrecognised ObjectMethods method name.
+        $this->push(new StringLit("UNHANDLED_OBJECTMETHODS:{$methodName}"));
     }
 
     /** Build a `'literal' . $a . 'literal'` chain expression for StringConcatFactory. */
