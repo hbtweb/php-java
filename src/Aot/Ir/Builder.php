@@ -2,6 +2,10 @@
 declare(strict_types=1);
 namespace PHPJava\Aot\Ir;
 
+// Node.php declares multiple IR classes in one file; PSR-4 expects
+// one-class-per-file, so explicit require here.
+require_once __DIR__ . '/Node.php';
+
 use PHPJava\Core\JavaCompiledClass;
 use PHPJava\Kernel\Attributes\BootstrapMethodsAttribute;
 use PHPJava\Kernel\Attributes\CodeAttribute;

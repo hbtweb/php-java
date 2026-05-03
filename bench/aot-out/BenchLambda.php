@@ -9,11 +9,8 @@ final class BenchLambda
 $L = [0];
         $stack = []; $sp = 0;
 L_0:
-        $stack[$sp++] = new \PHPJava\Aot\Generated\BenchLambda__Lambda_0();
-        $L[0] = $stack[--$sp];
-        $stack[$sp++] = $L[0];
-        $__obj = $stack[--$sp]; $stack[$sp++] = $__obj->getAsInt();
-        return $stack[--$sp];
+        $L[0] = new \PHPJava\Aot\Ir\Generated\BenchLambda__Lambda_0();
+        return $L[0]->getAsInt();
     }
 
     // withCapture (I)I
@@ -22,15 +19,11 @@ L_0:
 $L = [$__a0, 0];
         $stack = []; $sp = 0;
 L_0:
-        $stack[$sp++] = $L[0];
-        $__c0 = $stack[--$sp]; $stack[$sp++] = new \PHPJava\Aot\Generated\BenchLambda__Lambda_1($__c0);
-        $L[1] = $stack[--$sp];
-        $stack[$sp++] = $L[1];
-        $__obj = $stack[--$sp]; $stack[$sp++] = $__obj->getAsInt();
-        return $stack[--$sp];
+        $L[1] = new \PHPJava\Aot\Ir\Generated\BenchLambda__Lambda_1($L[0]);
+        return $L[1]->getAsInt();
     }
 
-    // lambda$withCapture$0 (I)I
+    // lambda_S_withCapture_S_0 (I)I
     public static function lambda_S_withCapture_S_0($__a0)
     {
 $L = [$__a0];
@@ -39,7 +32,7 @@ L_0:
         return $L[0] + 100;
     }
 
-    // lambda$run$0 ()I
+    // lambda_S_run_S_0 ()I
     public static function lambda_S_run_S_0()
     {
 $L = [];
@@ -49,7 +42,7 @@ L_0:
     }
 }
 
-namespace PHPJava\Aot\Generated;
+namespace PHPJava\Aot\Ir\Generated;
 
 final class BenchLambda__Lambda_0
 {
@@ -59,7 +52,7 @@ final class BenchLambda__Lambda_0
     }
 }
 
-namespace PHPJava\Aot\Generated;
+namespace PHPJava\Aot\Ir\Generated;
 
 final class BenchLambda__Lambda_1
 {

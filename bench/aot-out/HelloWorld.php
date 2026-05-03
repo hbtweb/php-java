@@ -9,9 +9,7 @@ final class HelloWorld
 $L = [$__a0, 0, 0];
         $stack = []; $sp = 0;
 L_0:
-        $stack[$sp++] = \PHPJava\Aot\Runtime\java\lang\System::$out;
-        $stack[$sp++] = 'hello from phpjava';
-        $__a0 = $stack[--$sp]; $__obj = $stack[--$sp]; $__obj->println($__a0);
+        \PHPJava\Aot\Runtime\java\lang\System::$out->println('hello from phpjava');
         $L[1] = 0;
         $L[2] = 1;
 L_12:
@@ -20,9 +18,7 @@ L_12:
         $L[2] += 1;
         goto L_12;
 L_28:
-        $stack[$sp++] = \PHPJava\Aot\Runtime\java\lang\System::$out;
-        $stack[$sp++] = $L[1];
-        $__a0 = $stack[--$sp]; $__obj = $stack[--$sp]; $__obj->println($__a0);
+        \PHPJava\Aot\Runtime\java\lang\System::$out->println($L[1]);
         return;
     }
 }

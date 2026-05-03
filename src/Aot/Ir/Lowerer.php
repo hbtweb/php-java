@@ -78,7 +78,13 @@ final class Lowerer
         $bodyLines = [$prelude];
         foreach ($orderedPcs as $i => $pc) {
             $bb = $blocks[$pc];
-            if (isset($liveLabels[$pc])) {
+            // Emit the label if it's a live branch target OR if this
+            // is the entry block (PC 0). The entry-block label is
+            // architecturally dead but anchors the JIT trace; per the
+            // 2026-05-02 negative-results finding, removing it caused
+            // 5-6× cold-start regression. Restoring keeps parity with
+            // the string-path peephole's JIT-friendly emit shape.
+            if (isset($liveLabels[$pc]) || $pc === 0) {
                 $bodyLines[] = "L_{$pc}:";
             }
             // Open try-catch wrapper(s) covering this BB.
