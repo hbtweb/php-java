@@ -14,7 +14,12 @@ class Float_ extends Type implements PrimitiveValueInterface
 
     public static function isValid($value): bool
     {
-        $value = (string) abs($value);
+        // PHP 8 abs() is strictly typed (int|float); reject non-numeric
+        // up front and cast numeric strings before calling.
+        if (!is_numeric($value)) {
+            return false;
+        }
+        $value = (string) abs((float) $value);
         if (!is_numeric($value)) {
             return false;
         }

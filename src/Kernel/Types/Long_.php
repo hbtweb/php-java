@@ -17,12 +17,17 @@ class Long_ extends Type implements PrimitiveValueInterface
         if (!is_scalar($value)) {
             return false;
         }
+        // PHP 8 abs() requires int|float; pre-check is_numeric to
+        // avoid TypeError on string defaults from constant pool.
+        if (!is_numeric($value)) {
+            return false;
+        }
 
         // Adjustment negative value for PHP problems
         if ($value === static::MIN) {
             $value++;
         }
-        if (!ctype_digit((string) abs($value))) {
+        if (!ctype_digit((string) abs((int) $value))) {
             return false;
         }
         return $value >= static::MIN && $value <= static::MAX;

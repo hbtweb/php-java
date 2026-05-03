@@ -16,7 +16,13 @@ class Double_ extends Type implements PrimitiveValueInterface
 
     public static function isValid($value): bool
     {
-        if (!is_numeric((string) abs($value))) {
+        // PHP 8 abs() is strictly typed (int|float); reject non-numeric
+        // strings up front (e.g. "NaN" defaults from constant pool),
+        // and cast numeric strings to float for the abs() call.
+        if (!is_numeric($value)) {
+            return false;
+        }
+        if (!is_numeric((string) abs((float) $value))) {
             return false;
         }
 
