@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Core\JavaClass;
-use PHPJava\Kernel\Types\Int_;
 use PHPJava\Utilities\Formatter;
 
 final class _instanceof extends AbstractOperationCode implements OperationCodeInterface
@@ -37,15 +36,6 @@ final class _instanceof extends AbstractOperationCode implements OperationCodeIn
 
         [, $className] = Formatter::convertJavaNamespaceToPHP((string) $targetClass);
 
-        if ($objectref->is($className)) {
-            $this->pushToOperandStack(
-                Int_::get(1)
-            );
-            return;
-        }
-
-        $this->pushToOperandStack(
-            Int_::get(0)
-        );
+        $this->pushToOperandStack($objectref->is($className) ? 1 : 0);
     }
 }

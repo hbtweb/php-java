@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Char_;
 
 final class _i2c extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -21,10 +20,11 @@ final class _i2c extends AbstractOperationCode implements OperationCodeInterface
     public function execute(): void
     {
         parent::execute();
-        $value = Normalizer::getPrimitiveValue(
+        $value = (int) Normalizer::getPrimitiveValue(
             $this->popFromOperandStack()
         );
 
-        $this->pushToOperandStack(Char_::get($value));
+        // JVM i2c: lower 16 bits zero-extended (char is unsigned).
+        $this->pushToOperandStack($value & 0xFFFF);
     }
 }

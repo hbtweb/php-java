@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Short_;
 
 final class _i2s extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -21,10 +20,11 @@ final class _i2s extends AbstractOperationCode implements OperationCodeInterface
     public function execute(): void
     {
         parent::execute();
-        $value = Normalizer::getPrimitiveValue(
+        $value = (int) Normalizer::getPrimitiveValue(
             $this->popFromOperandStack()
         );
 
-        $this->pushToOperandStack(Short_::get($value));
+        // JVM i2s: lower 16 bits with sign extension to 32-bit int.
+        $this->pushToOperandStack(($value << 16) >> 16);
     }
 }
