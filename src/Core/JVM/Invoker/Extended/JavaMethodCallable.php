@@ -163,6 +163,19 @@ trait JavaMethodCallable
 
         $this->debugTool->getLogger()->info('Start operations: ' . $methodBeautified);
 
+        // H1 + H8 hoist — config + trigger lookups don't change between
+        // ops, so resolve them once outside the dispatch loop. Saves
+        // 3× GlobalOptions::get + 2× is_callable per opcode.
+        $maxStackExceeded = $this->options['max_stack_exceeded']
+            ?? GlobalOptions::get('max_stack_exceeded')
+            ?? Runtime::MAX_STACK_EXCEEDED;
+        $beforeTrigger = $this->options['operations']['injections']['before']
+            ?? GlobalOptions::get('operations.injections.before');
+        $afterTrigger = $this->options['operations']['injections']['after']
+            ?? GlobalOptions::get('operations.injections.after');
+        $hasBeforeTrigger = is_callable($beforeTrigger);
+        $hasAfterTrigger = is_callable($afterTrigger);
+
         $arguments = array_map(
             function ($argument) {
                 return TypeResolver::convertPHPTypeToJavaType($argument);
@@ -206,7 +219,7 @@ trait JavaMethodCallable
                 ->add('OperandStacks', $stacks)
                 ->add('LocalStorages', $localStorage);
 
-            if (++$executedCounter > ($this->options['max_stack_exceeded'] ?? GlobalOptions::get('max_stack_exceeded') ?? Runtime::MAX_STACK_EXCEEDED)) {
+            if (++$executedCounter > $maxStackExceeded) {
                 throw new RuntimeException(
                     'Max stack exceeded. PHPJava has been stopped by safety guard.' .
                     ' Maybe Java class has illegal program counter, stacks, or OpCode.'
@@ -268,8 +281,7 @@ trait JavaMethodCallable
 
             $executor->beforeExecute();
 
-            $beforeTrigger = $this->options['operations']['injections']['before'] ?? GlobalOptions::get('operations.injections.before');
-            if (is_callable($beforeTrigger)) {
+            if ($hasBeforeTrigger) {
                 // Bind class
                 \Closure::bind($beforeTrigger, $this);
 
@@ -279,8 +291,7 @@ trait JavaMethodCallable
             // Run executor
             $executor->execute();
 
-            $afterTrigger = $this->options['operations']['injections']['after'] ?? GlobalOptions::get('operations.injections.after');
-            if (is_callable($afterTrigger)) {
+            if ($hasAfterTrigger) {
                 // Bind class
                 \Closure::bind($beforeTrigger, $this);
 
