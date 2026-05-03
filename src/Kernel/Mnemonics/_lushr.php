@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Long_;
 
 final class _lushr extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -26,7 +25,7 @@ final class _lushr extends AbstractOperationCode implements OperationCodeInterfa
 
         // See: https://stackoverflow.com/questions/14428193/php-unsigned-right-shift-malfunctioning
         $this->pushToOperandStack(
-            Long_::get(($value1 >> $value2) & ~(1 << (8 * PHP_INT_SIZE - 1) >> ($value2 - 1)))
+            ($value1 >> $value2) & ~(1 << (8 * PHP_INT_SIZE - 1) >> ($value2 - 1))
         );
     }
 }

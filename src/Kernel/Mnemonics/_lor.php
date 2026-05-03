@@ -4,7 +4,6 @@ namespace PHPJava\Kernel\Mnemonics;
 
 use Brick\Math\BigInteger;
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Long_;
 
 final class _lor extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -28,6 +27,6 @@ final class _lor extends AbstractOperationCode implements OperationCodeInterface
         $result = (string) BigInteger::of($value1)
             ->or(BigInteger::of($value2));
 
-        $this->pushToOperandStack(Long_::get($result));
+        $this->pushToOperandStack((int) $result);
     }
 }

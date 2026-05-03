@@ -4,7 +4,6 @@ namespace PHPJava\Kernel\Mnemonics;
 
 use Brick\Math\BigInteger;
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Int_;
 
 final class _lcmp extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -28,15 +27,15 @@ final class _lcmp extends AbstractOperationCode implements OperationCodeInterfac
         $compare = BigInteger::of($value1)->compareTo($value2);
 
         if ($compare == 1) {
-            $this->pushToOperandStack(Int_::get(1));
+            $this->pushToOperandStack(1);
             return;
         }
 
         if ($compare == -1) {
-            $this->pushToOperandStack(Int_::get(-1));
+            $this->pushToOperandStack(-1);
             return;
         }
 
-        $this->pushToOperandStack(Int_::get(0));
+        $this->pushToOperandStack(0);
     }
 }
