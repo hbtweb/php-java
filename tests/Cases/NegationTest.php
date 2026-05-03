@@ -24,7 +24,7 @@ class NegationTest extends Base
                 ...$arguments
             );
 
-        return $calculatedValue->getValue();
+        return is_object($calculatedValue) ? $calculatedValue->getValue() : $calculatedValue;
     }
 
     public function testNegateIntPattern1()

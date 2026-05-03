@@ -18,7 +18,7 @@ class BranchIfTest extends Base
             ->getMethods()
             ->call($method, $value1, $value2);
 
-        return $calculatedValue->getValue();
+        return is_object($calculatedValue) ? $calculatedValue->getValue() : $calculatedValue;
     }
 
     public function testIfAcmpEq()
