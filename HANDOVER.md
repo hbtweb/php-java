@@ -1,9 +1,9 @@
-# Handover — IR completion + records + #12 slice (2026-05-03)
+# Handover — #12 wrapper-removal complete + Type::get root-cause fix (2026-05-03)
 
-> SHA at hand-off: `10cbc3b` on branch `roadmap`, **23 commits ahead of
-> origin** (not yet pushed at handover time).
-> Prior session hand-off: `b633bbe` (design rework, kept in git
-> history); this session built on top of `db1c096`.
+> SHA at hand-off: `390e46d` on branch `roadmap`, pushed to
+> `origin/roadmap`.
+> Prior session hand-off: `10cbc3b` (IR completion + records + #12
+> first slice).
 > Author: Claude (Opus 4.7) working with Apollo Nicolson.
 > Following the SBAR pattern from `~/CLAUDE.md`.
 
@@ -11,174 +11,138 @@
 
 ## Situation
 
-The hbtweb fork's AOT pipeline is now **production-ready end-to-end
-on commons-lang3 bytecode** (rank 1: 100% IR coverage, 4983 methods,
-0 fallbacks, 0 top-level parse failures). Java records execute
-correctly through the AOT path including synthetic equals / hashCode
-/ toString via the ObjectMethods bootstrap. JVM int overflow
-semantics hold (rank 1: 18/18 BenchIntOverflow cases) at a measured
-cost of 0.20 ns / iadd. Production reachability via
-`\PHPJava\Aot\Loader::callStatic($cp, $method, ...$args)` — single
-API call, no Compiler construction needed. Long-running daemon
-hardening: LRU-bounded compile caches (default 1000 entries each,
-env-configurable) and a soak harness ready to run.
+The hbtweb fork's test suite is **effectively green: 0 errors / 1
+failure / 1 skipped** (rank 1, PHPUnit 9.6.34 + PHP 8.4.20). Down
+from `49 errors / 47 failures` at the prior handover and `46 / 59`
+at this session's start. The single remaining failure is fixture-
+stale (bytecode-dump test with hard-coded constant-pool indices),
+unrelated to #12.
 
-Three out-of-session items remain on the original 3-week milestone:
-the 24h Swoole soak (operator-driven, harness ready), `#11` test
-suite to green (1–2 weeks, mostly wrapper-shape mismatches that
-resolve via `#12`), and full `#12` boxing refactor (~3–5 more vertical
-slices on top of the int-arith slice landed this session).
+`#11 test suite to green` and `#12 boxing refactor` are effectively
+complete. The interpreter operand stack now carries raw PHP scalars
+across all push/pop/arithmetic/bitwise/comparison/conversion sites
+(int, long, float, double). Wrappers persist only at storage
+boundaries — `_putfield`/`_putstatic` and the narrow-typed array
+stores `_bastore`/`_castore`/`_sastore` — where typed rendering
+(`Char_::__toString` → unicode codepoint, `Double_::filter` → BigDecimal-
+preserving "3.0" form) is load-bearing for downstream field-read
+consumers.
+
+AOT pipeline unchanged. Contract gate clean (9/9), record E2E PASS,
+overflow E2E PASS. Hot-path perf untouched: 0.20 ns/op JIT iadd-1k,
+0.24 ns/op JIT invoke-loop, 22 ns/call empty-method, 2.2 ns/op
+array-loop.
 
 ---
 
 ## Background — what landed this session
 
-### 1. AOT IR coverage 65.6% → 100% on commons-lang3
+Eight commits, four logical phases.
 
-Real-library probe (`bench/probe-real-library.php`, drives every
-`.class` in `commons-lang3-3.17.0.jar`) drove a series of targeted
-fills. Coverage progression:
+### 1. Symmetric type-family completion (4 commits)
 
-| Pass | IR success | Top-level OK | Methods | Reason |
-|---|---:|---:|---:|---|
-| Initial (9-fixture-trained Builder) | 65.6% | 308/395 | 3769 | starting point |
-| + 14 missing opcodes | 86.5% | 308/395 | 3769 | mechanical fill |
-| + sub-step 1c-β (full abstract-stack tracking) | 99.3% | 308/395 | 3769 | architectural — perf-budgeted at 1.5×, coverage-impact 95% |
-| + switch terminator (TABLESWITCH/LOOKUPSWITCH) | 99.9% | 308/395 | 3769 | new IR Switch_ |
-| + lazy super-class load | 99.9% | 394/395 | 4166 | parser fix |
-| + rare-opcode tail (DUP2/IUSHR/LUSHR/MULTIANEWARRAY) | 99.9% | 394/395 | 4166 | mechanical |
-| + PHP 8 strict abs() in Type validators | 100.0% | 395/395 | **4983** | parser fix |
+The prior session's `3f589ab` covered float+double load/arith/return
+(24 files); these four commits cover the symmetric remainder:
 
-Full report: `bench/probe-real-library.md`.
+| Commit | Slice | Files |
+|---|---|---|
+| `be922cd` | float push/conv/array (fconst, i/l/d→f, fastore, ldc/ldc_w FloatInfo) + ldc_w `instanceof` bug fix | 9 |
+| `2f18e14` | double push/conv/array (dconst, i/l/f→d, dastore, ldc2_w both branches) | 7 |
+| `1e47604` | long bitwise/conv/cmp (i/f/d→l, lshl/r/ushr, land/or/xor, l2i, lcmp) | 11 |
+| `f9c1e16` | int bitwise/conv/cmp (ishl/r/ushr, iand/or/xor, f/d→i, fcmp/dcmp) | 12 |
 
-### 2. Records work end-to-end
+Each push site replaces `pushToOperandStack(Wrapper::get($v))` with
+either `(int) $v` (for long-side ops, since PHP int = JVM long),
+`(float) $v` (for float/double), or `($v << 32) >> 32` to preserve
+JVM 32-bit sign-extension semantics that `Int_::filter` provided.
 
-The biggest architectural piece. AOT was emitting all methods as
-`public static`; records (and any class with state) need real
-instance methods. Changes:
+### 2. The load-bearing root-cause fix (1 commit)
 
-- `Compiler::compileFromGenericClass` reads MethodInfo's ACC_STATIC
-  flag, threads `$isStatic` to `tryBuildIrMethod` + `compileMethod`.
-- `Builder::buildMethod` accepts `$isStatic`; widens `maxLocals` for
-  the implicit `$this` slot when non-static.
-- `Lowerer::lowerMethod` prelude: `$L = [$this, $__a0, ...]` for
-  instance methods, `$L = [$__a0, ...]` for static.
-- `<init>` no longer skipped — emits as `__construct` (already
-  mangled). super(java.lang.Record/Object/etc.).<init>() calls into
-  JDK abstract bases elide via `isAbstractBaseInit()` peephole.
-- `classFqn` strips `$` for non-JDK classes (mirrors `Compiler::mangle`):
-  `BenchRecord$Point` → `\PHPJava\Aot\Generated\BenchRecord_Point`.
-  Pre-fix the inner-class FQN had a literal `$Point` interpreted as
-  PHP variable interpolation.
-- `#[\AllowDynamicProperties]` on every emitted class — defensive
-  cushion for putfield that hits undeclared properties.
-- Field declarations emitted from `$jcc->getDefinedFields()` —
-  `public [static] $name = default;` per FieldInfo, with default
-  derived from JVM descriptor's primitive type.
-- ObjectMethods bootstrap emits inline equals/hashCode/toString for
-  records via direct field access.
+Sub-slicing the int-cleanup work surfaced a regression on
+`_iinc`/`_iastore`/`_sipush`/`_ldc IntegerInfo` — each of which
+broke 8-44 tests when unwrapped while the symmetric ops were clean.
 
-End-to-end runtime test: `bench/aot-record.php`. All four cases PASS
-(eqSame, eqDiff, hashCodeOk, toStr).
-
-### 3. JVM int overflow semantics (rank 1)
-
-`bench/aot-overflow.php` — fixture takes args (defeats javac
-constant-folding) so actual iadd/isub/imul/ineg opcodes execute on
-boundary values. 18/18 cases PASS post-mask (9 AOT + 9 interpreter):
+**Diagnosis (rank 1, repro at `/tmp/cache-probe.php`):**
 
 ```
-add(MAX_VALUE, 1)      = MIN_VALUE
-sub(MIN_VALUE, 1)      = MAX_VALUE
-mul(MIN_VALUE, -1)     = MIN_VALUE   (sign-keeping overflow)
-neg(MIN_VALUE)         = MIN_VALUE
-mul(MAX_VALUE, 2)      = -2
+Short_::get(32767) → Short_(32767)  cached under key "32767"
+Char_::get(32767)  → returns the SAME Short_(32767), NOT a new Char_
+Int_::get(32767)   → returns the SAME Short_(32767)
 ```
 
-Mask shape: `($result << 32) >> 32` per CONTRACTS.md §1. Interpreter
-applies in 6 Mnemonics (_iadd/_isub/_imul/_idiv/_irem/_ineg). AOT
-applies via new `emitIntBinOp` / `emitIntBinOpFn` / `maskInt32`
-helpers; long/float/double cases keep unmasked emit (PHP semantics
-match JVM for those types).
+`Type::get()` used `static $instantiated = null`. PHP method-static
+variables are per-function, not per-class. With `get()` defined once
+on the abstract base, the cache was a single shared array across
+all 8 wrapper subclasses. Whichever subclass called `::get($x)`
+first for a given value `$x` cached an instance of that subclass
+under key `(string) $x`. Subsequent calls from other subclasses
+with the same `$x` returned the originally-cached instance.
 
-Cost: rank-1 measured 0.20 ns/iadd microbench (`bench/bench-int-mask.php`,
-5-run median). Well within CONTRACTS.md §1's "1 ns extra per op" budget.
+**Why it was masked.** Each push-site mnemonic
+(iconst/sipush/i2c/i2b/i2s/ldc) called the right subclass's `::get`
+at push time, populating the cache in mnemonic-correct order.
+`_putfield`/`_putstatic` then re-asked for the field-typed wrapper
+via `$typeClass::get()`, but by then the cache was already populated
+under the right subclass — collisions resolved by accident of
+mnemonic ordering. The wrapper-removal slices stop populating the
+cache at push sites; the first caller becomes whichever putfield
+runs first in suite order, which now varies — sometimes Char wins,
+sometimes Short.
 
-### 4. Production reachability — `\PHPJava\Aot\Loader`
+**Fix (commit `50e81b4`, src/Kernel/Types/Type.php:60).** Key the
+cache by `static::class`:
 
 ```php
-Loader::loadClass($classPath);                  // classpath-resolved AOT compile
-Loader::defineClass($classPath, $bytes);        // bytes-driven AOT compile
-Loader::callStatic($classPath, $method, ...$args);  // dispatch through AOT'd PHP
+static $instantiated = [];
+$bucket = static::class;
+...
+return $instantiated[$bucket][$identity]
+    = $instantiated[$bucket][$identity] ?? new static($value);
 ```
 
-Method-name mangling matches `Compiler::mangleMethod` exactly
-(<init>→__construct, $→_S_, etc.). Smoke-tested in `bench/aot-loader.php`.
+**Rank-1 impact.** PHPUnit suite cascade with the cache fix alone:
+46 errors / 59 failures → **12 errors / 24 failures**. -34 errors,
+-35 failures. Standalone biggest single-commit improvement of the
+session.
 
-Pre-Loader: AOT was only reachable via direct
-`(new Compiler())->compileBytes` + manual `eval` + manual class-FQN
-construction. Now: single API call.
+### 3. Storage-layer + narrow-conversions slices (2 commits)
 
-### 5. LRU-bounded compile caches
+With the cache fix in, the previously-rejected unwraps became safe:
 
-`compileClass` and `compileBytes` static caches were unbounded.
-True LRU now (not FIFO): on hit, `unset+reinsert` promotes to
-most-recent. On miss, `array_shift` evicts the oldest when at
-capacity. PHP arrays preserve insertion order → no separate
-linked-list needed.
+| Commit | Slice | Files |
+|---|---|---|
+| `bae1e89` | storage-layer (sipush, iinc, iastore, ldc/ldc_w IntegerInfo) | 5 |
+| `bf1fbed` | narrow conversions + instanceof (i2b/c/s, instanceof) | 4 |
 
-Configurable via `PHPJAVA_AOT_CACHE_MAX` (default 1000). At ~10 KB
-rendered PHP per entry, 1000 × 2 caches ≈ 20 MB ceiling — safe for
-production daemons.
+`_i2b`/`_i2c`/`_i2s` apply explicit JVM bit patterns:
+`($v << 24) >> 24` for byte (lower 8 + sign extend), `$v & 0xFFFF`
+for char (lower 16 + zero extend), `($v << 16) >> 16` for short.
 
-### 6. 24h soak harness
+`_bastore`/`_castore`/`_sastore` were **not** unwrapped — they're
+the array-element-type-tag boundary, the array equivalent of
+_putfield/_putstatic. Unwrapping breaks downstream char-rendering
+on field reads.
 
-`bench/soak-aot.php` — continuously walks a class pool through the
-AOT pipeline (compileBytes + Loader::callStatic) and emits periodic
-metrics (JSON lines). Three-strategy mix per iteration:
+### 4. Test + shim alignment (1 commit, `390e46d`)
 
-```
-80% — warm-cache compileBytes (most realistic production shape)
-15% — Loader::callStatic round-trip (compile + execute)
- 5% — Compiler::clearCompileCache + cold compile (LRU eviction stress)
-```
+Tests asserting `instanceof Wrapper::class` were validating an
+implementation detail being deliberately removed by #12. Updated to
+PHP-native scalar shape per CONTRACTS.md §1:
 
-Smoke-validated: 18 seconds / 1064 iterations / 0 errors / 62-66 MB
-resident on a Kali WSL box.
-
-24h validation is operator-driven (can't fit in a session). Suggested
-invocation:
-```
-nohup php bench/soak-aot.php > /tmp/soak-$(date +%s).jsonl 2>&1 &
-```
-
-### 7. #12 boxing refactor — first vertical slice
-
-20 Mnemonics in the integer-arithmetic family now flow as raw PHP int
-on the interpreter's operand stack instead of `Int_::get($v)` wrapped
-values:
-
-- push side: _iconst_m1, _iconst_0..5, _bipush, _iload, _iload_0..3
-- arith: _iadd, _isub, _imul, _idiv, _irem, _ineg
-- return: _ireturn
-
-Test helpers in 4 test files (BinaryOperatorTest, BranchIfTest,
-NegationTest, IntConstTest) updated to defensive
-`is_object($cv) ? ->getValue() : $cv` so they accept either shape
-during the transition.
-
-### 8. Other fixes
-
-- `#[\AllowDynamicProperties]` on emitted classes — quick unblock
-  for instance fields before #2-B field-declaration emit landed.
-- Type::isValid (Double/Float/Int/Long) — defensive `is_numeric()`
-  guards before calling `abs()` (PHP 8 strict typing). Caught the 1
-  remaining commons-lang3 top-level failure (MutableDouble).
-- Symfony Console version constraint widened to `^5.4|^6.0|^7.0`;
-  RunCommand::execute returns int explicitly.
-- SDKVersionResolver extended for class-file versions 64–69 (Java
-  20–25). Required to parse the BenchRecord fixture compiled with
-  --release 21.
+- `CastTest.php` (14 tests): drop `assertInstanceOf` + `->getValue()`
+  chaining, assert raw scalar via `assertSame`. testIntToChar:
+  123 = '{' codepoint; char rendering is the caller's job.
+- `ArrayTest.php` (testCreateIntArray): drop `->getValue()` on array
+  elements (now raw int).
+- `GetFieldTest.php`: drop trailing `->getValue()` on method return.
+- `DoubleCalculationTest.php` (6 tests): testDoublePoint{Add,Sub,
+  NegativeSub}{,FromOtherMethod} — change `'3.0'` to `3.0`,
+  `'0.0'` to `0.0`, `'-1.0'` to `-1.0`. PHP `(string) 3.0` is `"3"`
+  not `"3.0"` (Java Double.toString form). Pre-#12 Double_::filter
+  preserved BigDecimal-string; post-#12 the float boundary is
+  PHP-native.
+- `String_::replace` shim: explicit `(string)` coercion on $a/$b/$this
+  to bridge JavaClass refs into PHP's strict `str_replace` signature.
 
 ---
 
@@ -188,119 +152,128 @@ during the transition.
 
 | Bench | Value |
 |---|---|
-| iadd-1k JIT (5-run median) | 0.21 ns / op |
-| invoke-100 JIT (5-run median) | 0.24 ns / op |
-| array-loop JIT (5-run median) | 2.20 ns / op |
-| empty-method JIT (5-run median) | 22.4 ns / call |
-| JVM 32-bit int mask cost (microbench) | 0.20 ns / iadd |
-| Real-library coverage | 100% IR / 4983 methods / 0 fallbacks |
-| Records end-to-end | 4/4 PASS (eqSame, eqDiff, hashCodeOk, toStr) |
-| Compile cold | ~1.6 ms / class |
-| Compile cache hit | ~0.6 µs / class (~2649× cold) |
+| iadd-1k JIT | 0.20 ns/op (unchanged) |
+| invoke-100 JIT | 0.24 ns/op (unchanged) |
+| empty-method dispatch | 22 ns/call (unchanged) |
+| array-loop JIT | 2.2 ns/op (unchanged) |
+| commons-lang3 IR coverage | 100% / 4983 methods / 0 fallbacks |
+| Compile cold → cache hit | 1.6 ms → 0.6 µs (~2649×) |
+| **PHPUnit (whole suite)** | **0 errors / 1 failure / 1 skipped** |
+| Compared to HANDOVER baseline | 49 err / 47 fail / 1 skipped |
+| Compared to session start | 46 err / 59 fail / 1 skipped |
+| Net | **−49 errors, −46 failures, +76 assertions exercised** |
 
 ### What's verified (rank 1, runtime)
 
-| Fixture | Coverage |
+| Fixture | Result |
 |---|---|
-| BenchAdd::sum1k() | int loop, iadd, if_icmpge → 499500 |
-| BenchInvoke::callLoop() | invokestatic same-class → 100 |
-| HelloWorld::main() | invokevirtual cross-class + getstatic + ldc |
-| BenchArray::sumArray() | newarray + iastore + iaload + arraylength → 45 |
-| BenchTryCatch::run() | new/dup/invokespecial<init> + athrow + exception table → 42 |
-| BenchConcat::greet | INVOKEDYNAMIC StringConcatFactory |
-| BenchLambda::run/withCapture | INVOKEDYNAMIC LambdaMetafactory + synthetic class gen |
-| BenchAddFromBytes (defineClass) | raw .class bytes → AOT → run |
-| BenchRecord (Point) | Java record + ObjectMethods bootstrap + super(Record).<init> elision |
-| BenchIntOverflow | JVM 32-bit signed wraparound (5 boundary + 4 sanity cases) |
-| Loader smoke | classpath load + bytes-driven + dispatch |
+| BenchAdd::sum1k() (int loop) | 499500 |
+| BenchInvoke::callLoop() (invokestatic) | 100 |
+| HelloWorld::main() (invokevirtual + getstatic + ldc) | "hello from phpjava\n55\n" |
+| BenchArray::sumArray() | 45 |
+| BenchTryCatch::run() (athrow + exception table) | 42 |
+| BenchConcat::greet (StringConcatFactory) | "hello alice! count=5" |
+| BenchLambda::run/withCapture (LambdaMetafactory) | 42 / 107 |
+| BenchAddFromBytes (defineClass) | 499500 |
+| BenchRecord (records + ObjectMethods) | 4/4 PASS |
+| BenchIntOverflow (32-bit signed wraparound) | 18/18 PASS |
+| `/tmp/cache-probe.php` (Type::get isolation) | each subclass returns its own instance |
 
 ### What's unsettled (rank 2-3)
 
-1. **#11 test suite to green.** 49 errors / 47 failures in PHPUnit
-   suite. Most are wrapper-shape mismatches that the remaining #12
-   slices will resolve. testLong* / testIfLcmp* failures are
-   pre-existing descriptor-disambiguation issues unrelated to
-   wrappers. Estimate from prior session's HANDOVER: 1–2 weeks of
-   triage once #12 lands.
+1. **`OutputDebugTraceTest::testCallMain`** — bytecode-dump test
+   with hard-coded constant-pool indices (`<0x02>` vs `<0x07>`,
+   etc.). Fixture re-compiled with newer javac, CP layout shifted.
+   Pre-existing fixture-stale issue, unrelated to #12. Re-snapshot
+   when someone next touches the fixture.
 
-2. **#12 boxing refactor — remaining slices.** Long/float/double/
-   char/byte/boolean wrapper families. Pattern is now validated;
-   each slice is mechanical (~hour each). Total 3–5 more slices +
-   final Type-class deletion + Normalizer.php cleanup ≈ 1–2 weeks.
+2. **`testDoublePoint*` rendering parity (resolved by test update,
+   noted for posterity).** Post-#12, method returns are raw PHP
+   float; `(string) 3.0 == "3"`, not `"3.0"` (Java's
+   `Double.toString` form). If Java-parity rendering is needed at
+   the API boundary later, add `Normalizer::normalizeReturnValue`
+   call in `JavaMethodCallable::call` (wraps return value by method
+   descriptor — symmetric to how `_putfield`/`_putstatic` already
+   wrap by field descriptor).
 
-3. **24h Swoole soak test.** Harness ready; needs 24h elapsed wall
-   time on hbt-server (or equivalent). Validates LRU caps + memory
-   plateau + latency tail.
+3. **`testLong*` / `testIfLcmp*` descriptor disambiguation
+   (pre-existing).** Method finder needs overload resolution by
+   arg-type signatures, not just name. Independent of #12.
+   Currently the int-arith and long-arith slices' test helpers
+   accept either wrapped or raw via `is_object($cv) ? ->getValue()
+   : $cv` defensively, so these tests aren't surfaced as failures
+   — but the underlying disambiguation gap remains.
 
-4. **Tier 2 JDK shim layer.** ~233 classes per CLOJURE-BOOT-ANALYSIS.
-   Mechanical, parallelisable, 2–4 person-months. Not on any
-   single-session critical path. Required for "real Java library
-   actually executes its work" (Q3.1 from MODEL.md).
+4. **24h Swoole soak.** Harness ready (`bench/soak-aot.php`).
+   Operator-driven, 18-second smoke validated 1064 iterations
+   clean.
 
-5. **Tier 1a interpreter rewrite.** Switch-dispatch over int-array
-   bytecode, frame state in PHP locals. Lower priority since AOT
-   covers the perf-critical path.
+5. **Tier 2 JDK shim layer** (~233 classes per CLOJURE-BOOT-ANALYSIS).
+   Mechanical, parallelisable, 2-4 person-months. Unblocks every
+   Tier 3 probe.
 
 ### What was rejected (anti-context — most valuable section per CLAUDE.md)
 
 These were considered and rejected this session; future contributors
 should not re-derive them.
 
-- **Do not remove `#[\AllowDynamicProperties]` even now that field
-  decls are emitted.** Reflection / synthetic / runtime-defined
-  property writes still need it, and we have no rank-1 evidence
-  yet on how production code uses dynamic properties. Keep
-  defensive until a probe surfaces a need to remove.
+- **Do not unwrap `_bastore` / `_castore` / `_sastore`.** They are
+  the array-element-type-tag boundary, the array equivalent of
+  `_putfield` / `_putstatic`. Unwrapping breaks downstream
+  field-read rendering (e.g., char arrays render as int strings
+  instead of unicode characters). Earlier sub-slice testing confirmed
+  +14 failures when `_iastore`-style unwrap pattern was applied to
+  these. Keep the wrap. The wrap *is* the contract.
 
-- **Do not skip emitting `<init>` even when no caller seems to
-  invoke it directly.** Records construct their fields via
-  `<init>`'s putfield body; without emit, `new Record(...)` at the
-  call site silently uses PHP's default no-arg constructor and
-  fields never get set. Discovered when the first BenchRecord
-  attempt produced empty Points.
+- **Do not wholesale-delete the `Type` wrapper subclasses.** Per
+  BOXING.md "wrappers shrink to static-method namespaces +
+  reflection metadata" — the shrinkage is at the call-site level
+  (zero `::get` calls in non-boundary mnemonics now), not class
+  deletion. The classes are still load-bearing for:
+  (a) `__toString` rendering at storage reads (Char_'s
+  `json_decode(sprintf('"\\u%04X"', $value))` is non-trivial),
+  (b) `::filter` 32-bit masks and BigDecimal preservation
+  (Int_, Byte_, Short_, Double_), and (c) `::class` type tags
+  for descriptor resolution (TypeResolver, MnemonicResolver,
+  StackMapTable, Descriptor).
 
-- **Do not pursue per-iadd "skip mask when overflow can't happen"
-  optimization yet.** The 0.20 ns / iadd mask cost is well within
-  the CONTRACTS.md §1 budget. Static-range analysis to skip masks
-  on bounded loop counters is a real win (~10-15% on int-heavy
-  code), but speculative until a benchmark actually demands it.
+- **Do not skip the `static::class` cache key in `Type::get()`.**
+  This is the full-session load-bearing fix (`50e81b4`). The
+  previous shared-cache shape is a 7-year-old latent bug that
+  kicks in catastrophically once any push-site stops pre-populating
+  the cache. -34 errors, -35 failures came from this 1-line change.
 
-- **Do not run a "real Java library" probe (Q3.1 from MODEL.md)
-  yet.** The AOT covers 100% of commons-lang3 bytecode shape, but
-  PDFBox / Tika / iText all use `java.io` / `java.nio` / `java.util.*`
-  — none of which we have shims for. The probe would immediately
-  fall over on missing shim methods. Q3.1 only becomes meaningful
-  *after* Tier 2 shim coverage.
+- **Do not try to reintroduce wrappers at the operand-stack push
+  side for "type tracking".** The 32-bit signed-int mask
+  (`($v << 32) >> 32`) at arithmetic and conversion sites preserves
+  the JVM bit semantics without needing a wrapper instance. The
+  wrap belongs at storage boundaries (field/array element type),
+  not on the operand stack.
 
-- **Do not collapse short Loader fixture (`bench/aot-record.php`)
-  into the contract gate.** The contract gate snapshots emit-shape;
-  records exercise runtime behaviour (instance dispatch + bootstrap
-  semantics). Different concerns; keep separate.
+- **Do not retry method-return wrapping in `JavaMethodCallable::call`
+  unless a real consumer demands Java-parity rendering.** Tests
+  asserting Java-style stringification (`'3.0'`) were updated to
+  PHP-native shape. Adding return-wrapping reintroduces
+  per-method-call wrapper allocation and contradicts CONTRACTS.md §1.
+  If someone ever ships a Java-API-surface (e.g., Java `Double.toString`
+  callable from PHP), wrap there, not in the call dispatcher.
 
-- **Do not do `Loader::reset()` mid-loop in the soak harness.**
-  PHP can't undefine eval'd classes; the Loader-registry reset
-  alone causes "cannot redeclare" fatals on next load. Use
-  `Compiler::clearCompileCache()` instead — that's the analogous
-  LRU-eviction stress test without the eval problem.
+- **Do not chase `OutputDebugTraceTest::testCallMain` until someone
+  re-snapshots the fixture.** Hard-coded CP indices in expected
+  output. javac version drift breaks this independently of any
+  PHPJava change.
 
-- **Do not defeat javac constant-folding by using literal arithmetic
-  in fixtures.** `Integer.MAX_VALUE + 1` constant-folds at compile
-  time to a literal `ldc -2147483648; ireturn` — never executes
-  any iadd opcode. First BenchIntOverflow attempt was meaningless
-  for this reason; second version takes args, defeats fold.
+- **Do not single-shot benchmark interpreter changes.** Same
+  anti-context as the prior HANDOVER — PHP's tracing JIT cache
+  pollutes between fixture loads; first-after-shell runs can show
+  6× regressions that disappear on re-run. 5-run median minimum.
 
-- **Do not single-shot benchmark the AOT pipeline.** PHP's tracing
-  JIT trace cache pollutes between fixture-loads; first-after-shell
-  runs can show 6× regressions that disappear on re-run. The
-  "empty-method 22 → 127 ns/call" regression I reported turned out
-  to be pure cold-cache noise. 5-run median is the minimum.
-
-- **Do not drop the JVM 32-bit overflow mask for raw perf.** The
-  wrapper-removal slice initially dropped both wrapping AND the
-  implicit mask (Int_::filter did `($v << 32) >> 32` internally).
-  Without the mask, `Integer.MAX_VALUE + 1` returns 2147483648
-  instead of -2147483648 — semantically wrong. Re-applied
-  explicitly per CONTRACTS.md §1 at 0.20 ns/iadd cost.
+- **Do not assume operand-stack-side wrap-removal is type-tag-safe
+  in isolation.** Cross-class `Type::get` cache aliasing is the
+  underlying coupling. The session lost ~30 minutes to sub-slicing
+  and reverting before identifying the cache as the root cause.
+  Future wrap-removal in adjacent areas should pre-check
+  `static $instantiated` keying.
 
 ---
 
@@ -308,46 +281,53 @@ should not re-derive them.
 
 ### Immediate (next session)
 
-Three loose ends, all small:
+1. **AOT classloader integration into `JavaClass::load`.** Per
+   CONTRACTS.md §3 + §5, wire AotEager / AotLazy strategies into
+   the standard classloader so production reaches AOT through the
+   normal `JavaClass::load($cp)` path, not just
+   `\PHPJava\Aot\Loader::callStatic`. New
+   `JavaClassAotMethodInvoker`. Days-week scope.
 
-1. **Push the branch.** 23 commits ahead of `origin/roadmap`, all
-   green locally; nothing exotic in any commit. `git push`.
-
-2. **Run the 24h Swoole soak.** Harness is ready
-   (`bench/soak-aot.php`). Operator-driven; results inform whether
-   LRU cap of 1000 is right for production load profiles, and
-   whether memory plateaus.
-
-3. **Continue #12 boxing slices.** Pattern is validated. Long is
-   simplest (no mask needed; PHP int = JVM long = 64-bit). Each
-   slice is ~hour and recovers ~9 PHPUnit errors. 3-5 slices plus
-   final Type-class deletion → #11 + #12 effectively complete.
+2. **24h Swoole soak.** Operator-driven on hbt-server:
+   ```
+   nohup php bench/soak-aot.php > /tmp/soak-$(date +%s).jsonl 2>&1 &
+   ```
+   Validates LRU cap of 1000, memory plateau, latency tail.
 
 ### Medium-term
 
-- **Q3.1 probe** (per MODEL.md): pick the smallest real Java library
-  whose dependencies fit in our current shim coverage (System.out +
-  basic math + arrays). Apache Commons Lang's `ArrayUtils` might
-  qualify if you stub out the few `String`/`Object`-dependent
-  methods. Validates the AOT-pipeline-end-to-end story on
+- **Lazy CallSite shim for unknown indy bootstraps** beyond
+  StringConcatFactory / LambdaMetafactory / ObjectMethods /
+  SwitchBootstraps. Covers custom dynamic-language dispatch (JRuby,
+  Groovy 3+, Scala 3 indy patterns). ~1 week per pattern; lazy
+  fallback first that emits a runtime-resolve.
+
+- **1c-β remnants** for non-empty BB-entry stacks at exception
+  handler entry points. 100% commons-lang3 already, but
+  pathological hand-crafted bytecode could surface gaps. Days.
+
+- **Tier 2 shim coverage** for the bb allowlist (~233 classes per
+  CLOJURE-BOOT-ANALYSIS). Months of mechanical work,
+  parallelisable. Required for Q3.1 (real Java library probe).
+
+- **Q3.1 probe** (per MODEL.md): pick the smallest real Java
+  library whose dependencies fit current shim coverage (System.out
+  + basic math + arrays). Validates AOT-pipeline-end-to-end on
   non-fixture code.
-
-- **Tier 2 shim coverage** for the bb allowlist (~80 classes per
-  CLOJURE-BOOT-ANALYSIS). Months of mechanical work; parallelisable.
-
-- **Per-iadd mask skip** if profiling demands it. Static range
-  analysis: bounded loop counters skip the mask. Likely worth ~10%
-  on int-heavy hot loops.
 
 ### Optional polish
 
-- Naming/branding (the fork is meaningfully different from upstream's
-  "fun JVM in PHP" goal; rename when stable).
-- Remove the dead string-path emitter in `Compiler::compileMethod`
-  once #12 + Tier 2 give us confidence the IR path covers everything
-  in practice (deferred per ROADMAP.md item #10 with documented
-  rationale: needs rank-1 evidence on more than one JAR before
-  removing 1500-line fallback).
+- `OutputDebugTraceTest::testCallMain` re-snapshot — when fixture
+  next touched.
+
+- Method-return wrapping by descriptor — if/when Java-parity
+  rendering at the PHP API boundary becomes a real requirement.
+
+- Naming/branding rename — fork is meaningfully different from
+  upstream's "fun JVM in PHP" goal.
+
+- Dead string-path emitter removal (ROADMAP #10 deferred) —
+  re-evaluate after Q3.1 probe.
 
 ---
 
@@ -355,22 +335,23 @@ Three loose ends, all small:
 
 | Concern | File / location |
 |---|---|
-| AOT entry | `\PHPJava\Aot\Loader::callStatic($cp, $method, ...$args)` |
-| Compile cold | `(new Compiler())->compileBytes($cp, $bytes)` |
-| Compile cache | `Compiler::compileBytesCache` / `compileClassCache` (LRU, env: `PHPJAVA_AOT_CACHE_MAX`) |
+| AOT entry (current) | `\PHPJava\Aot\Loader::callStatic($cp, $method, ...$args)` |
+| AOT entry (target after classloader integration) | `JavaClass::load($cp)->getInvoker()->getStatic()->getMethods()->call($method, ...$args)` |
+| Compile cache | `Compiler::compileBytesCache` / `compileClassCache` (LRU, env: `PHPJAVA_AOT_CACHE_MAX`, default 1000) |
+| Type wrapper cache (now per-subclass) | `src/Kernel/Types/Type.php:60` |
+| Cache repro | `/tmp/cache-probe.php` |
 | Reproduce real-lib probe | `apt install libcommons-lang3-java && php bench/probe-real-library.php` |
 | Reproduce AOT bench | `php -d opcache.enable_cli=1 -d opcache.jit=tracing -d opcache.jit_buffer_size=1024M bench/bench-aot.php` |
 | Reproduce overflow correctness | `php bench/aot-overflow.php` |
-| Reproduce mask-cost microbench | `php -d opcache.enable_cli=1 -d opcache.jit=tracing -d opcache.jit_buffer_size=1024M bench/bench-int-mask.php` |
 | Reproduce records E2E | `php bench/aot-record.php` |
 | Soak (24h) | `nohup php bench/soak-aot.php > /tmp/soak-$(date +%s).jsonl 2>&1 &` |
-| Test suite | `vendor/bin/phpunit` (49 errors / 47 failures expected; #11/#12 work) |
+| Test suite | `vendor/bin/phpunit` (0 err / 1 fail / 1 skipped) |
 | Contract gate | `php bench/contract.php [--update]` |
 | AOT IR | `src/Aot/Ir/{Builder,Lowerer,Node,InlinePass,ArrayHelper}.php` |
 | AOT compile | `src/Aot/Compiler.php` |
-| AOT runtime helpers | `src/Aot/Runtime/bootstrap.php` (jvm_lushr, jvm_multianewarray, jvm_typeswitch, System/PrintStream/Throwables) |
+| AOT runtime helpers | `src/Aot/Runtime/bootstrap.php` |
 | Loader | `src/Aot/Loader.php` |
-| Interpreter Mnemonics | `src/Kernel/Mnemonics/_*.php` (200 files; #12 has touched 20 of them so far) |
+| Interpreter Mnemonics | `src/Kernel/Mnemonics/_*.php` (200 files; #12 has touched ~75 of them across all slices) |
 
 ### Doc tree (read in order if landing fresh)
 
@@ -381,8 +362,9 @@ Three loose ends, all small:
 | 3 | `docs/CONTRACTS.md` | normative spec — interfaces, value-rep, dispatch |
 | 4 | `docs/PATTERNS.md` | the five measured rules + JIT-claims battery |
 | 5 | `docs/STATUS.md` | current state — including the rank-1 perf table |
-| 6 | `ROADMAP.md` | tier ordering, exit criteria, work-plan items + #10 deferred |
+| 6 | `ROADMAP.md` | tier ordering, exit criteria, work-plan items |
 | 7 | `bench/probe-real-library.md` | rank-1 commons-lang3 coverage report |
+| ref | `docs/BOXING.md` | wrapper-removal rationale + JVM contract mapping |
 | ref | `docs/JVM-PHP-DELTA.md` | platform/semantic/API deltas |
 | ref | `docs/CLOJURE-BOOT-ANALYSIS.md` | empirical class-load trace (T2 sizing) |
 
@@ -391,10 +373,10 @@ Three loose ends, all small:
 ## Stamp
 
 - **Date:** 2026-05-03
-- **SHA:** `10cbc3b` (branch `roadmap`, **not yet pushed** at handover)
+- **SHA:** `390e46d` (branch `roadmap`, pushed to `origin/roadmap`)
 - **Repository:** https://github.com/hbtweb/php-java
 - **Author of session:** Claude (Opus 4.7) working with Apollo Nicolson
-- **Total commits this session:** 23 (10 work-plan items + 4 surfaced gaps + 1 soak harness + 3 boxing slice + 4 follow-on)
-- **Branch state:** 23 commits ahead of `origin/roadmap`, working tree clean
-- **Test status:** 9/9 fixture tests + 4/4 record tests + 18/18 overflow + Loader smoke all PASS; PHPUnit 49 errors / 47 failures (pre-session baseline ~ same; not regressed)
-- **Probe status:** 100% IR / 4983 methods / 0 fallbacks / 0 top-level fails on commons-lang3
+- **Total commits this session:** 8 (4 type-family slices + 1 root-cause fix + 2 dependent slices + 1 test-alignment)
+- **Branch state:** even with `origin/roadmap`, working tree clean
+- **Test status:** 0 errors / 1 failure / 1 skipped (testCallMain fixture-stale, unrelated to #12)
+- **Probe status:** 100% IR / 4983 methods / 0 fallbacks on commons-lang3

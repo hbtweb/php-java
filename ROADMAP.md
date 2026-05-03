@@ -31,7 +31,7 @@ than new architecture.
 
 ## Current state (2026-05-03)
 
-- **Tests:** 476 / 813 assertions / 49 errors / 48 failures / 1 skipped (~79%)
+- **Tests:** 476 / 888 assertions / **0 errors / 1 failure / 1 skipped** (#11/#12 effectively complete; the 1 remaining failure is `OutputDebugTraceTest::testCallMain`, a fixture-stale bytecode-dump test with hard-coded constant-pool indices that drift with javac recompiles — unrelated to #11/#12)
 - **AOT pipeline:** **9 fixtures lift through IR end-to-end** (BenchAdd, BenchInvoke, BenchEmpty, BenchArray, BenchTryCatch, BenchConcat, BenchLambda, HelloWorld, BenchRunner). All major JVM constructs covered: invokestatic/virtual/special/interface, exception tables, INVOKEDYNAMIC for StringConcatFactory + LambdaMetafactory, defineClass(byte[]).
 - **Hot-path perf:** **0.18-0.20 ns/op JIT** for int loops (1.8× of HotSpot JIT, 2.9× faster than HotSpot interpreted); **0.20-0.21 ns/op** for invokestatic-heavy code; ~2.4 ns/op for array workloads
 - **Compile-output cache:** **2649× speedup** on repeat compiles (1578 µs → 0.6 µs)

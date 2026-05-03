@@ -2,7 +2,8 @@
 
 > Snapshot of where we are, what's measured, what's next.
 > Updated as work lands. The roadmap is a hypothesis; this is reality.
-> Last updated after IR migration + escape analysis + compile cache (HEAD = `a5fc4ca`).
+> Last updated after #12 wrapper-removal complete + Type::get root-cause
+> fix (HEAD = `390e46d`).
 
 ## Headline
 
