@@ -1,18 +1,35 @@
-# Project status — 2026-05-01
+# Project status — 2026-05-03
 
 > Snapshot of where we are, what's measured, what's next.
 > Updated as work lands. The roadmap is a hypothesis; this is reality.
-> Last updated after JVM-PHP-DELTA.md committed (commit `b633bbe`).
+> Last updated after IR migration + escape analysis + compile cache (HEAD = `a5fc4ca`).
 
 ## Headline
 
-**The unified-compiler model is rank-1 validated.** A real AOT compiler
-walks PHPJava's parsed bytecode and emits PHP that runs at **14 ns/op
-no opt / 3.2 ns/op opcache+JIT — 468× faster than current PHPJava and
-within 6× of HotSpot interpreted.**
+**The AOT pipeline is feature-complete and within 1.8× of HotSpot JIT.**
+A real compiler walks PHPJava's parsed bytecode through an IR substrate
+(Module + Method + BasicBlock + Stmt + Terminator + Expr) and lowers
+to PHP that runs at **0.18-0.20 ns/op JIT for hot int loops, 0.20 ns/op
+for invokestatic-heavy code, 2.4 ns/op for array workloads**. All 9
+fixtures lift through the IR with zero string-path fallbacks.
 
-The architecture works. The remaining work is mechanical: full opcode
-coverage, capability completeness, surface fill.
+**Compile-output caching gives 2649× speedup on repeat compiles**
+(1578 µs cold → 0.6 µs warm), making runtime AOT viable for long-
+running daemons. For Clojure-boot equivalent (~600 classes): cold
+~947 ms, cache replay ~0 ms.
+
+**What's done:** opcode coverage (~150 ops including all 4 dispatch
+types, exception flow, arrays, INVOKEDYNAMIC for StringConcatFactory
++ LambdaMetafactory, defineClass(byte[])). Stack-erasure peephole.
+Cross-method inlining at IR level (Tier 1c-γ). Escape analysis on
+Java arrays (Tier 1c-δ — closes the 10× property-access cost).
+
+**What remains:** ObjectMethods (Java records), SwitchBootstraps
+(Java 21+ pattern switch), the 233-class T2 JDK shim layer, LRU
+cache eviction for long-running daemons, full abstract-stack
+tracking for non-empty BB-entry stacks. None of the remaining work
+is on the architecture critical path — it's all capability fill or
+edge-case polish.
 
 ## What's measured (rank 1)
 
@@ -236,10 +253,16 @@ Plus 7 measurement harnesses in `bench/`:
 | Bench harness (FFM-based) | ✓ working | `bench/baseline.clj`, `bench/bench-cli.php` |
 | Profile harness (xhprof) | ✓ working | `bench/profile-xhprof.php` + LD_PRELOAD |
 | Switch-dispatch interpreter (spike) | hand-coded subset of 9 opcodes | `bench/spike-fast-interp.php` |
-| AOT compiler (real, walks PHPJava parser) | **~150 opcodes** — full mechanical coverage modulo lambda metafactory + nested exception ranges | `src/Aot/Compiler.php` |
+| **AOT compiler (string-path)** | ~150 opcodes; covered by IR fallback | `src/Aot/Compiler.php` |
+| **IR substrate** | Module + Method + BasicBlock + Stmt + Terminator + Expr | `src/Aot/Ir/Node.php` |
+| **IR Builder (bytecode → IR)** | 9/9 fixtures lift cleanly; bake-in stack erasure via abstract-stack | `src/Aot/Ir/Builder.php` |
+| **IR Lowerer (IR → PHP)** | live-label elision + redundant-goto elision + try/catch wrapping | `src/Aot/Ir/Lowerer.php` |
+| **IR InlinePass** | cross-method inlining as IR transform; replaces post-emit-text pass | `src/Aot/Ir/InlinePass.php` |
+| **IR escape analysis (Java arrays)** | LocalRead-source detection in iaload/iastore; bypasses 10× wrapper cost | `src/Aot/Ir/Builder.php` (in array-opcode emit) |
+| **Compile-output cache** | per-(classPath, bytes) memoization; 2649× speedup on repeat compile | `Compiler::compileBytes/compileClass` |
 | AOT bytecode-bytes path (`compileBytes`) | ✓ defineClass(byte[]) entry — raw `.class` → AOT'd PHP without ClassResolver | `Compiler::compileBytes()` |
-| AOT contract gate (drift detection) | ✓ snapshot+diff over 8 fixtures | `bench/contract.php`, `bench/contract-snapshots.json` |
-| AOT bench harness | ✓ rank-1 measured 0.77 ns/op | `bench/bench-aot.php` |
+| AOT contract gate (drift detection) | ✓ snapshot+diff over 9 fixtures | `bench/contract.php`, `bench/contract-snapshots.json` |
+| AOT bench harness | ✓ rank-1 measured 0.18-0.20 ns/op JIT iadd-1k | `bench/bench-aot.php` |
 | AOT-clean stdlib shim | ✓ `\PHPJava\Aot\Runtime\java\lang\System` + `java\io\PrintStream` | `src/Aot/Runtime/bootstrap.php` |
 | Test suite unblock for JDK 25 | ✓ committed | `tests/Cases/Base.php` |
 
@@ -275,20 +298,33 @@ Plus 7 measurement harnesses in `bench/`:
 ~130 stubs). Bigger than the earlier "~383" estimate but a meaningful
 fraction is generator-amenable stubs.
 
-## Ranked next steps (revised after pattern validation)
+## Ranked next steps (revised 2026-05-03 after IR migration)
 
-The pattern measurements (`docs/PATTERNS.md`) collapse the prior 8-step
-sequence to **3 weeks of focused work**. Most H1–H8 / M1–M4 fixes from
-the original ROADMAP collapse to one structural change.
+The original 3-week plan around H1-H8 hot-loop fixes is mostly
+overtaken by the IR migration — the AOT compiler now sits at ~0.18
+ns/op JIT for hot int loops (~1.8× of HotSpot JIT). Remaining work
+is capability surface + production hardening.
 
-**Week 1 — interpreter rewrite + AOT opcode coverage**
-1. Rewrite `JavaMethodCallable::call` as switch over pre-decoded int
-   array, frame state in PHP locals. Cut the per-opcode class tree
-   (`Kernel/Mnemonics/_*::execute()` ~200 files). H1–H8 + M1–M4 mostly
-   collapse to this single change.
-2. Expand `src/Aot/Compiler.php` to full opcode coverage. ~200 cases
-   each ~5 LOC. The compiler's emit functions mirror the new
-   interpreter's switch cases — same pattern, different consumer.
+**Capability fill (parallelisable, not blocking):**
+- ObjectMethods bootstrap (Java records' equals/hashCode/toString) — hours
+- SwitchBootstraps (Java 21+ pattern switch) — hours
+- 233-class T2 JDK shim layer — months, can run in parallel
+
+**Production hardening (small, before production deploy):**
+- LRU eviction for Compiler caches (long-running daemons would otherwise leak)
+- Long-running Swoole soak test (24h at sustained load)
+- AOT classloader integration into JavaClass::load (wires the strategy decision per CONTRACTS.md §5)
+
+**Optional perf squeeze (diminishing returns; current is within 1.8× HotSpot JIT):**
+- Constant folding + DCE at IR level (~hours each; F-IR2 confirms cheap)
+- Full abstract-stack tracking for non-empty BB-entry stacks (~days)
+
+**Cleanup:**
+- Remove dead string-path emitter code now that IR is the default and string-path is fallback-only
+
+**Original H1-H8 interpreter work — now lower priority:**
+1. Rewrite `JavaMethodCallable::call` as switch over pre-decoded int array. The interpreter is still useful as Tier 0 fallback per CONTRACTS.md §3, but AOT covers the perf-critical path.
+2. ~~Expand AOT compiler opcode coverage~~ — done; 9/9 fixtures lift through the IR.
 
 **Week 2 — boxing refactor + test suite**
 3. Drop `Int_`/`Long_`/`Double_`/`Boolean_`/`Char_` wrappers from

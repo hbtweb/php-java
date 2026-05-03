@@ -1,6 +1,9 @@
 # PHPJava patterns — what the data says
 
-> Date: 2026-05-01.
+> Date: 2026-05-01 (initial); updated through 2026-05-03 with JIT-claims
+> battery, extension-overhead measurements, stack-erasure peephole,
+> cross-method inlining at IR level, escape analysis on arrays, and
+> compile-cache 2649× speedup findings.
 > All measurements rank 1, run on PHP 8.4.20 and 8.5.2 with and without
 > opcache+JIT. Source: `bench/validate-patterns.php`,
 > `bench/validate-hotloop.php`, `bench/validate-datastructures.php`,

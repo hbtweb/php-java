@@ -29,14 +29,16 @@ than new architecture.
 | F3 | Concurrency adapter > 2kloc → narrow goal | open | depends on Swoole/FFI work |
 | F4 | cljp-bridge cost > 50 µs → drop bridge | open | only meaningful after AOT lands |
 
-## Current state (2026-05-01)
+## Current state (2026-05-03)
 
 - **Tests:** 476 / 813 assertions / 49 errors / 48 failures / 1 skipped (~79%)
-- **Smoke:** HelloWorld.class runs ✓
-- **Interpreter perf:** measured 5.22 µs/op (current); 22 ns/op (spike with Phase 2 fixes); 5.6 ns/op (naive AOT spike); 0.4 ns/op (idiomatic AOT spike) — see `bench/`
+- **AOT pipeline:** **9 fixtures lift through IR end-to-end** (BenchAdd, BenchInvoke, BenchEmpty, BenchArray, BenchTryCatch, BenchConcat, BenchLambda, HelloWorld, BenchRunner). All major JVM constructs covered: invokestatic/virtual/special/interface, exception tables, INVOKEDYNAMIC for StringConcatFactory + LambdaMetafactory, defineClass(byte[]).
+- **Hot-path perf:** **0.18-0.20 ns/op JIT** for int loops (1.8× of HotSpot JIT, 2.9× faster than HotSpot interpreted); **0.20-0.21 ns/op** for invokestatic-heavy code; ~2.4 ns/op for array workloads
+- **Compile-output cache:** **2649× speedup** on repeat compiles (1578 µs → 0.6 µs)
+- **Interpreter perf:** measured 5.22 µs/op (current); 22 ns/op (spike with Phase 2 fixes) — see `bench/`. Interpreter rewrite is now lower priority since AOT covers the perf-critical path.
 - **JDK ceiling:** declared up to 19 (class file 63), practical ceiling is Java 8 + partial Java 9–11; details in `docs/GAP-JDK.md`
-- **Stub coverage:** ~80% of `src/Packages/` files raise `NotImplementedException`
-- **Architecture:** dispatch boundary already polymorphic via `InvokerInterface`; AOT slots in as a third invoker alongside the existing bytecode interpreter and PHP-shim invoker
+- **Stub coverage:** ~80% of `src/Packages/` files raise `NotImplementedException` (T2 work)
+- **Architecture:** IR-based AOT (Module + Method + BasicBlock + Stmt + Terminator + Expr) wraps PHPJava's bytecode parser. String-path emitter retained as fallback for unsupported opcodes. All 9 fixtures lift via IR with zero fallbacks.
 
 ## The work, in tiers
 
@@ -123,16 +125,33 @@ stack flow, exception-handler entry stacks. Estimated 4–8h on top of
 idiomatic at 0.2 ns/op vs our 0.18 — the peephole already absorbed
 most of the value).
 
-**Sub-step 1c-γ: cross-method inlining.** Addresses the 22× static-call
-cost the JIT-claims battery surfaced. With stack erasure done, calls
-are clean PHP expressions and inlining becomes string substitution
-plus local-var renaming. Estimated days, biggest perf headroom for
-invokestatic-heavy workloads.
+**Sub-step 1c-γ: cross-method inlining — DONE 2026-05-03.** First
+shipped as post-emit-text substitution; then ported to IR-level
+transform pass (`src/Aot/Ir/InlinePass.php`, ~120 LOC). Detects
+single-`Return_(pure-Expr)` methods, substitutes `StaticCall` sites
+with the parameterised return expression. Iterated to fixpoint.
+Rank-1 measured: BenchInvoke::callLoop() JIT **4.05 → 0.20 ns/op**
+(~20× win once IR-level inline pass landed; the IR-level version is
+faster than the string-text version because it produces cleaner
+output without redundant parens).
 
-**Sub-step 1c-δ: escape analysis on Java arrays.** Drop the
-`stdClass{v}` wrapper for arrays whose lifetime is bounded to the
-emitting method (no escape via field write, return, or method-arg).
-Closes the 10× property-access cost the JIT-claims battery surfaced.
+**Sub-step 1c-δ: escape analysis on Java arrays — DONE 2026-05-03.**
+The IR Builder's iaload/iastore/arraylength opcodes detect when the
+array operand is a `LocalRead(N)` and emit direct `$L[N][$i]`
+operations instead of going through the `(object){'v' => ...}`
+ArrayHelper wrapper. Closes the 10× property-access cost. Three new
+IR nodes: `StoreArrayElement` Stmt, `ArrayElementRead` Expr,
+`ArrayLengthRead` Expr. For non-LocalRead sources (arrays from
+fields, method returns), falls back to ArrayHelper which handles
+both wrapped and raw shapes dynamically.
+
+**Sub-step 1c-β: full abstract-stack tracking — REMAINING.** Catches
+the cases the peephole + IR-bake-in misses — push+push+arith-
+without-immediate-store, cross-block stack flow, non-empty stack at
+exception-handler entry. Estimated 4–8h on top of 1c-α. Probably
+~1.5× additional headroom (per spike's hand-emit idiomatic at 0.2
+ns/op vs our 0.18 — the existing build-time stack erasure already
+absorbed most of the value).
 
 ### Tier 2 — surface coverage (shared by all Tier 1 strategies)
 
