@@ -69,6 +69,11 @@ final class Lowerer
             } elseif ($bb->term instanceof CondGoto) {
                 $liveLabels[$bb->term->thenPc] = true;
                 // Fall-through PC (elsePc) is NOT a live label.
+            } elseif ($bb->term instanceof Switch_) {
+                $liveLabels[$bb->term->defaultPc] = true;
+                foreach ($bb->term->cases as $tgt) {
+                    $liveLabels[$tgt] = true;
+                }
             }
             foreach ($bb->tryProtect as $entry) {
                 $liveLabels[$entry['handlerPc']] = true;
@@ -156,6 +161,14 @@ final class Lowerer
         }
         if ($t instanceof Throw_) {
             return "        throw " . $this->lowerExpr($t->value) . ";";
+        }
+        if ($t instanceof Switch_) {
+            $key = $this->lowerExpr($t->key);
+            $caseLines = '';
+            foreach ($t->cases as $val => $tgt) {
+                $caseLines .= "            case {$val}: goto L_{$tgt};\n";
+            }
+            return "        switch ({$key}) {\n{$caseLines}            default: goto L_{$t->defaultPc};\n        }";
         }
         throw new \LogicException('Unhandled Terminator: ' . $t::class);
     }

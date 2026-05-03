@@ -180,6 +180,17 @@ final class Builder
             } elseif (in_array($op, [0x15, 0x16, 0x17, 0x18, 0x19, 0x36, 0x37, 0x38, 0x39, 0x3A, 0x84], true)) {
                 $maxSlot = max($maxSlot, $bytes[$pc] ?? 0);
             }
+            // Variable-length switch opcodes — record all targets,
+            // advance pc past the (padded) operand block.
+            if ($op === 0xAA || $op === 0xAB) {
+                $sw = $this->parseSwitch($bytes, $start);
+                $this->branchTargets[$sw['default']] = true;
+                foreach ($sw['cases'] as $tgt) {
+                    $this->branchTargets[$tgt] = true;
+                }
+                $pc = $sw['nextPc'];
+                continue;
+            }
             $pc += $this->opcodeLength($op);
         }
 
@@ -376,6 +387,20 @@ final class Builder
                 $tgt = $start + $offset;
                 $this->spillStackToSlot($tgt);
                 $this->currentBb->term = new Goto_($tgt);
+                return;
+            // ── tableswitch / lookupswitch ─────────────────────────
+            // Emit Switch_ Terminator (pop key first; spill any residual
+            // stack to slots shared by ALL successor PCs — verifier
+            // guarantees same shape across default + cases).
+            case 0xAA:
+            case 0xAB:
+                $sw = $this->parseSwitch($bytes, $start);
+                $key = $this->pop();
+                $this->spillStackForSwitch($sw['default'], array_values($sw['cases']));
+                $this->currentBb->term = new \PHPJava\Aot\Ir\Switch_(
+                    $key, $sw['default'], $sw['cases']
+                );
+                $this->pc = $sw['nextPc'];
                 return;
             // ── return ──────────────────────────────────────────────
             case 0xAC: case 0xAD: case 0xAE: case 0xAF: case 0xB0:
@@ -766,6 +791,91 @@ final class Builder
         foreach ($this->bbEntrySlots[$startPc] as $slot) {
             $this->push(new LocalRead($slot));
         }
+    }
+
+    /**
+     * Spill stack to slots shared by all successors of a Switch
+     * terminator (default PC + every case target PC). Same shape across
+     * all per JVM verifier; allocate once on the default-PC entry, mirror
+     * to each case target.
+     *
+     * @param int[] $caseTargetPcs unique target PCs for the case arms
+     */
+    private function spillStackForSwitch(int $defaultPc, array $caseTargetPcs): void
+    {
+        $depth = count($this->abstractStack);
+        if ($depth === 0) return;
+        $slots = $this->allocOrReuseSlots($defaultPc, $depth);
+        foreach ($caseTargetPcs as $tgt) {
+            if (isset($this->bbEntrySlots[$tgt])) {
+                if ($this->bbEntrySlots[$tgt] !== $slots) {
+                    throw new \LogicException(sprintf(
+                        "Switch slot mismatch at PC %d", $tgt
+                    ));
+                }
+            } else {
+                $this->bbEntrySlots[$tgt] = $slots;
+            }
+        }
+        for ($i = $depth - 1; $i >= 0; $i--) {
+            $val = $this->pop();
+            $this->currentBb->stmts[] = new StoreLocal($slots[$i], $val);
+        }
+    }
+
+    /**
+     * Parse a TABLESWITCH (0xAA) or LOOKUPSWITCH (0xAB) instruction
+     * starting at the opcode byte $start. Returns the parsed table
+     * (default target, case-value→target map, byte position after
+     * the operand block).
+     *
+     * Both opcodes are variable-length and have padding bytes after
+     * the opcode to align the first 4-byte operand at an offset that
+     * is a multiple of four from the start of the method.
+     *
+     * @return array{default:int, cases:array<int,int>, nextPc:int}
+     */
+    private function parseSwitch(array $bytes, int $start): array
+    {
+        $op = $bytes[$start];
+        $afterOp = $start + 1;
+        $pad = (4 - ($afterOp & 3)) & 3;
+        $cursor = $afterOp + $pad;
+        $defOff = $this->readS32($bytes, $cursor); $cursor += 4;
+        $cases = [];
+        if ($op === 0xAA) {
+            // tableswitch: low, high, then (high-low+1) offsets
+            $low  = $this->readS32($bytes, $cursor); $cursor += 4;
+            $high = $this->readS32($bytes, $cursor); $cursor += 4;
+            for ($v = $low; $v <= $high; $v++) {
+                $off = $this->readS32($bytes, $cursor); $cursor += 4;
+                $cases[$v] = $start + $off;
+            }
+        } else {
+            // lookupswitch: npairs, then npairs * (match, offset)
+            $npairs = $this->readS32($bytes, $cursor); $cursor += 4;
+            for ($i = 0; $i < $npairs; $i++) {
+                $val = $this->readS32($bytes, $cursor); $cursor += 4;
+                $off = $this->readS32($bytes, $cursor); $cursor += 4;
+                $cases[$val] = $start + $off;
+            }
+        }
+        return [
+            'default' => $start + $defOff,
+            'cases'   => $cases,
+            'nextPc'  => $cursor,
+        ];
+    }
+
+    /** Read a signed 32-bit big-endian int from $bytes at $offset. */
+    private function readS32(array $bytes, int $offset): int
+    {
+        $v = ($bytes[$offset] << 24)
+           | ($bytes[$offset + 1] << 16)
+           | ($bytes[$offset + 2] << 8)
+           |  $bytes[$offset + 3];
+        if ($v & 0x80000000) $v -= 0x100000000;
+        return $v;
     }
 
     /** Single-operand if: pop, compare against $rhs, branch. */

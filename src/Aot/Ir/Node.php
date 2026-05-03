@@ -176,6 +176,22 @@ final class Throw_ extends Terminator {
     public function __construct(public readonly Expr $value) {}
 }
 
+/**
+ * Multi-way branch — emit target for JVM TABLESWITCH (0xAA) /
+ * LOOKUPSWITCH (0xAB). `cases` maps each case value (int) to target PC;
+ * keys not in `cases` route to `defaultPc`. The Lowerer renders as a
+ * PHP `switch` block with `case N: goto L_X;` per case + `default:
+ * goto L_Y;`.
+ */
+final class Switch_ extends Terminator {
+    public function __construct(
+        public readonly Expr $key,
+        public readonly int $defaultPc,
+        /** @var array<int, int>  case value (int) => target PC */
+        public readonly array $cases,
+    ) {}
+}
+
 /** A basic block is the unit of straight-line code. */
 final class BasicBlock {
     public function __construct(
