@@ -347,48 +347,73 @@ final class Builder
             // ── nop ─────────────────────────────────────────────────
             case 0x00:
                 return;
-            // ── array ops ───────────────────────────────────────────
-            // Java arrays wrap as `(object){'v' => phpArray}` — the
-            // string-emitter convention, mirrored here. Each opcode
-            // emits the same wrapper-aware shape.
+            // ── array ops — escape-analysis-aware emit ─────────────
+            // newarray emits raw PHP `\array_fill(0, size, 0)` — no
+            // `(object){v=>...}` wrapper. Subsequent astore-then-aload
+            // patterns track via abstract-stack: when iastore sees
+            // `LocalRead(N)` as the receiver, emit `$L[N][$i] = $v`
+            // directly (StoreArrayElement Stmt), bypassing the
+            // 10× object-property-access cost the JIT-claims battery
+            // surfaced. Same for iaload → ArrayElementRead, and
+            // arraylength → ArrayLengthRead.
+            //
+            // For non-LocalRead sources (e.g. arrays loaded from
+            // fields, returned from method calls), fall back to
+            // ArrayHelper::set/get/len which handles the wrapper +
+            // raw-array cases dynamically. Most hot loops use
+            // local-array patterns so the fast path applies.
             case 0xBC: // newarray (atype byte, length on stack)
                 $this->pc++; // skip atype
                 $size = $this->pop();
                 $this->push(new \PHPJava\Aot\Ir\StaticCall(
-                    '\\PHPJava\\Aot\\Ir\\ArrayHelper', 'newPrimArray', [$size]
+                    '\\array_fill', '', [new IntLit(0), $size, new IntLit(0)]
                 ));
                 return;
             case 0xBD: // anewarray
                 $this->pc += 2;
                 $size = $this->pop();
                 $this->push(new \PHPJava\Aot\Ir\StaticCall(
-                    '\\PHPJava\\Aot\\Ir\\ArrayHelper', 'newRefArray', [$size]
+                    '\\array_fill', '', [new IntLit(0), $size, new \PHPJava\Aot\Ir\NullLit()]
                 ));
                 return;
             case 0xBE: // arraylength
                 $arr = $this->pop();
-                $this->push(new \PHPJava\Aot\Ir\StaticCall(
-                    '\\PHPJava\\Aot\\Ir\\ArrayHelper', 'len', [$arr]
-                ));
+                if ($arr instanceof LocalRead) {
+                    $this->push(new \PHPJava\Aot\Ir\ArrayLengthRead($arr->slot));
+                } else {
+                    $this->push(new \PHPJava\Aot\Ir\StaticCall('\\count', '', [$arr]));
+                }
                 return;
             case 0x2E: case 0x2F: case 0x30: case 0x31: // *aload
             case 0x32: case 0x33: case 0x34: case 0x35:
                 $i = $this->pop();
                 $a = $this->pop();
-                $this->push(new \PHPJava\Aot\Ir\StaticCall(
-                    '\\PHPJava\\Aot\\Ir\\ArrayHelper', 'get', [$a, $i]
-                ));
+                if ($a instanceof LocalRead) {
+                    $this->push(new \PHPJava\Aot\Ir\ArrayElementRead($a->slot, $i));
+                } else {
+                    // Fallback: array came from elsewhere (field, call return, etc).
+                    // Need an in-line array-index expression; build via BinOp shim.
+                    $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                        '\\PHPJava\\Aot\\Ir\\ArrayHelper', 'get', [$a, $i]
+                    ));
+                }
                 return;
             case 0x4F: case 0x50: case 0x51: case 0x52: // *astore
             case 0x53: case 0x54: case 0x55: case 0x56:
                 $v = $this->pop();
                 $i = $this->pop();
                 $a = $this->pop();
-                $this->currentBb->stmts[] = new \PHPJava\Aot\Ir\ExprStmt(
-                    new \PHPJava\Aot\Ir\StaticCall(
-                        '\\PHPJava\\Aot\\Ir\\ArrayHelper', 'set', [$a, $i, $v]
-                    )
-                );
+                if ($a instanceof LocalRead) {
+                    $this->currentBb->stmts[] = new \PHPJava\Aot\Ir\StoreArrayElement(
+                        $a->slot, $i, $v
+                    );
+                } else {
+                    $this->currentBb->stmts[] = new \PHPJava\Aot\Ir\ExprStmt(
+                        new \PHPJava\Aot\Ir\StaticCall(
+                            '\\PHPJava\\Aot\\Ir\\ArrayHelper', 'set', [$a, $i, $v]
+                        )
+                    );
+                }
                 return;
             // ── invoke* ────────────────────────────────────────────
             case 0xB8: // invokestatic

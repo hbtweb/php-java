@@ -47,7 +47,7 @@ ClassResolver::add([
 $compiler = new Compiler();
 $outDir = __DIR__ . '/aot-out';
 if (!is_dir($outDir)) mkdir($outDir, 0755, true);
-$fixtures = ['BenchAdd', 'BenchEmpty', 'BenchInvoke', 'HelloWorld'];
+$fixtures = ['BenchAdd', 'BenchArray', 'BenchEmpty', 'BenchInvoke', 'HelloWorld'];
 foreach ($fixtures as $cls) {
     $path = "{$outDir}/{$cls}.php";
     $emitted = $compiler->compileClass($cls);
@@ -105,6 +105,11 @@ $results = [
     // 100 invokestatic + 100-iter int loop overhead. ~1100 ops.
     'invoke-100' => bench_loop('invoke-100', 10000, 1100,
         fn() => \PHPJava\Aot\Generated\BenchInvoke::callLoop()),
+
+    // sumArray — int[10] init + 10-iter sum-loop = ~70 ops; tests
+    // escape-analysis-aware array emit (raw PHP array, no wrapper).
+    'array-loop' => bench_loop('array-loop', 10000, 70,
+        fn() => \PHPJava\Aot\Generated\BenchArray::sumArray()),
 
     // HelloWorld via subprocess so we don't pollute output. Gross top-
     // line including print I/O — rough, not the headline number.

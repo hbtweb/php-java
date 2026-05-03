@@ -217,6 +217,37 @@ final class StoreField extends Stmt {
     ) {}
 }
 
+/**
+ * Direct array-element write: `$L[$slot][$index] = $value;`.
+ * Used when escape analysis at IR build time confirms the array's
+ * source is a LocalRead — bypasses the `(object){v=>...}` wrapper
+ * and the ArrayHelper::set call, going straight to PHP-array
+ * mutation. Closes the 10× property-access cost the JIT-claims
+ * battery surfaced.
+ */
+final class StoreArrayElement extends Stmt {
+    public function __construct(
+        public readonly int $slot,
+        public readonly Expr $index,
+        public readonly Expr $value,
+    ) {}
+}
+
+/** Direct array-element read: `$L[$slot][$index]`. */
+final class ArrayElementRead extends Expr {
+    public function __construct(
+        public readonly int $slot,
+        public readonly Expr $index,
+    ) {}
+    public function isPure(): bool { return true; }
+}
+
+/** Direct count of an array slot: `count($L[$slot])`. */
+final class ArrayLengthRead extends Expr {
+    public function __construct(public readonly int $slot) {}
+    public function isPure(): bool { return true; }
+}
+
 /** A method's IR. */
 final class Method {
     public function __construct(

@@ -132,6 +132,9 @@ final class Lowerer
         if ($s instanceof StoreField) {
             return "        " . $this->lowerExpr($s->receiver) . "->{$s->field} = " . $this->lowerExpr($s->value) . ";";
         }
+        if ($s instanceof StoreArrayElement) {
+            return "        \$L[{$s->slot}][" . $this->lowerExpr($s->index) . "] = " . $this->lowerExpr($s->value) . ";";
+        }
         throw new \LogicException('Unhandled Stmt: ' . $s::class);
     }
 
@@ -197,6 +200,12 @@ final class Lowerer
         }
         if ($e instanceof FieldRead) {
             return $this->lowerExpr($e->receiver) . "->{$e->field}";
+        }
+        if ($e instanceof ArrayElementRead) {
+            return "\$L[{$e->slot}][" . $this->lowerExpr($e->index) . "]";
+        }
+        if ($e instanceof ArrayLengthRead) {
+            return "\\count(\$L[{$e->slot}])";
         }
         throw new \LogicException('Unhandled Expr: ' . $e::class);
     }
