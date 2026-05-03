@@ -16,10 +16,11 @@ L_0:
     // sumArray ()I
     public static function sumArray()
     {
-$L = [0, 0, 0];
+$L = [0, 0, 0, 0];
         $stack = []; $sp = 0;
 L_0:
-        $L[0] = \array_fill(0, 10, 0);
+        $L[3] = \array_fill(0, 10, 0);
+        $L[0] = $L[3];
         $L[1] = 0;
 L_7:
         if ($L[1] >= 10) goto L_23;

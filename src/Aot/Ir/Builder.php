@@ -443,16 +443,24 @@ final class Builder
             case 0xBC: // newarray (atype byte, length on stack)
                 $this->pc++; // skip atype
                 $size = $this->pop();
-                $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                // Materialise the allocation into a synthetic local so the
+                // typical javac shape `newarray; dup; iconst i; iconst v;
+                // bastore; dup; ...` mutates ONE array instead of one fresh
+                // array_fill per bastore. Without this hoist, each dup'd
+                // copy of the StaticCall(array_fill, ...) re-allocates at
+                // execution time, *astore mutates a temporary that's
+                // immediately discarded, and the final putstatic/putfield
+                // stores yet another fresh-zeroed array.
+                $this->push($this->materialiseToLocal(new \PHPJava\Aot\Ir\StaticCall(
                     '\\array_fill', '', [new IntLit(0), $size, new IntLit(0)]
-                ));
+                )));
                 return;
             case 0xBD: // anewarray
                 $this->pc += 2;
                 $size = $this->pop();
-                $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                $this->push($this->materialiseToLocal(new \PHPJava\Aot\Ir\StaticCall(
                     '\\array_fill', '', [new IntLit(0), $size, new \PHPJava\Aot\Ir\NullLit()]
-                ));
+                )));
                 return;
             case 0xBE: // arraylength
                 $arr = $this->pop();
@@ -749,6 +757,26 @@ final class Builder
     private function emitStoreSlot(int $slot): void
     {
         $this->currentBb->stmts[] = new StoreLocal($slot, $this->pop());
+    }
+
+    /**
+     * Spill an Expr into a fresh synthetic local and return a LocalRead
+     * pointing at it. Used to give an impure Expr (eg \array_fill(...))
+     * a stable identity so subsequent dup/use operations refer to the
+     * same materialised value instead of re-evaluating per consumer.
+     *
+     * Without this, `newarray; dup; iconst i; iconst v; *astore` lowers
+     * to `ArrayHelper::set(\array_fill(...), $i, $v);` — each call
+     * allocates a new array and discards the mutation, so subsequent
+     * putstatic/putfield store a zeroed array. Materialisation makes
+     * the bastore branch see a LocalRead and emit StoreArrayElement
+     * directly (`$L[N][$i] = $v`).
+     */
+    private function materialiseToLocal(\PHPJava\Aot\Ir\Expr $e): \PHPJava\Aot\Ir\LocalRead
+    {
+        $slot = $this->nextSyntheticSlot++;
+        $this->currentBb->stmts[] = new StoreLocal($slot, $e);
+        return new \PHPJava\Aot\Ir\LocalRead($slot);
     }
 
     private function emitBinOp(string $op): void
