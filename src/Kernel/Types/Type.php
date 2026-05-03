@@ -58,7 +58,15 @@ abstract class Type
      */
     public static function get($value = null): self
     {
-        static $instantiated = null;
+        // Cache is keyed by subclass — a single $instantiated would be
+        // shared across every Type subclass since PHP `static` in a
+        // method is per-function, not per-class. Without the
+        // static::class key, Char_::get(32767) and Short_::get(32767)
+        // return the same instance (whichever subclass cached first
+        // wins). #12 wrapper-removal exposed this by changing which
+        // subclass populates the cache first.
+        static $instantiated = [];
+        $bucket = static::class;
         if ($value === null) {
             if (static::DEFAULT_VALUE === null) {
                 throw new TypeException('The type has not default value.');
@@ -75,7 +83,8 @@ abstract class Type
         } else {
             $identity = (string) $value;
         }
-        return $instantiated[$identity] = $instantiated[$identity] ?? new static($value);
+        return $instantiated[$bucket][$identity]
+            = $instantiated[$bucket][$identity] ?? new static($value);
     }
 
     public function getValue()
