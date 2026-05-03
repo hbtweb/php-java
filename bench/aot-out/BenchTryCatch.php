@@ -1,8 +1,18 @@
 <?php
 namespace PHPJava\Aot\Generated;
 
+#[\AllowDynamicProperties]
 final class BenchTryCatch
 {
+    // __construct ()V
+    public function __construct()
+    {
+$L = [$this];
+        $stack = []; $sp = 0;
+L_0:
+        return;
+    }
+
     // run ()I
     public static function run()
     {

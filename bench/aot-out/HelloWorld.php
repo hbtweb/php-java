@@ -1,8 +1,18 @@
 <?php
 namespace PHPJava\Aot\Generated;
 
+#[\AllowDynamicProperties]
 final class HelloWorld
 {
+    // __construct ()V
+    public function __construct()
+    {
+$L = [$this];
+        $stack = []; $sp = 0;
+L_0:
+        return;
+    }
+
     // main ([Ljava/lang/String;)V
     public static function main($__a0)
     {
@@ -14,7 +24,7 @@ L_0:
         $L[2] = 1;
 L_12:
         if ($L[2] > 10) goto L_28;
-        $L[1] = $L[1] + $L[2];
+        $L[1] = $L[1] + $L[2] << 32 >> 32;
         $L[2] += 1;
         goto L_12;
 L_28:

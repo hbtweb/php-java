@@ -1,8 +1,18 @@
 <?php
 namespace PHPJava\Aot\Generated;
 
+#[\AllowDynamicProperties]
 final class BenchLambda
 {
+    // __construct ()V
+    public function __construct()
+    {
+$L = [$this];
+        $stack = []; $sp = 0;
+L_0:
+        return;
+    }
+
     // run ()I
     public static function run()
     {
@@ -29,7 +39,7 @@ L_0:
 $L = [$__a0];
         $stack = []; $sp = 0;
 L_0:
-        return $L[0] + 100;
+        return $L[0] + 100 << 32 >> 32;
     }
 
     // lambda_S_run_S_0 ()I
