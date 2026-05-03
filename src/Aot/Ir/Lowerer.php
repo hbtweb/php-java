@@ -37,10 +37,21 @@ final class Lowerer
             ? "public static function {$method->name}({$paramStr})"
             : "public function {$method->name}({$paramStr})";
 
-        // Prelude: $L = [params followed by zeros up to maxLocals].
+        // Prelude: $L initialised with all method-entry locals.
+        // For static methods: $L = [$__a0, $__a1, ..., 0, ...].
+        // For instance methods: $L = [$this, $__a0, $__a1, ..., 0, ...]
+        // — slot 0 holds $this per JVM convention.
+        $thisSlot = $method->isStatic ? 0 : 1;
+        $argc = count($method->params);
         $initVals = [];
         for ($i = 0; $i < $method->maxLocals; $i++) {
-            $initVals[] = $i < count($method->params) ? $method->params[$i] : '0';
+            if (!$method->isStatic && $i === 0) {
+                $initVals[] = '$this';
+            } elseif ($i - $thisSlot >= 0 && $i - $thisSlot < $argc) {
+                $initVals[] = $method->params[$i - $thisSlot];
+            } else {
+                $initVals[] = '0';
+            }
         }
         $localList = $method->maxLocals > 0 ? '[' . implode(', ', $initVals) . ']' : '[]';
         $prelude = "\$L = {$localList};\n        \$stack = []; \$sp = 0;";

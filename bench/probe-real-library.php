@@ -54,7 +54,9 @@ try {
     fwrite(STDOUT, "MS=" . ((microtime(true)-$t0)*1000) . "\nMETHODS=0\n");
     exit(1);
 }
-preg_match_all('/public static function /', $php, $m);
+// Count both static and instance methods (instance-method emit landed
+// 2026-05-03; pre-that, all methods were emitted as `public static`).
+preg_match_all('/public (?:static )?function /', $php, $m);
 fwrite(STDOUT, "MS=" . ((microtime(true)-$t0)*1000) . "\nMETHODS=" . count($m[0]) . "\n");
 PHP);
 

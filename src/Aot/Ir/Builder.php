@@ -112,7 +112,8 @@ final class Builder
         string $descriptor,
         string $bytecode,
         string $currentClassBin,
-        array $exceptionTables = []
+        array $exceptionTables = [],
+        bool $isStatic = true
     ): Method {
         $this->constantPool = $jcc->getConstantPool()->getEntries();
         $this->currentClassBin = $currentClassBin;
@@ -202,9 +203,12 @@ final class Builder
         }
 
         // Synthetic locals for cross-BB stack spill start above the
-        // original-bytecode maxLocals.
+        // original-bytecode maxLocals. For instance methods, slot 0 is
+        // implicitly `$this` (counted in maxLocals via $maxSlot scan),
+        // explicit args occupy slots [1..argc].
         [$argTypes0, ] = $this->parseDescriptor($descriptor);
-        $this->nextSyntheticSlot = max(count($argTypes0), $maxSlot + 1);
+        $thisSlot0 = $isStatic ? 0 : 1;
+        $this->nextSyntheticSlot = max(count($argTypes0) + $thisSlot0, $maxSlot + 1);
 
         // ── Second pass: build IR ───────────────────────────────────
         $this->currentBb = new BasicBlock(0);
@@ -274,13 +278,16 @@ final class Builder
         for ($i = 0; $i < $argc; $i++) $params[] = "\$__a{$i}";
         // Widen by any synthetic locals allocated for cross-BB stack
         // spill. nextSyntheticSlot points at the next free slot, which
-        // equals the count of slots used.
-        $maxLocals = max($argc, $maxSlot + 1, $this->nextSyntheticSlot);
+        // equals the count of slots used. For instance methods,
+        // maxLocals must accommodate $this at slot 0 + explicit args
+        // at slots [1..argc].
+        $thisSlot1 = $isStatic ? 0 : 1;
+        $maxLocals = max($argc + $thisSlot1, $maxSlot + 1, $this->nextSyntheticSlot);
 
         return new Method(
             name: $this->mangleMethod($methodName),
             descriptor: $descriptor,
-            isStatic: true,
+            isStatic: $isStatic,
             params: $params,
             maxLocals: $maxLocals,
             blocks: $this->blocks,
@@ -1028,12 +1035,44 @@ final class Builder
             return;
         }
 
+        // super(...) call inside an instance method — `aload_0;
+        // invokespecial X.<init>()V`. Receiver is `LocalRead(0)` ($this);
+        // target is a JDK base class without an AOT/shim equivalent
+        // PHP constructor. PHP's `parent::__construct()` would suffice
+        // when there's a real superclass, but emitted classes don't
+        // chain. For abstract bases (Object, Record, Number, Enum,
+        // Throwable), emit nothing — semantically a no-op.
+        if ($isSpecial && $methodName === '<init>'
+            && $receiver instanceof LocalRead && $receiver->slot === 0
+            && self::isAbstractBaseInit($cls)) {
+            return;
+        }
+
         $call = new InstanceCall($receiver, $this->mangleMethod($methodName), $args);
         if ($ret === 'V') {
             $this->currentBb->stmts[] = new ExprStmt($call);
         } else {
             $this->push($call);
         }
+    }
+
+    /**
+     * JDK abstract base classes whose <init> is a no-op for our
+     * purposes — super calls into these from AOT-emitted constructors
+     * elide rather than emit a missing-method runtime error.
+     */
+    private static function isAbstractBaseInit(string $clsBin): bool
+    {
+        return in_array($clsBin, [
+            'java/lang/Object',
+            'java/lang/Record',
+            'java/lang/Number',
+            'java/lang/Enum',
+            'java/lang/Throwable',
+            'java/lang/Exception',
+            'java/lang/RuntimeException',
+            'java/lang/Error',
+        ], true);
     }
 
     /** Emit invokedynamic. Whitelisted bootstraps: StringConcatFactory,
@@ -1452,9 +1491,14 @@ final class Builder
               || str_starts_with($binaryName, 'sun/')
               || str_starts_with($binaryName, 'com/sun/');
         $php = str_replace('/', '\\', $binaryName);
-        return $isJdk
-            ? '\\PHPJava\\Aot\\Runtime\\' . $php
-            : '\\PHPJava\\Aot\\Generated\\' . str_replace('\\', '_', $php);
+        if ($isJdk) {
+            // JDK shim path: $ is rare in JDK class names; leave as-is
+            // and let the shim author choose the concrete shape.
+            return '\\PHPJava\\Aot\\Runtime\\' . $php;
+        }
+        // AOT-emitted: mirror Compiler::mangle — replace `\` and `$`
+        // with `_` so the FQN matches the class-declaration name.
+        return '\\PHPJava\\Aot\\Generated\\' . str_replace(['\\', '$'], '_', $php);
     }
 
     private function utf8At(int $idx): string

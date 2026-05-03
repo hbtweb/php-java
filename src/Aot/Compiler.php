@@ -7,6 +7,7 @@ use PHPJava\Core\JavaCompiledClass;
 use PHPJava\Core\Stream\Reader\InlineReader;
 use PHPJava\Kernel\Attributes\BootstrapMethodsAttribute;
 use PHPJava\Kernel\Attributes\CodeAttribute;
+use PHPJava\Kernel\Maps\MethodAccessFlag;
 use PHPJava\Kernel\Resolvers\AttributionResolver;
 use PHPJava\Kernel\Structures\ClassInfo;
 use PHPJava\Kernel\Structures\DoubleInfo;
@@ -239,7 +240,10 @@ final class Compiler
         foreach ($methods as $method) {
             $name = $this->utf8At($method->getNameIndex());
             $desc = $this->utf8At($method->getDescriptorIndex());
-            if ($name === '<init>') continue;
+            // Skip <clinit> (static initialiser) — needs a separate
+            // "run-once" trigger we don't model yet. <init> emits as
+            // __construct (instance) so `new \Class(args)` works.
+            if ($name === '<clinit>') continue;
 
             try {
                 $codeAttr = AttributionResolver::resolve(
@@ -250,16 +254,20 @@ final class Compiler
                 continue;
             }
 
+            $isStatic = ($method->getAccessFlag() & MethodAccessFlag::ACC_STATIC) !== 0;
+
             $irMethod = $this->tryBuildIrMethod(
                 $jcc, $classPath, $name, $desc,
-                $codeAttr->getCode(), $codeAttr->getExceptionTables()
+                $codeAttr->getCode(), $codeAttr->getExceptionTables(),
+                $isStatic
             );
             if ($irMethod !== null) {
                 $irMethods[] = $irMethod;
             } else {
                 $stringEmittedMethods[] = $this->compileMethod(
                     $classPath, $name, $desc,
-                    $codeAttr->getCode(), $codeAttr->getExceptionTables()
+                    $codeAttr->getCode(), $codeAttr->getExceptionTables(),
+                    $isStatic
                 );
             }
         }
@@ -320,7 +328,8 @@ final class Compiler
      */
     private function tryBuildIrMethod(
         JavaCompiledClass $jcc, string $classPath, string $methodName,
-        string $descriptor, string $bytecode, array $exceptionTables
+        string $descriptor, string $bytecode, array $exceptionTables,
+        bool $isStatic = true
     ): ?\PHPJava\Aot\Ir\Method {
         try {
             if (!isset($this->irBuilder)) {
@@ -334,7 +343,8 @@ final class Compiler
             }
             return $this->irBuilder->buildMethod(
                 $jcc, $methodName, $descriptor, $bytecode,
-                str_replace('.', '/', $classPath), $exceptionTables
+                str_replace('.', '/', $classPath), $exceptionTables,
+                $isStatic
             );
         } catch (\Throwable $e) {
             if (getenv('CLJP_IR_DEBUG')) {
@@ -552,7 +562,7 @@ final class Compiler
         return $args;
     }
 
-    private function compileMethod(string $owner, string $name, string $descriptor, string $bytecode, array $exceptionTables = []): string
+    private function compileMethod(string $owner, string $name, string $descriptor, string $bytecode, array $exceptionTables = [], bool $isStatic = true): string
     {
         $bytes = array_values(unpack('C*', $bytecode));
         $end = count($bytes);
@@ -1048,7 +1058,6 @@ final class Compiler
         // the 22× static-call cost the JIT-claims battery surfaced.
         $this->detectInlinable($name, $descriptor, $stmts);
 
-        $isStatic = true;
         [$argTypes, ] = $this->parseMethodDescriptor($descriptor);
         $argc = count($argTypes);
         $params = [];
@@ -1058,16 +1067,25 @@ final class Compiler
             ? "public static function {$this->mangleMethod($name)}({$paramStr})"
             : "public function {$this->mangleMethod($name)}({$paramStr})";
 
-        // $L pre-init: sealed-shape array literal, with params filling
-        // slots [0..argc-1] and zeros filling the rest up to the max
-        // slot the bytecode actually touches. JIT trace is happier with
-        // a fixed-shape array than one that grows on first istore. Long
-        // and double args take 2 JVM slots but 1 PHP value — refine when
-        // a long-arg fixture surfaces a slot-count mismatch.
-        $maxLocals = max($argc, $maxSlot + 1);
+        // $L pre-init: sealed-shape array literal. For static methods,
+        // slots [0..argc-1] hold params; for instance methods, slot 0
+        // is `$this` and slots [1..argc] hold the explicit args. The
+        // rest are zero-filled up to the max slot the bytecode touches.
+        // JIT trace is happier with a fixed-shape array than one that
+        // grows on first istore. Long and double args take 2 JVM slots
+        // but 1 PHP value — refine when a long-arg fixture surfaces a
+        // slot-count mismatch.
+        $thisSlot = $isStatic ? 0 : 1;
+        $maxLocals = max($argc + $thisSlot, $maxSlot + 1);
         $initVals = [];
         for ($i = 0; $i < $maxLocals; $i++) {
-            $initVals[] = $i < $argc ? "\$__a{$i}" : '0';
+            if (!$isStatic && $i === 0) {
+                $initVals[] = '$this';
+            } elseif ($i - $thisSlot >= 0 && $i - $thisSlot < $argc) {
+                $initVals[] = "\$__a" . ($i - $thisSlot);
+            } else {
+                $initVals[] = '0';
+            }
         }
         $localList = $maxLocals > 0 ? '[' . implode(', ', $initVals) . ']' : '[]';
         $prelude = "\$L = {$localList};\n        \$stack = []; \$sp = 0;";
