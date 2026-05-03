@@ -6,13 +6,23 @@ class Map
 {
     public function getName(int $value): ?string
     {
-        try {
-            if (($key = array_search($value, (new \ReflectionClass($this))->getConstants(), true)) !== false) {
-                return $key;
+        // H3 — getName is hot-path on the interpreter (once per opcode).
+        // Cache the flipped value→name table per class instead of a
+        // ReflectionClass + getConstants + array_search per call. All
+        // Map subclasses have unique const values (verified), so
+        // array_flip is well-defined.
+        static $cache = [];
+        $class = static::class;
+        if (!isset($cache[$class])) {
+            try {
+                $cache[$class] = array_flip(
+                    (new \ReflectionClass($this))->getConstants()
+                );
+            } catch (\ReflectionException $e) {
+                $cache[$class] = [];
             }
-        } catch (\ReflectionException $e) {
         }
-        return null;
+        return $cache[$class][$value] ?? null;
     }
 
     public function getValue(string $name)
