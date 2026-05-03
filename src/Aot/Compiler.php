@@ -230,6 +230,36 @@ final class Compiler
         }
         $methods = $jcc->getDefinedMethods();
 
+        // Java method overloading by parameter type — same name, different
+        // descriptor — is legal JVM-side and very common (every class with
+        // multiple constructor signatures, java.lang.String.valueOf, every
+        // builder pattern, etc). PHP doesn't have method overloading; the
+        // current mangleMethod doesn't disambiguate by descriptor, so two
+        // overloads with the same Java name collapse to the same PHP
+        // method name. eval()ing the result fatals with "Cannot redeclare"
+        // — and PHP fatals during eval BYPASS try/catch, so tryCallStatic
+        // can't fall back to interp at runtime.
+        //
+        // Detect at compile time and throw a regular exception, which
+        // tryCallStatic does catch. This is the defensive minimum to
+        // make AOT-by-default safe; descriptor-aware mangling is the
+        // proper fix and a follow-up.
+        $methodNamesSeen = [];
+        foreach ($methods as $method) {
+            $mangled = $this->mangleMethod(
+                $this->utf8At($method->getNameIndex())
+            );
+            if (isset($methodNamesSeen[$mangled])) {
+                throw new \RuntimeException(
+                    "AOT cannot compile {$classPath}: method '{$mangled}' "
+                    . "is overloaded; PHP has no method overloading and the "
+                    . "current mangler doesn't disambiguate by descriptor. "
+                    . "Falls back to interp."
+                );
+            }
+            $methodNamesSeen[$mangled] = true;
+        }
+
         // Two-phase: collect IR Methods (or string-emitted method
         // strings if IR fallback) → run IR InlinePass on the Module
         // → lower the Module to final PHP source. This replaces the

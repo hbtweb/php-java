@@ -24,8 +24,11 @@ namespace PHPJava\Aot;
  */
 final class Loader
 {
-    /** @var array<string, true>  classPath → loaded marker */
+    /** @var array<string, true>  classPath → load attempted (success or fail) */
     private static array $loaded = [];
+
+    /** @var array<string, true>  classPath → AOT compile/eval threw — never retry */
+    private static array $failed = [];
 
     /**
      * Load and AOT-compile a class from raw `.class` bytes — the
@@ -39,9 +42,18 @@ final class Loader
     public static function defineClass(string $classPath, string $classBytes): void
     {
         if (isset(self::$loaded[$classPath])) return;
-        $php = (new Compiler())->compileBytes($classPath, $classBytes);
-        self::evalAotSource($php);
+        // Mark before compile/eval so a partial eval (class declared,
+        // trailing trigger threw) doesn't trigger a redeclare fatal on
+        // retry. Compile failures here are deterministic for a given
+        // classBytes — no point retrying.
         self::$loaded[$classPath] = true;
+        try {
+            $php = (new Compiler())->compileBytes($classPath, $classBytes);
+            self::evalAotSource($php);
+        } catch (\Throwable $e) {
+            self::$failed[$classPath] = true;
+            throw $e;
+        }
     }
 
     /**
@@ -52,9 +64,15 @@ final class Loader
     public static function loadClass(string $classPath): void
     {
         if (isset(self::$loaded[$classPath])) return;
-        $php = (new Compiler())->compileClass($classPath);
-        self::evalAotSource($php);
+        // Mark before compile/eval — see defineClass for the rationale.
         self::$loaded[$classPath] = true;
+        try {
+            $php = (new Compiler())->compileClass($classPath);
+            self::evalAotSource($php);
+        } catch (\Throwable $e) {
+            self::$failed[$classPath] = true;
+            throw $e;
+        }
     }
 
     /**
@@ -90,6 +108,10 @@ final class Loader
      */
     public static function tryCallStatic(string $classPath, string $methodName, array $args): array
     {
+        // Once a class has failed AOT compile/eval, never retry. Saves
+        // the compile cost and avoids dispatching to a partially-
+        // declared class whose state may be inconsistent.
+        if (isset(self::$failed[$classPath])) return [false, null];
         try {
             if (!isset(self::$loaded[$classPath])) {
                 self::loadClass($classPath);
@@ -115,6 +137,7 @@ final class Loader
     public static function reset(): void
     {
         self::$loaded = [];
+        self::$failed = [];
         Compiler::clearCompileCache();
     }
 
