@@ -102,6 +102,14 @@ class JavaCompiledClass implements JavaGenericClassInterface, JavaClassInterface
     private $superClass;
 
     /**
+     * Cached binary super-class name (e.g. "java/lang/Object"). Set
+     * during construction so getSuperClass() can lazy-retry the
+     * JavaClass::load if the classpath was extended after parse time.
+     * @var string|null
+     */
+    private $superClassName = null;
+
+    /**
      * @var float
      */
     private $startTime = 0.0;
@@ -169,14 +177,27 @@ class JavaCompiledClass implements JavaGenericClassInterface, JavaClassInterface
 
         $cpInfo = $this->getConstantPool();
 
-        $this->superClass = JavaClass::load(
-            $cpInfo[$cpInfo[$this->superClassIndex]->getClassIndex()]->getString(),
-            $this->options
-        );
-
-        $this->debugTool->getLogger()->info(
-            'Load super class: ' . $this->superClass->getClassName()
-        );
+        // Eager super-class load defers to lazy on ClassNotFoundException.
+        // Required for AOT compileBytes(): when only the current class's
+        // bytes are available (no surrounding classpath), the parser
+        // should still produce a parseable JavaCompiledClass. Callers
+        // that genuinely need the super class call getSuperClass(),
+        // which retries the load and yields null if still unresolvable.
+        $this->superClassName = $cpInfo[$cpInfo[$this->superClassIndex]->getClassIndex()]->getString();
+        try {
+            $this->superClass = JavaClass::load(
+                $this->superClassName,
+                $this->options
+            );
+            $this->debugTool->getLogger()->info(
+                'Load super class: ' . $this->superClass->getClassName()
+            );
+        } catch (\PHPJava\Packages\java\lang\ClassNotFoundException $e) {
+            $this->superClass = null;
+            $this->debugTool->getLogger()->info(
+                'Defer super class (not on classpath): ' . $this->superClassName
+            );
+        }
 
         // read interfaces
         $this->interfacePool = new InterfacePool(
@@ -344,6 +365,19 @@ class JavaCompiledClass implements JavaGenericClassInterface, JavaClassInterface
 
     public function getSuperClass()
     {
+        // Lazy retry: if the eager load deferred (super-class not on
+        // classpath at parse time), try again now that callers may
+        // have extended the classpath.
+        if ($this->superClass === null && $this->superClassName !== null) {
+            try {
+                $this->superClass = JavaClass::load(
+                    $this->superClassName,
+                    $this->options
+                );
+            } catch (\PHPJava\Packages\java\lang\ClassNotFoundException $e) {
+                // Still unresolvable — leave null; caller handles.
+            }
+        }
         return $this->superClass;
     }
 
