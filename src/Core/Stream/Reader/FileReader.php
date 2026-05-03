@@ -2,20 +2,13 @@
 declare(strict_types=1);
 namespace PHPJava\Core\Stream\Reader;
 
-use PHPJava\Core\JVM\Stream\BinaryReader;
 use PHPJava\Core\JVM\Stream\StreamReaderInterface;
+use PHPJava\Core\JVM\Stream\StringByteReader;
 
 class FileReader implements ReaderInterface
 {
-    /**
-     * @var resource
-     */
-    private $handle;
-
-    /**
-     * @var BinaryReader
-     */
-    private $binaryReader;
+    private string $fileName;
+    private StringByteReader $reader;
 
     public function __construct(string $file)
     {
@@ -23,13 +16,17 @@ class FileReader implements ReaderInterface
             // Add extension
             $file = $file . '.class';
         }
-        $this->handle = fopen($file, 'r');
-        $this->binaryReader = new BinaryReader($this->handle);
+        $this->fileName = $file;
+        // M1 (`bench/profile-c930e2c.md`) — read whole file into memory
+        // up front, then index by offset. Replaces the per-read
+        // `fread()` + `unpack()` chain on a stream resource that
+        // dominated the interpreter dispatch profile.
+        $this->reader = new StringByteReader(file_get_contents($file));
     }
 
     public function getReader(): StreamReaderInterface
     {
-        return $this->binaryReader;
+        return $this->reader;
     }
 
     public function getJavaPathName(): string
@@ -37,17 +34,17 @@ class FileReader implements ReaderInterface
         return preg_replace(
             '/\.class$/',
             '',
-            basename($this->getFileName())
+            basename($this->fileName)
         );
     }
 
     public function getFileName(): string
     {
-        return stream_get_meta_data($this->handle)['uri'];
+        return $this->fileName;
     }
 
     public function __toString(): string
     {
-        return $this->getFileName();
+        return $this->fileName;
     }
 }

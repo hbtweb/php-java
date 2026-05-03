@@ -2,43 +2,31 @@
 declare(strict_types=1);
 namespace PHPJava\Core\Stream\Reader;
 
-use PHPJava\Core\JVM\Stream\BinaryReader;
 use PHPJava\Core\JVM\Stream\StreamReaderInterface;
+use PHPJava\Core\JVM\Stream\StringByteReader;
 
 class InlineReader implements ReaderInterface
 {
-    /**
-     * @var string
-     */
-    private $fileName;
-
-    /**
-     * @var resource
-     */
-    private $handle;
-
-    /**
-     * @var BinaryReader
-     */
-    private $binaryReader;
+    private string $fileName;
+    private StringByteReader $reader;
 
     public function __construct(string $fileName, string $code)
     {
         $this->fileName = $fileName;
-        $this->handle = fopen('php://memory', 'rw');
-        fwrite($this->handle, $code);
-        rewind($this->handle);
-        $this->binaryReader = new BinaryReader($this->handle);
+        // M1 (`bench/profile-c930e2c.md`) — string-byte reader by
+        // offset; no `php://memory` stream + `fwrite` + `rewind` setup,
+        // no per-read `fread()` + `unpack()` chain.
+        $this->reader = new StringByteReader($code);
     }
 
     public function getReader(): StreamReaderInterface
     {
-        return $this->binaryReader;
+        return $this->reader;
     }
 
     public function getJavaPathName(): string
     {
-        return str_replace('/', '.', $this->getFileName());
+        return str_replace('/', '.', $this->fileName);
     }
 
     public function getFileName(): string
@@ -48,6 +36,6 @@ class InlineReader implements ReaderInterface
 
     public function __toString(): string
     {
-        return $this->getFileName();
+        return $this->fileName;
     }
 }
