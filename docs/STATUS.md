@@ -38,9 +38,12 @@ edge-case polish.
 | Current PHPJava interpreter | 5.22–6.56 µs / op | `bench/baseline-d803364.json` |
 | Switch-dispatch interpreter (spike) | 22 ns / op no opt; 36 ns / op JIT | `bench/spike-fast-interp.php` |
 | Hand-translated naive AOT (spike) | 5.6 ns / op no opt; 1.5 ns / op JIT | `bench/spike-fast-interp.php` |
-| **Real compiler-emitted AOT, BenchAdd::sum1k() — pure arith loop** | **0.18 ns / op JIT** (post stack-erasure peephole 2026-05-03) | `bench/bench-aot.php` (needs `-d opcache.jit_buffer_size=1024M`) |
-| **Real compiler-emitted AOT, BenchInvoke::callLoop() — invokestatic in loop** | **0.41 ns / op JIT** (post cross-method inlining 2026-05-03) | was 4.05 ns/op pre-inlining; the 22× call cost recouped |
+| **Real compiler-emitted AOT, BenchAdd::sum1k() — pure arith loop** | **0.20 ns / op JIT** (post 32-bit overflow mask 2026-05-03; was 0.18 pre-mask) | `bench/bench-aot.php` (needs `-d opcache.jit_buffer_size=1024M`) |
+| **Real compiler-emitted AOT, BenchInvoke::callLoop() — invokestatic in loop** | **0.24 ns / op JIT** (5-run median post-mask) | was 0.20-0.21 ns/op pre-mask; was 4.05 ns/op pre-inlining |
+| **AOT empty-method dispatch** | **~22 ns/call** (5-run median, stable) | static method invocation cost |
+| **AOT array-loop** | **~2.2 ns/op** (5-run median) | post escape-analysis on Java arrays |
 | Compiler-emitted, prior naive (no peephole) | 0.82 ns / op JIT | superseded |
+| **JVM 32-bit int overflow mask cost** | **0.20 ns / iadd** (~12% overhead, 5-run median) | `bench/bench-int-mask.php` — well within CONTRACTS.md §1's "1 ns per op" budget |
 
 ### IR substrate (proof-of-concept landed 2026-05-03)
 
