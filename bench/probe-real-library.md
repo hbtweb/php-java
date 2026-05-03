@@ -10,22 +10,29 @@
 ## TL;DR
 
 Driving every `.class` in `commons-lang3-3.17.0.jar` (395 classes,
-~3,769 methods) through `Compiler::compileBytes()`:
+~3,769–4,166 methods depending on parser fixes) through
+`Compiler::compileBytes()`. Series of probes; final result after the
+2026-05-03 work-plan items #1–#4 landed:
 
-| Pass | IR success | IR fallback | Notes |
-|---|---:|---:|---|
-| Before opcode additions | 65.6% | 34.4% (1295) | 9-fixture-trained Builder hits real-world gaps |
-| After mechanical fills | **86.5%** | **13.5%** (509) | +14 missing JVM opcodes |
+| Pass | IR success | Top-level | Methods | Change |
+|---|---:|---:|---:|---|
+| Initial | 65.6% | 308/395 | 3769 | starting point |
+| + 14 missing opcodes | 86.5% | 308/395 | 3769 | mechanical |
+| + sub-step 1c-β (full abstract-stack tracking) | 99.3% | 308/395 | 3769 | the architectural one |
+| + switch terminator (TABLESWITCH/LOOKUPSWITCH) | 99.9% | 308/395 | 3769 | new IR Switch_ |
+| + lazy super-class load in parser | 99.9% | 394/395 | 4166 | parser fix |
+| + rare-opcode tail (DUP2/IUSHR/LUSHR/MULTIANEWARRAY) | **100.0%** | **394/395** | **4166** | mechanical |
 
-**Of the 509 remaining fallbacks, 95% (485) are the single
-"non-empty abstract stack at BB boundary" issue** — sub-step 1c-β
-in `ROADMAP.md`. The remaining 5% are 4 specific opcodes
-(TABLESWITCH, LOOKUPSWITCH, DUP2, LUSHR, MULTIANEWARRAY).
+**Final: 100.0% IR coverage on every method of every class that
+parses (4166 methods, 0 fallbacks).** Single remaining top-level
+failure (1/395) is a PHPJava parser TypeError unrelated to AOT.
 
 **The architecture holds.** No structural surprises in production
-bytecode; the IR Builder's gaps were either well-known JVM opcodes
-that happened to be absent from the 9 fixtures, or the
-already-roadmapped 1c-β work.
+bytecode; the IR Builder's coverage gaps were either well-known JVM
+opcodes absent from our 9 hand-curated fixtures, or the
+already-roadmapped 1c-β work. The 1c-β perf headroom estimate was
+~1.5×, but its **coverage** impact was 95% of remaining fallbacks
+— a much larger lever than the original session estimated.
 
 ## Method
 

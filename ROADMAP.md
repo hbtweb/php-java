@@ -148,10 +148,53 @@ both wrapped and raw shapes dynamically.
 **Sub-step 1c-β: full abstract-stack tracking — REMAINING.** Catches
 the cases the peephole + IR-bake-in misses — push+push+arith-
 without-immediate-store, cross-block stack flow, non-empty stack at
-exception-handler entry. Estimated 4–8h on top of 1c-α. Probably
-~1.5× additional headroom (per spike's hand-emit idiomatic at 0.2
-ns/op vs our 0.18 — the existing build-time stack erasure already
-absorbed most of the value).
+exception-handler entry. Estimated 4–8h on top of 1c-α. Perf
+headroom probably ~1.5× (per spike's hand-emit idiomatic at 0.2 ns/op
+vs our 0.18). **Coverage impact much larger than perf impact:** the
+2026-05-03 commons-lang3 probe (`bench/probe-real-library.md`) found
+this single issue accounts for **95% of remaining IR fallbacks** —
+landing 1c-β lifts production-bytecode IR coverage from 86.5% to ~99%.
+
+**Sub-step 1c-ε: switch terminator (TABLESWITCH/LOOKUPSWITCH).** New
+`Switch` Terminator IR node + Lowerer match/switch rendering.
+Currently 19 fallbacks on commons-lang3 (4% of remaining). ~hours.
+
+**Sub-step 1c-ζ: rare-opcode tail.** DUP2 / LUSHR / IUSHR /
+MULTIANEWARRAY — 5 fallbacks total on commons-lang3, 1% of remaining.
+~hour total.
+
+### Work plan (ordered, post-2026-05-03 probe)
+
+Tractable in ~1–3 sessions. Skip soak test (#7, 24h elapsed time),
+boxing refactor (#11/#12, 1–2wks), Tier 2 shim (#13, months).
+
+1. **Sub-step 1c-β** — full abstract-stack tracking. Architecture +
+   95% of remaining probe fallbacks.
+2. **Sub-step 1c-ε** — switch terminator. Closes IR coverage to ~99%
+   when combined with 1c-β.
+3. **Lazy CP resolution in PHPJava parser** — fixes the 22% top-level
+   probe-fail rate (`ClassNotFoundException` during parse). Real
+   architectural cleanup; unblocks running real-library probes
+   without bespoke classpath plumbing.
+4. **Sub-step 1c-ζ** — DUP2/LUSHR/IUSHR/MULTIANEWARRAY tail.
+5. **AOT classloader integration into `JavaClass::load`** — wires
+   eager/lazy AOT strategies per CONTRACTS.md §3 + §5. Production
+   reachability: AOT currently only via direct `Compiler::compileBytes`.
+6. **LRU eviction on Compiler caches** — daemon-safety prereq;
+   currently `compileBytes/compileClass` static caches grow unbounded.
+7. **ObjectMethods bootstrap** — Java records' equals/hashCode/toString.
+8. **SwitchBootstraps** — Java 21+ pattern switch.
+9. Symfony Console version mismatch — minutes.
+10. Remove dead string-path emitter — **deferred**. After 1+2+4
+    landed, the IR path covers 100% of commons-lang3. But "provably
+    redundant" needs broader rank-1 evidence (PDFBox / Tika / a real
+    multi-JAR probe) before removing the 1500-line fallback. Rolling
+    back accidental gaps would be a real cost; the fallback's
+    defensive value still exceeds its maintenance cost. Re-evaluate
+    after Tier 3 probe Q3.1 (real-Java-library end-to-end run).
+
+Reference: `bench/probe-real-library.md` is the rank-1 evidence
+driving this ordering.
 
 ### Tier 2 — surface coverage (shared by all Tier 1 strategies)
 

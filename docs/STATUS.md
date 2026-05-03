@@ -115,16 +115,31 @@ emitter.**
 
 **Compile-time profile (rank 1, BenchAdd::sum1k):** PHPJava parser 83% (1280 µs); IR build+lower 1.5% (19 µs). For runtime-compilation use cases, **the IR is already fast enough**; the parser is the bottleneck.
 
-### Real-library probe — commons-lang3-3.17.0 (2026-05-03)
+### Real-library probe — commons-lang3-3.17.0 (2026-05-03 series)
 
 Drove every `.class` in `commons-lang3-3.17.0.jar` through
 `Compiler::compileBytes()` to validate Open Question #1: does the IR
-Builder cover production Java bytecode? Result: **86.5% IR success /
-13.5% fallback** (509 of 3769 methods) after one round of mechanical
-opcode fills. **Of the 509 remaining fallbacks, 95% (485) are the
-single sub-step 1c-β structural issue** (non-empty abstract stack at
-BB boundary). Remaining 5% is 4 rare opcodes (TABLESWITCH/LOOKUPSWITCH/
-DUP2/LUSHR/MULTIANEWARRAY).
+Builder cover production Java bytecode? Series of probes; final
+result after the work-plan items #1–#4 landed:
+
+| Pass | IR success | Top-level OK | Methods | Reason |
+|---|---:|---:|---:|---|
+| Initial (9-fixture-trained Builder) | 65.6% | 308/395 | 3769 | starting point |
+| + opcode fills (ACONST_NULL, CHECKCAST/INSTANCEOF, F/DLOAD, narrowing, shifts, DUP_X1, F/D arith) | 86.5% | 308/395 | 3769 | mechanical |
+| + sub-step 1c-β (full abstract-stack tracking) | 99.3% | 308/395 | 3769 | architectural |
+| + switch terminator (TABLESWITCH/LOOKUPSWITCH) | 99.9% | 308/395 | 3769 | new IR Switch_ |
+| + lazy super-class load in parser | 99.9% | 394/395 | 4166 | parser fix |
+| + rare-opcode tail (DUP2/IUSHR/LUSHR/MULTIANEWARRAY) | **100.0%** | **394/395** | 4166 | mechanical |
+
+**Final: 100.0% IR coverage on every method of every class
+that parses, across 4166 methods.** The single remaining top-level
+failure is a `TypeError: abs(): string given` deep in PHPJava's
+parser — unrelated to AOT, separate cleanup.
+
+Verifies the IR architecture is correct and complete for production
+Java bytecode (within Java 21 LTS scope). Sub-step 1c-β was the most
+load-bearing single change — its perf impact was estimated 1.5× but
+its **coverage impact** turned out to be 95% of remaining fallbacks.
 
 The probe initially showed 65.6% IR success / 34.4% fallback dominated
 by missing JVM opcodes that didn't appear in our 9 hand-curated
