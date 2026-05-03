@@ -44,7 +44,7 @@ class RunCommand extends Command
             );
     }
 
-    protected function execute(InputInterface $input, OutputInterface $output)
+    protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $settings = $input->getOption('settings') ?? [];
         $mode = strtolower($input->getOption('mode') ?? 'class');
@@ -55,17 +55,21 @@ class RunCommand extends Command
         GlobalOptions::set($settings);
 
         if ($mode === 'jar') {
-            return $this->runJar($file, $parameters);
-        } elseif ($mode === 'class') {
-            return $this->runClass($file, $parameters);
+            $this->runJar($file, $parameters);
+            return self::SUCCESS;
+        }
+        if ($mode === 'class') {
+            $this->runClass($file, $parameters);
+            return self::SUCCESS;
         }
 
         $output->writeln(
             '<error>Unable to run `' . $mode . '` mode.</error>'
         );
+        return self::FAILURE;
     }
 
-    private function runJar(string $file, array $parameters)
+    private function runJar(string $file, array $parameters): void
     {
         $jar = new JavaArchive($file);
         $jar->execute(
@@ -73,7 +77,7 @@ class RunCommand extends Command
         );
     }
 
-    private function runClass(string $file, array $parameters)
+    private function runClass(string $file, array $parameters): void
     {
         $class = new JavaClass(
             new JavaCompiledClass(
