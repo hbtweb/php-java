@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Int_;
 
 final class _dcmpl extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -25,21 +24,15 @@ final class _dcmpl extends AbstractOperationCode implements OperationCodeInterfa
         $leftOperand = Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
         if ($leftOperand > $rightOperand) {
-            $this->pushToOperandStack(
-                Int_::get(1)
-            );
+            $this->pushToOperandStack(1);
             return;
         }
 
         if ($leftOperand < $rightOperand) {
-            $this->pushToOperandStack(
-                Int_::get(-1)
-            );
+            $this->pushToOperandStack(-1);
             return;
         }
 
-        $this->pushToOperandStack(
-            Int_::get(0)
-        );
+        $this->pushToOperandStack(0);
     }
 }
