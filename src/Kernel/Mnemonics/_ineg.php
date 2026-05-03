@@ -22,6 +22,6 @@ final class _ineg extends AbstractOperationCode implements OperationCodeInterfac
         parent::execute();
         $value = Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
-        $this->pushToOperandStack($value * -1);
+        $result = $value * -1; $this->pushToOperandStack(($result << 32) >> 32);
     }
 }

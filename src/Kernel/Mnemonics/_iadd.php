@@ -26,6 +26,6 @@ final class _iadd extends AbstractOperationCode implements OperationCodeInterfac
         // Push the raw int — sub-step #12 (drop primitive wrappers from
         // operand stack). Consumers use Normalizer::getPrimitiveValue
         // defensively so they accept either shape during the transition.
-        $this->pushToOperandStack($value1 + $value2);
+        $result = $value1 + $value2; $this->pushToOperandStack(($result << 32) >> 32);
     }
 }

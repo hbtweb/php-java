@@ -26,8 +26,7 @@ final class _irem extends AbstractOperationCode implements OperationCodeInterfac
         $rightOperand = Normalizer::getPrimitiveValue($this->popFromOperandStack());
         $leftOperand = Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
-        $this->pushToOperandStack(
-            $leftOperand % $rightOperand
-        );
+        $result = $leftOperand % $rightOperand;
+        $this->pushToOperandStack(($result << 32) >> 32);
     }
 }

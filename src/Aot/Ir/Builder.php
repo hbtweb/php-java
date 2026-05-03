@@ -368,11 +368,16 @@ final class Builder
             case 0xA5: $this->emitCondGoto('===', $bytes, $start); return;
             case 0xA6: $this->emitCondGoto('!==', $bytes, $start); return;
             // ── arithmetic. PHP `+`/`-`/`*` work uniformly on int
-            //    and float; JVM splits by type but the emit is the
-            //    same. iadd/ladd/fadd/dadd, etc.
-            case 0x60: case 0x61: case 0x62: case 0x63: $this->emitBinOp('+'); return;
-            case 0x64: case 0x65: case 0x66: case 0x67: $this->emitBinOp('-'); return;
-            case 0x68: case 0x69: case 0x6A: case 0x6B: $this->emitBinOp('*'); return;
+            //    and float, but JVM int is 32-bit (PHP int is 64-bit).
+            //    Per CONTRACTS.md §1, int arith results need a 32-bit
+            //    sign-extending mask: (v << 32) >> 32. Long (64-bit) =
+            //    PHP int, no mask. Float/double = PHP float, no mask.
+            case 0x60: $this->emitIntBinOp('+'); return; // iadd
+            case 0x61: case 0x62: case 0x63: $this->emitBinOp('+'); return; // ladd/fadd/dadd
+            case 0x64: $this->emitIntBinOp('-'); return; // isub
+            case 0x65: case 0x66: case 0x67: $this->emitBinOp('-'); return; // lsub/fsub/dsub
+            case 0x68: $this->emitIntBinOp('*'); return; // imul
+            case 0x69: case 0x6A: case 0x6B: $this->emitBinOp('*'); return; // lmul/fmul/dmul
             // ── iinc ────────────────────────────────────────────────
             case 0x84:
                 $idx = $bytes[$this->pc++];
@@ -577,11 +582,16 @@ final class Builder
                 $this->emitInvokeDynamic($idx);
                 return;
             // ── more arithmetic / shifts / bitwise ─────────────────
-            case 0x6C: case 0x6D: $this->emitBinOpFn('intdiv'); return;       // idiv/ldiv
+            case 0x6C: $this->emitIntBinOpFn('intdiv'); return;               // idiv (32-bit mask)
+            case 0x6D: $this->emitBinOpFn('intdiv'); return;                  // ldiv
             case 0x6E: case 0x6F: $this->emitBinOp('/'); return;              // fdiv/ddiv
-            case 0x70: case 0x71: $this->emitBinOp('%'); return;              // irem/lrem
+            case 0x70: $this->emitIntBinOp('%'); return;                      // irem (32-bit mask)
+            case 0x71: $this->emitBinOp('%'); return;                         // lrem
             case 0x72: case 0x73: $this->emitBinOpFn('fmod'); return;         // frem/drem
-            case 0x74: case 0x75: case 0x76: case 0x77: // *neg
+            case 0x74: // ineg — 32-bit mask
+                $this->push($this->maskInt32(new \PHPJava\Aot\Ir\UnaryOp('-', $this->pop())));
+                return;
+            case 0x75: case 0x76: case 0x77: // lneg/fneg/dneg — no mask
                 $this->push(new \PHPJava\Aot\Ir\UnaryOp('-', $this->pop()));
                 return;
             case 0x7E: case 0x7F: $this->emitBinOp('&'); return;
@@ -753,6 +763,33 @@ final class Builder
         $right = $this->pop();
         $left = $this->pop();
         $this->push(new \PHPJava\Aot\Ir\StaticCall("\\{$fn}", '', [$left, $right]));
+    }
+
+    /**
+     * Emit an int-arith binary op with 32-bit sign-extending overflow
+     * mask: `(left op right << 32) >> 32`. PHP int is 64-bit; JVM int
+     * is 32-bit signed. Per CONTRACTS.md §1.
+     */
+    private function emitIntBinOp(string $op): void
+    {
+        $right = $this->pop();
+        $left = $this->pop();
+        $this->push($this->maskInt32(new BinOp($op, $left, $right)));
+    }
+
+    /** Same as emitIntBinOp but the op is a function call (e.g. \intdiv). */
+    private function emitIntBinOpFn(string $fn): void
+    {
+        $right = $this->pop();
+        $left = $this->pop();
+        $call = new \PHPJava\Aot\Ir\StaticCall("\\{$fn}", '', [$left, $right]);
+        $this->push($this->maskInt32($call));
+    }
+
+    /** Wrap an Expr with the JVM 32-bit signed-int overflow mask. */
+    private function maskInt32(Expr $e): Expr
+    {
+        return new BinOp('>>', new BinOp('<<', $e, new IntLit(32)), new IntLit(32));
     }
 
     /** Emit a shift op with the JVM's required shift-count mask. */

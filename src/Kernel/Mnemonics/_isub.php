@@ -23,6 +23,6 @@ final class _isub extends AbstractOperationCode implements OperationCodeInterfac
         $value2 = (int) Normalizer::getPrimitiveValue($this->popFromOperandStack());
         $value1 = (int) Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
-        $this->pushToOperandStack($value1 - $value2);
+        $result = $value1 - $value2; $this->pushToOperandStack(($result << 32) >> 32);
     }
 }

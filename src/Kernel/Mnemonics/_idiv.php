@@ -23,6 +23,6 @@ final class _idiv extends AbstractOperationCode implements OperationCodeInterfac
         $value2 = (int) Normalizer::getPrimitiveValue($this->popFromOperandStack());
         $value1 = (int) Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
-        $this->pushToOperandStack((int) ($value1 / $value2));
+        $result = (int) ($value1 / $value2); $this->pushToOperandStack(($result << 32) >> 32);
     }
 }
