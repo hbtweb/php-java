@@ -74,6 +74,37 @@ final class Loader
         return $aotFqn::$mangled(...$args);
     }
 
+    /**
+     * Best-effort AOT static dispatch. Returns `[true, $result]` if
+     * the class compiles and the method dispatches; returns
+     * `[false, null]` on any failure (compile error, unsupported
+     * opcode, missing method, runtime exception inside the AOT'd
+     * code). Used by the `JavaClass::load → getInvoker` chain to
+     * route through AOT when `PHPJAVA_AOT_MODE=lazy`, falling back
+     * to the interpreter on failure without surfacing the error.
+     *
+     * Per `docs/CONTRACTS.md` §3 + §5, this is the lazy-AOT path
+     * wired into the standard classloader entry — production
+     * reachability via `JavaClass::load` instead of requiring a
+     * direct `Loader::callStatic` from the call site.
+     */
+    public static function tryCallStatic(string $classPath, string $methodName, array $args): array
+    {
+        try {
+            if (!isset(self::$loaded[$classPath])) {
+                self::loadClass($classPath);
+            }
+            $aotFqn  = self::aotFqn($classPath);
+            $mangled = self::mangleMethod($methodName);
+            if (!method_exists($aotFqn, $mangled)) {
+                return [false, null];
+            }
+            return [true, $aotFqn::$mangled(...$args)];
+        } catch (\Throwable $e) {
+            return [false, null];
+        }
+    }
+
     /** Whether a class has been AOT-loaded into the running process. */
     public static function isLoaded(string $classPath): bool
     {

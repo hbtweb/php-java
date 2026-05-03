@@ -4,6 +4,7 @@ namespace PHPJava\Core\JVM\Invoker\Extended;
 
 use ByteUnits\Metric;
 use Monolog\Logger;
+use PHPJava\Aot\Loader;
 use PHPJava\Core\JVM\Cache\OperationCache;
 use PHPJava\Core\JVM\Parameters\GlobalOptions;
 use PHPJava\Core\JVM\Parameters\Runtime;
@@ -30,6 +31,13 @@ use PHPJava\Utilities\Formatter;
 
 trait JavaMethodCallable
 {
+    /** Cached env-var read for the AOT routing decision. */
+    private static function aotLazyEnabled(): bool
+    {
+        static $cached = null;
+        return $cached ??= (getenv('PHPJAVA_AOT_MODE') === 'lazy');
+    }
+
     /**
      * @throws IllegalJavaClassException
      * @throws RuntimeException
@@ -39,6 +47,27 @@ trait JavaMethodCallable
      */
     public function call(string $name, ...$arguments)
     {
+        // AOT classloader integration (CONTRACTS.md §3 + §5). When
+        // PHPJAVA_AOT_MODE=lazy is set, attempt to dispatch via the
+        // AOT'd PHP for static methods; fall back to the bytecode
+        // walk on any failure. Static-only for this first cut —
+        // instance methods stay on the interpreter path.
+        if (!$this->isDynamic() && self::aotLazyEnabled()) {
+            $classPath = $this->javaClassInvoker
+                ->getJavaClass()
+                ->getClassName();
+            $rawArgs = [];
+            foreach ($arguments as $argument) {
+                $rawArgs[] = is_object($argument) && method_exists($argument, 'getValue')
+                    ? $argument->getValue()
+                    : $argument;
+            }
+            [$found, $result] = Loader::tryCallStatic($classPath, $name, $rawArgs);
+            if ($found) {
+                return $result;
+            }
+        }
+
         /**
          * Call static initializer from static accessor.
          */
