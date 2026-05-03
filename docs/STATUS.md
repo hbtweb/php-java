@@ -115,6 +115,32 @@ emitter.**
 
 **Compile-time profile (rank 1, BenchAdd::sum1k):** PHPJava parser 83% (1280 µs); IR build+lower 1.5% (19 µs). For runtime-compilation use cases, **the IR is already fast enough**; the parser is the bottleneck.
 
+### Real-library probe — commons-lang3-3.17.0 (2026-05-03)
+
+Drove every `.class` in `commons-lang3-3.17.0.jar` through
+`Compiler::compileBytes()` to validate Open Question #1: does the IR
+Builder cover production Java bytecode? Result: **86.5% IR success /
+13.5% fallback** (509 of 3769 methods) after one round of mechanical
+opcode fills. **Of the 509 remaining fallbacks, 95% (485) are the
+single sub-step 1c-β structural issue** (non-empty abstract stack at
+BB boundary). Remaining 5% is 4 rare opcodes (TABLESWITCH/LOOKUPSWITCH/
+DUP2/LUSHR/MULTIANEWARRAY).
+
+The probe initially showed 65.6% IR success / 34.4% fallback dominated
+by missing JVM opcodes that didn't appear in our 9 hand-curated
+fixtures: ACONST_NULL, CHECKCAST, INSTANCEOF, F/DLOAD_n, F/DSTORE_n,
+narrowing conversions, shifts, FADD/DADD/FSUB/DSUB/FMUL/DMUL,
+DUP_X1. Adding all these in `src/Aot/Ir/Builder.php` (no new IR node
+types — reused existing `NullLit`/`FloatLit`/`StringLit`/`BinOp`/
+`StaticCall`) lifted coverage to 86.5%.
+
+**Architectural verdict:** the IR Builder's design holds against
+production bytecode. Gaps are well-known JVM opcodes (mechanical
+fills) plus the already-roadmapped sub-step 1c-β. Doing 1c-β would
+lift IR coverage to ~99% on commons-lang3.
+
+Full report + reproduction in [`bench/probe-real-library.md`](../bench/probe-real-library.md).
+
 **Compile-output caching landed (2026-05-03):** `Compiler::compileBytes` and `compileClass` cache the rendered PHP per (classPath, bytes-hash). Rank-1 measured: **2649× speedup** on cache hits (1578 µs cold → 0.6 µs warm). For Clojure-boot equivalent (~600 classes per CLOJURE-BOOT-ANALYSIS.md): **947 ms cold → ~0 ms cache replay**. This is the realistic answer to "make compile fast for runtime use" — far bigger lever than any IR-layer micro-optimization.
 
 **IR-path is now the production default** in `Compiler::compileFromGenericClass`, with string-path fallback for unsupported opcodes. All 9 fixtures lift through IR with zero fallbacks. The IR Builder's structural stack-erasure produces 30-43% smaller emit than the post-emit peephole on multi-method fixtures (rank-1 verified via contract gate).

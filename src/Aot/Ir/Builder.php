@@ -254,6 +254,7 @@ final class Builder
         $this->pc = $pc;
         switch ($op) {
             // ── const push ──────────────────────────────────────────
+            case 0x01: $this->push(new \PHPJava\Aot\Ir\NullLit()); return;
             case 0x02: $this->push(new IntLit(-1)); return;
             case 0x03: $this->push(new IntLit(0)); return;
             case 0x04: $this->push(new IntLit(1)); return;
@@ -263,6 +264,11 @@ final class Builder
             case 0x08: $this->push(new IntLit(5)); return;
             case 0x09: $this->push(new IntLit(0)); return; // lconst_0
             case 0x0A: $this->push(new IntLit(1)); return; // lconst_1
+            case 0x0B: $this->push(new \PHPJava\Aot\Ir\FloatLit(0.0)); return; // fconst_0
+            case 0x0C: $this->push(new \PHPJava\Aot\Ir\FloatLit(1.0)); return; // fconst_1
+            case 0x0D: $this->push(new \PHPJava\Aot\Ir\FloatLit(2.0)); return; // fconst_2
+            case 0x0E: $this->push(new \PHPJava\Aot\Ir\FloatLit(0.0)); return; // dconst_0
+            case 0x0F: $this->push(new \PHPJava\Aot\Ir\FloatLit(1.0)); return; // dconst_1
             case 0x10: // bipush
                 $v = $bytes[$this->pc++];
                 if ($v & 0x80) $v -= 0x100;
@@ -274,20 +280,20 @@ final class Builder
                 $this->push(new IntLit($v));
                 return;
             // ── load ────────────────────────────────────────────────
-            case 0x1A: case 0x1E: case 0x2A: $this->push(new LocalRead(0)); return; // i/l/aload_0
-            case 0x1B: case 0x1F: case 0x2B: $this->push(new LocalRead(1)); return;
-            case 0x1C: case 0x20: case 0x2C: $this->push(new LocalRead(2)); return;
-            case 0x1D: case 0x21: case 0x2D: $this->push(new LocalRead(3)); return;
+            case 0x1A: case 0x1E: case 0x22: case 0x26: case 0x2A: $this->push(new LocalRead(0)); return; // i/l/f/d/aload_0
+            case 0x1B: case 0x1F: case 0x23: case 0x27: case 0x2B: $this->push(new LocalRead(1)); return;
+            case 0x1C: case 0x20: case 0x24: case 0x28: case 0x2C: $this->push(new LocalRead(2)); return;
+            case 0x1D: case 0x21: case 0x25: case 0x29: case 0x2D: $this->push(new LocalRead(3)); return;
             // wide-byte forms: i/l/f/d/aload N (byte operand)
             case 0x15: case 0x16: case 0x17: case 0x18: case 0x19:
                 $idx = $bytes[$this->pc++];
                 $this->push(new LocalRead($idx));
                 return;
             // ── store ───────────────────────────────────────────────
-            case 0x3B: case 0x3F: case 0x4B: $this->emitStore(0); return; // i/l/astore_0
-            case 0x3C: case 0x40: case 0x4C: $this->emitStore(1); return;
-            case 0x3D: case 0x41: case 0x4D: $this->emitStore(2); return;
-            case 0x3E: case 0x42: case 0x4E: $this->emitStore(3); return;
+            case 0x3B: case 0x3F: case 0x43: case 0x47: case 0x4B: $this->emitStore(0); return; // i/l/f/d/astore_0
+            case 0x3C: case 0x40: case 0x44: case 0x48: case 0x4C: $this->emitStore(1); return;
+            case 0x3D: case 0x41: case 0x45: case 0x49: case 0x4D: $this->emitStore(2); return;
+            case 0x3E: case 0x42: case 0x46: case 0x4A: case 0x4E: $this->emitStore(3); return;
             // wide-byte forms: i/l/f/d/astore N (byte operand)
             case 0x36: case 0x37: case 0x38: case 0x39: case 0x3A:
                 $idx = $bytes[$this->pc++];
@@ -313,10 +319,12 @@ final class Builder
             // ── if_acmpeq / if_acmpne — same emit as ===/!== ───────
             case 0xA5: $this->emitCondGoto('===', $bytes, $start); return;
             case 0xA6: $this->emitCondGoto('!==', $bytes, $start); return;
-            // ── arithmetic ──────────────────────────────────────────
-            case 0x60: case 0x61: $this->emitBinOp('+'); return; // *add
-            case 0x64: case 0x65: $this->emitBinOp('-'); return; // *sub
-            case 0x68: case 0x69: $this->emitBinOp('*'); return; // *mul
+            // ── arithmetic. PHP `+`/`-`/`*` work uniformly on int
+            //    and float; JVM splits by type but the emit is the
+            //    same. iadd/ladd/fadd/dadd, etc.
+            case 0x60: case 0x61: case 0x62: case 0x63: $this->emitBinOp('+'); return;
+            case 0x64: case 0x65: case 0x66: case 0x67: $this->emitBinOp('-'); return;
+            case 0x68: case 0x69: case 0x6A: case 0x6B: $this->emitBinOp('*'); return;
             // ── iinc ────────────────────────────────────────────────
             case 0x84:
                 $idx = $bytes[$this->pc++];
@@ -505,18 +513,89 @@ final class Builder
                 $this->emitInvokeDynamic($idx);
                 return;
             // ── more arithmetic / shifts / bitwise ─────────────────
-            case 0x6C: case 0x6D: $this->emitBinOpFn('intdiv'); return;
-            case 0x6E: case 0x6F: $this->emitBinOp('/'); return;
-            case 0x70: case 0x71: $this->emitBinOp('%'); return;
+            case 0x6C: case 0x6D: $this->emitBinOpFn('intdiv'); return;       // idiv/ldiv
+            case 0x6E: case 0x6F: $this->emitBinOp('/'); return;              // fdiv/ddiv
+            case 0x70: case 0x71: $this->emitBinOp('%'); return;              // irem/lrem
+            case 0x72: case 0x73: $this->emitBinOpFn('fmod'); return;         // frem/drem
             case 0x74: case 0x75: case 0x76: case 0x77: // *neg
                 $this->push(new \PHPJava\Aot\Ir\UnaryOp('-', $this->pop()));
                 return;
             case 0x7E: case 0x7F: $this->emitBinOp('&'); return;
             case 0x80: case 0x81: $this->emitBinOp('|'); return;
             case 0x82: case 0x83: $this->emitBinOp('^'); return;
+            // ── shifts. JVM masks the shift count: ISHL/ISHR use low 5
+            //    bits, LSHL/LSHR use low 6 bits. PHP `<<`/`>>` don't
+            //    mask, so we mask the right operand here. PHP `>>` is
+            //    arithmetic (sign-preserving), matching JVM ISHR/LSHR.
+            //    IUSHR/LUSHR (unsigned) not yet emitted — fall through
+            //    to default until we add a (\$v & PHP_INT_MAX) >> n shape.
+            case 0x78: $this->emitShift('<<', 0x1F); return; // ishl
+            case 0x79: $this->emitShift('<<', 0x3F); return; // lshl
+            case 0x7A: $this->emitShift('>>', 0x1F); return; // ishr
+            case 0x7B: $this->emitShift('>>', 0x3F); return; // lshr
+            // ── narrowing int conversions ────────────────────────
+            // I2B: truncate to bottom 8 bits, sign-extend to 64. PHP
+            //  ints are 64-bit, so (v << 56) >> 56 keeps low 8 with
+            //  correct sign. Same shape for I2S (16 bits → << 48).
+            //  I2C is unsigned 16-bit, plain mask.
+            case 0x91: // i2b
+                $v = $this->pop();
+                $this->push(new BinOp('>>', new BinOp('<<', $v, new IntLit(56)), new IntLit(56)));
+                return;
+            case 0x92: // i2c
+                $v = $this->pop();
+                $this->push(new BinOp('&', $v, new IntLit(0xFFFF)));
+                return;
+            case 0x93: // i2s
+                $v = $this->pop();
+                $this->push(new BinOp('>>', new BinOp('<<', $v, new IntLit(48)), new IntLit(48)));
+                return;
+            // ── stack manipulation ────────────────────────────────
+            // DUP_X1: {..., a, b} → {..., b, a, b}. Same caveat as
+            // dup (0x59) — duplicating an impure Expr means it'll
+            // emit twice; the new+dup<init> pattern handles its own
+            // case. For unrelated DUP_X1 sites, the duplicated value
+            // is usually a pure load (typical javac shape: load+dup_x1
+            // +putfield+something).
+            case 0x5A:
+                $b = array_pop($this->abstractStack);
+                $a = array_pop($this->abstractStack);
+                if ($a === null || $b === null) {
+                    throw new \LogicException('dup_x1 stack underflow');
+                }
+                $this->abstractStack[] = $b;
+                $this->abstractStack[] = $a;
+                $this->abstractStack[] = $b;
+                return;
             // ── monitorenter/exit (no-op for single-thread PHP) ───
             case 0xC2: case 0xC3:
                 $this->pop();
+                return;
+            // ── checkcast / instanceof ────────────────────────────
+            // CHECKCAST: ref stays on stack; PHP is dynamically-typed
+            // so the cast itself is a no-op aside from ClassCastException
+            // semantics, which we don't enforce (matches MODEL.md
+            // "do not implement the bytecode verifier" stance).
+            case 0xC0:
+                $this->pc += 2;
+                return;
+            // INSTANCEOF: pop ref, push intval(\is_a(ref, '\\FQN', true)).
+            // intval wrap so subsequent IFEQ === IntLit(0) comparison is
+            // type-correct (PHP false === 0 is false).
+            case 0xC1:
+                $idx = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
+                $cls = $this->constantPool[$idx] ?? null;
+                $clsFqn = ($cls instanceof ClassInfo)
+                    ? $this->classFqn($this->utf8At($cls->getClassIndex()))
+                    : '\\stdClass';
+                $ref = $this->pop();
+                $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                    '\\intval', '',
+                    [new \PHPJava\Aot\Ir\StaticCall(
+                        '\\is_a', '',
+                        [$ref, new \PHPJava\Aot\Ir\StringLit($clsFqn), new IntLit(1)]
+                    )]
+                ));
                 return;
             default:
                 throw new \LogicException(sprintf(
@@ -558,6 +637,17 @@ final class Builder
         $right = $this->pop();
         $left = $this->pop();
         $this->push(new \PHPJava\Aot\Ir\StaticCall("\\{$fn}", '', [$left, $right]));
+    }
+
+    /** Emit a shift op with the JVM's required shift-count mask. */
+    private function emitShift(string $op, int $maskBits): void
+    {
+        $right = $this->pop();
+        $left = $this->pop();
+        $this->push(new BinOp(
+            $op, $left,
+            new BinOp('&', $right, new IntLit($maskBits)),
+        ));
     }
 
     /** Single-operand if: pop, compare against $rhs, branch. */
