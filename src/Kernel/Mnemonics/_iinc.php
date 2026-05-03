@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Int_;
 
 final class _iinc extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -28,8 +27,9 @@ final class _iinc extends AbstractOperationCode implements OperationCodeInterfac
         $index = $this->getOperands()['index'];
         $const = $this->getOperands()['const'];
 
-        $value = Normalizer::getPrimitiveValue($this->getLocalStorage($index));
+        $value = (int) Normalizer::getPrimitiveValue($this->getLocalStorage($index));
 
-        $this->setLocalStorage($index, Int_::get($value + $const));
+        $result = $value + $const;
+        $this->setLocalStorage($index, ($result << 32) >> 32);
     }
 }

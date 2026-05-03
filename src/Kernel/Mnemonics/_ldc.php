@@ -7,7 +7,6 @@ use PHPJava\Kernel\Structures\FloatInfo;
 use PHPJava\Kernel\Structures\IntegerInfo;
 use PHPJava\Kernel\Structures\StringInfo;
 use PHPJava\Kernel\Structures\Utf8Info;
-use PHPJava\Kernel\Types\Int_;
 
 final class _ldc extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -40,7 +39,8 @@ final class _ldc extends AbstractOperationCode implements OperationCodeInterface
                 $value = $value->getStringObject();
             }
         } elseif ($data instanceof IntegerInfo) {
-            $value = Int_::get($data->getBytes());
+            $bytes = (int) $data->getBytes();
+            $value = ($bytes << 32) >> 32;
         } elseif ($data instanceof FloatInfo) {
             $value = (float) $data->getBytes();
         } elseif ($data instanceof ClassInfo) {
