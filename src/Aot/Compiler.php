@@ -78,14 +78,23 @@ final class Compiler
 
     private int $lambdaCounter = 0;
 
-    /** Cache for compileClass — keyed on classPath. Hit skips
-     *  JavaClass::load + JCC reflection + parse + IR build + lower. */
+    /**
+     * LRU cache for compileClass — keyed on classPath. Hit skips
+     * JavaClass::load + JCC reflection + parse + IR build + lower.
+     * Bounded to `cacheMaxSize()` entries; oldest is evicted on insert
+     * when full. PHP arrays preserve insertion order, so re-inserting
+     * on hit promotes to most-recent (true LRU, not FIFO).
+     */
     private static array $compileClassCache = [];
 
     public function compileClass(string $classPath): string
     {
         if (isset(self::$compileClassCache[$classPath])) {
-            return self::$compileClassCache[$classPath];
+            // Promote to most-recent: remove + reinsert.
+            $cached = self::$compileClassCache[$classPath];
+            unset(self::$compileClassCache[$classPath]);
+            self::$compileClassCache[$classPath] = $cached;
+            return $cached;
         }
         $cls = JavaClass::load($classPath);
         // JavaClass wraps a JavaCompiledClass via `genericClass` (private);
@@ -98,7 +107,7 @@ final class Compiler
         $jcc = $prop->getValue($cls);
 
         $out = $this->compileFromGenericClass($jcc, $classPath);
-        self::$compileClassCache[$classPath] = $out;
+        self::lruInsert(self::$compileClassCache, $classPath, $out);
         return $out;
     }
 
@@ -142,12 +151,51 @@ final class Compiler
         // class identifier change), so both go into the key.
         $key = \hash('xxh3', $classPath . "\0" . $classBytes);
         if (isset(self::$compileBytesCache[$key])) {
-            return self::$compileBytesCache[$key];
+            // Promote to most-recent (LRU).
+            $cached = self::$compileBytesCache[$key];
+            unset(self::$compileBytesCache[$key]);
+            self::$compileBytesCache[$key] = $cached;
+            return $cached;
         }
         $jcc = new JavaCompiledClass(new InlineReader($classPath, $classBytes));
         $out = $this->compileFromGenericClass($jcc, $classPath);
-        self::$compileBytesCache[$key] = $out;
+        self::lruInsert(self::$compileBytesCache, $key, $out);
         return $out;
+    }
+
+    /**
+     * Maximum entries per cache (compileClass + compileBytes each).
+     * Configurable via env `PHPJAVA_AOT_CACHE_MAX`; default 1000.
+     * 1000 entries × ~10 KB rendered PHP each ≈ 10 MB ceiling per cache,
+     * 20 MB combined — safe for long-running daemons.
+     */
+    private static function cacheMaxSize(): int
+    {
+        static $max = null;
+        if ($max === null) {
+            $env = getenv('PHPJAVA_AOT_CACHE_MAX');
+            $max = ($env !== false && ctype_digit($env) && (int)$env > 0)
+                ? (int)$env
+                : 1000;
+        }
+        return $max;
+    }
+
+    /**
+     * LRU insert helper. Caller has already verified the key isn't
+     * present. If at capacity, evict the oldest entry (insertion-order
+     * front) before inserting at the back.
+     *
+     * @param array<string,string> $cache mutated by reference
+     */
+    private static function lruInsert(array &$cache, string $key, string $value): void
+    {
+        $max = self::cacheMaxSize();
+        if (count($cache) >= $max) {
+            // array_shift drops the oldest insertion-ordered entry.
+            array_shift($cache);
+        }
+        $cache[$key] = $value;
     }
 
     private function compileFromGenericClass(JavaCompiledClass $jcc, string $classPath): string
