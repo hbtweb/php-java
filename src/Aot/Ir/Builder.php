@@ -72,6 +72,24 @@ final class Builder
     private array $bootstrapMethods = [];
 
     /**
+     * Synthetic-local allocation for cross-BB stack spill (sub-step 1c-β).
+     * Per target PC, the slot indices used to hold the residual abstract
+     * stack at BB entry. Source BB writes via StoreLocal before the
+     * terminator; target BB seeds its abstractStack via LocalRead at entry.
+     *
+     * Slots above the original `$maxSlot + 1` boundary are synthetic; the
+     * Method's `maxLocals` is widened accordingly. JVM verifier guarantees
+     * all predecessors of a given merge point deliver the same stack-shape,
+     * so a single slot mapping per target PC suffices.
+     *
+     * @var array<int, int[]>  targetPc => [slot0, slot1, ...] (slot0 = bottom of stack)
+     */
+    private array $bbEntrySlots = [];
+
+    /** Next free slot for synthetic-local allocation; init = max($argc, $maxSlot+1). */
+    private int $nextSyntheticSlot = 0;
+
+    /**
      * Synthetic lambda classes generated this build session. Caller
      * (Module assembler) reads via getLambdaClasses() after each
      * buildMethod call and attaches to the Module.
@@ -103,6 +121,7 @@ final class Builder
         $this->branchTargets = [];
         $this->exceptionsByStart = [];
         $this->exceptionHandlerPcs = [];
+        $this->bbEntrySlots = [];
 
         // Cache BootstrapMethods once per JCC (idempotent across method calls).
         if (empty($this->bootstrapMethods)) {
@@ -171,6 +190,11 @@ final class Builder
             $this->branchTargets[$startPc] = true;
         }
 
+        // Synthetic locals for cross-BB stack spill start above the
+        // original-bytecode maxLocals.
+        [$argTypes0, ] = $this->parseDescriptor($descriptor);
+        $this->nextSyntheticSlot = max(count($argTypes0), $maxSlot + 1);
+
         // ── Second pass: build IR ───────────────────────────────────
         $this->currentBb = new BasicBlock(0);
         $this->blocks[0] = $this->currentBb;
@@ -193,16 +217,15 @@ final class Builder
             // already in a block (i.e., not the first opcode), end
             // the current block with a fall-through goto and start a
             // new one. JVM verifier guarantees stack consistency at
-            // entry; we assert empty-stack here for safety, allowing
-            // exception-handler entry where the stack starts with the
-            // caught exception.
+            // entry. For non-empty abstract stack at a non-handler
+            // boundary, spill to synthetic locals (sub-step 1c-β);
+            // the target BB reloads via LocalRead at its entry.
+            // Exception-handler entries seed the stack with
+            // [CaughtException] separately.
             if (isset($this->branchTargets[$start]) && $start !== 0) {
                 $isHandler = isset($this->exceptionHandlerPcs[$start]);
                 if (!empty($this->abstractStack) && !$isHandler) {
-                    throw new \LogicException(
-                        "non-empty abstract stack at BB boundary PC={$start} — "
-                        . "stack-erasure assumption violated; need spill or fallback"
-                    );
+                    $this->spillStackToSlot($start);
                 }
                 if ($this->currentBb->term === null) {
                     $this->currentBb->term = new Goto_($start);
@@ -214,6 +237,10 @@ final class Builder
                     $this->currentBb->isHandler = true;
                     // Reset abstract stack for handler entry.
                     $this->abstractStack = [new CaughtException()];
+                } else {
+                    // Re-seed abstract stack from synthetic slots if
+                    // any predecessor spilled here.
+                    $this->reloadStackFromSlots($start);
                 }
                 if (isset($this->exceptionsByStart[$start])) {
                     $this->currentBb->tryProtect = $this->exceptionsByStart[$start];
@@ -234,7 +261,10 @@ final class Builder
         $argc = count($argTypes);
         $params = [];
         for ($i = 0; $i < $argc; $i++) $params[] = "\$__a{$i}";
-        $maxLocals = max($argc, $maxSlot + 1);
+        // Widen by any synthetic locals allocated for cross-BB stack
+        // spill. nextSyntheticSlot points at the next free slot, which
+        // equals the count of slots used.
+        $maxLocals = max($argc, $maxSlot + 1, $this->nextSyntheticSlot);
 
         return new Method(
             name: $this->mangleMethod($methodName),
@@ -343,7 +373,9 @@ final class Builder
             case 0xA7:
                 $offset = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
                 if ($offset & 0x8000) $offset -= 0x10000;
-                $this->currentBb->term = new Goto_($start + $offset);
+                $tgt = $start + $offset;
+                $this->spillStackToSlot($tgt);
+                $this->currentBb->term = new Goto_($tgt);
                 return;
             // ── return ──────────────────────────────────────────────
             case 0xAC: case 0xAD: case 0xAE: case 0xAF: case 0xB0:
@@ -650,18 +682,108 @@ final class Builder
         ));
     }
 
+    // ── Sub-step 1c-β: cross-BB stack spill ──────────────────────────
+
+    /**
+     * Allocate (or reuse) synthetic local slots for a target PC's
+     * residual stack. JVM verifier guarantees all predecessors deliver
+     * the same stack-shape, so the same slot mapping works for all.
+     *
+     * @return int[]  slot indices, slot[0] = bottom of stack
+     */
+    private function allocOrReuseSlots(int $targetPc, int $depth): array
+    {
+        if (isset($this->bbEntrySlots[$targetPc])) {
+            $existing = $this->bbEntrySlots[$targetPc];
+            if (count($existing) !== $depth) {
+                throw new \LogicException(sprintf(
+                    "Inconsistent stack depth at PC %d: %d vs %d",
+                    $targetPc, $depth, count($existing)
+                ));
+            }
+            return $existing;
+        }
+        $slots = [];
+        for ($i = 0; $i < $depth; $i++) {
+            $slots[] = $this->nextSyntheticSlot++;
+        }
+        $this->bbEntrySlots[$targetPc] = $slots;
+        return $slots;
+    }
+
+    /**
+     * Spill the current abstract stack into synthetic slots tagged for
+     * the target PC. Stack is emptied as a side effect (StoreLocal stmts
+     * appended to currentBb).
+     */
+    private function spillStackToSlot(int $targetPc): void
+    {
+        $depth = count($this->abstractStack);
+        if ($depth === 0) return;
+        $slots = $this->allocOrReuseSlots($targetPc, $depth);
+        // Pop top-to-bottom; slot[i] holds stack depth i from bottom.
+        for ($i = $depth - 1; $i >= 0; $i--) {
+            $val = $this->pop();
+            $this->currentBb->stmts[] = new StoreLocal($slots[$i], $val);
+        }
+    }
+
+    /**
+     * Spill the current abstract stack to slots shared by both successors
+     * of a CondGoto. JVM verifier requires the stack-shape at thenPc and
+     * elsePc to match; we use one slot mapping for both.
+     */
+    private function spillStackForBoth(int $thenPc, int $elsePc): void
+    {
+        $depth = count($this->abstractStack);
+        if ($depth === 0) return;
+        $slots = $this->allocOrReuseSlots($thenPc, $depth);
+        // Mirror to elsePc — must agree if already allocated.
+        if (isset($this->bbEntrySlots[$elsePc])) {
+            if ($this->bbEntrySlots[$elsePc] !== $slots) {
+                throw new \LogicException(sprintf(
+                    "CondGoto slot mismatch: thenPc %d → [%s] vs elsePc %d → [%s]",
+                    $thenPc, implode(',', $slots),
+                    $elsePc, implode(',', $this->bbEntrySlots[$elsePc])
+                ));
+            }
+        } else {
+            $this->bbEntrySlots[$elsePc] = $slots;
+        }
+        for ($i = $depth - 1; $i >= 0; $i--) {
+            $val = $this->pop();
+            $this->currentBb->stmts[] = new StoreLocal($slots[$i], $val);
+        }
+    }
+
+    /**
+     * Re-seed the abstract stack at a target BB's entry from synthetic
+     * slots a predecessor spilled into. No-op if no predecessor spilled.
+     */
+    private function reloadStackFromSlots(int $startPc): void
+    {
+        if (!isset($this->bbEntrySlots[$startPc])) return;
+        foreach ($this->bbEntrySlots[$startPc] as $slot) {
+            $this->push(new LocalRead($slot));
+        }
+    }
+
     /** Single-operand if: pop, compare against $rhs, branch. */
     private function emitIfPop(string $op, Expr $rhs, array $bytes, int $start): void
     {
         $offset = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
         if ($offset & 0x8000) $offset -= 0x10000;
         $left = $this->pop();
+        $thenPc = $start + $offset;
+        $elsePc = $this->pc;
+        // Spill any residual stack to slots shared by both successors
+        // (sub-step 1c-β; verifier guarantees both targets see same shape).
+        $this->spillStackForBoth($thenPc, $elsePc);
         $this->currentBb->term = new CondGoto(
             new BinOp($op, $left, $rhs),
-            $start + $offset,
-            $this->pc,
+            $thenPc, $elsePc,
         );
-        $this->branchTargets[$this->pc] = true;
+        $this->branchTargets[$elsePc] = true;
     }
 
     private function emitCondGoto(string $op, array $bytes, int $start): void
@@ -670,14 +792,16 @@ final class Builder
         if ($offset & 0x8000) $offset -= 0x10000;
         $right = $this->pop();
         $left = $this->pop();
+        $thenPc = $start + $offset;
+        $elsePc = $this->pc;
+        $this->spillStackForBoth($thenPc, $elsePc);
         $this->currentBb->term = new CondGoto(
             new BinOp($op, $left, $right),
-            $start + $offset,
-            $this->pc, // fall-through
+            $thenPc, $elsePc,
         );
         // Mark fall-through PC as a BB boundary so the next opcode
         // starts a new block.
-        $this->branchTargets[$this->pc] = true;
+        $this->branchTargets[$elsePc] = true;
     }
 
     private function emitInvokeStatic(int $idx): void
