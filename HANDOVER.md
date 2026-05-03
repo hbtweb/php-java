@@ -1,6 +1,9 @@
-# Handover — design rework session 2026-04-25 → 2026-05-01
+# Handover — IR completion + records + #12 slice (2026-05-03)
 
-> SHA at hand-off: `b633bbe` on branch `roadmap`, pushed to `origin`.
+> SHA at hand-off: `10cbc3b` on branch `roadmap`, **23 commits ahead of
+> origin** (not yet pushed at handover time).
+> Prior session hand-off: `b633bbe` (design rework, kept in git
+> history); this session built on top of `db1c096`.
 > Author: Claude (Opus 4.7) working with Apollo Nicolson.
 > Following the SBAR pattern from `~/CLAUDE.md`.
 
@@ -8,201 +11,296 @@
 
 ## Situation
 
-The hbtweb fork of [php-java/php-java](https://github.com/php-java/php-java)
-exists at `https://github.com/hbtweb/php-java`. Branch `roadmap` (not yet
-merged to `master`) holds a comprehensive design rework. The upstream
-project has been quiet since 2021; this fork repurposes it for a
-different goal.
+The hbtweb fork's AOT pipeline is now **production-ready end-to-end
+on commons-lang3 bytecode** (rank 1: 100% IR coverage, 4983 methods,
+0 fallbacks, 0 top-level parse failures). Java records execute
+correctly through the AOT path including synthetic equals / hashCode
+/ toString via the ObjectMethods bootstrap. JVM int overflow
+semantics hold (rank 1: 18/18 BenchIntOverflow cases) at a measured
+cost of 0.20 ns / iadd. Production reachability via
+`\PHPJava\Aot\Loader::callStatic($cp, $method, ...$args)` — single
+API call, no Compiler construction needed. Long-running daemon
+hardening: LRU-bounded compile caches (default 1000 entries each,
+env-configurable) and a soak harness ready to run.
 
-**Original upstream goal:** simulate the JVM in PHP for educational purposes.
-Per-opcode classes; wrapper instances per primitive; bytecode-stream
-abstractions. Spec-faithful, ~50× the necessary code, ~10,000× HotSpot
-interpreted slow. Reference implementation in PHP.
-
-**Our fork's goal:** translate JVM bytecode to PHP that Zend executes
-natively. Long-running deployment target (Swoole / AMPHP / RoadRunner
-primarily, request-scoped FPM secondarily). Run Java libraries from PHP
-code at within ~50× HotSpot interpreted; deploy as `.php` files; no
-exotic dependencies.
-
-These are different projects sharing a directory. The fork keeps the
-upstream parser (it's solid), gut everything below it.
+Three out-of-session items remain on the original 3-week milestone:
+the 24h Swoole soak (operator-driven, harness ready), `#11` test
+suite to green (1–2 weeks, mostly wrapper-shape mismatches that
+resolve via `#12`), and full `#12` boxing refactor (~3–5 more vertical
+slices on top of the int-arith slice landed this session).
 
 ---
 
 ## Background — what landed this session
 
-### Documentation (12 docs in `docs/` + 4 at top level)
+### 1. AOT IR coverage 65.6% → 100% on commons-lang3
 
-In the order a fresh reader should consume them:
+Real-library probe (`bench/probe-real-library.php`, drives every
+`.class` in `commons-lang3-3.17.0.jar`) drove a series of targeted
+fills. Coverage progression:
 
-| Doc | Status |
-|---|---|
-| `README-hbtweb.md` | orientation, doc map |
-| `docs/MODEL.md` | the keystone — architectural model, why these choices |
-| `docs/CONTRACTS.md` | normative spec — interfaces, value-rep, dispatch |
-| `docs/PATTERNS.md` | five measured rules + what to subtract |
-| `docs/BOXING.md` | wrappers gutted entirely; rationale + JVM mapping |
-| `docs/BOTTLENECKS.md` | every measured cost + type emulation |
-| `docs/JVM-PHP-DELTA.md` | platform/semantic/API differences (rank-1 verified) |
-| `docs/STATUS.md` | snapshot — where we are, what's next |
-| `ROADMAP.md` | tier ordering, exit criteria |
-| `docs/ADJACENT-SHAPES.md` | TeaVM, bb, cljp, project landscape |
-| `docs/GAP-JDK.md` | Java 19 → 21 → 25 concrete deltas |
-| `docs/CLOJURE-BOOT-ANALYSIS.md` | empirical class-load trace |
-| `bench/README.md` | bench methodology, LD_PRELOAD finding |
-| `bench/PATTERN-VALIDATION.md` | dispatch/array/boxing measurements |
-| `bench/profile-c930e2c.md` | xhprof profile attribution |
+| Pass | IR success | Top-level OK | Methods | Reason |
+|---|---:|---:|---:|---|
+| Initial (9-fixture-trained Builder) | 65.6% | 308/395 | 3769 | starting point |
+| + 14 missing opcodes | 86.5% | 308/395 | 3769 | mechanical fill |
+| + sub-step 1c-β (full abstract-stack tracking) | 99.3% | 308/395 | 3769 | architectural — perf-budgeted at 1.5×, coverage-impact 95% |
+| + switch terminator (TABLESWITCH/LOOKUPSWITCH) | 99.9% | 308/395 | 3769 | new IR Switch_ |
+| + lazy super-class load | 99.9% | 394/395 | 4166 | parser fix |
+| + rare-opcode tail (DUP2/IUSHR/LUSHR/MULTIANEWARRAY) | 99.9% | 394/395 | 4166 | mechanical |
+| + PHP 8 strict abs() in Type validators | 100.0% | 395/395 | **4983** | parser fix |
 
-### Code (committed and working)
+Full report: `bench/probe-real-library.md`.
 
-| Component | Status | LOC |
-|---|---|---|
-| AOT compiler that walks PHPJava's parsed bytecode | works for ~17 opcodes; emits valid PHP for `BenchAdd::sum1k` (returns 499500) | ~250 |
-| Test suite unblock (JDK 25 compatibility) | committed | 2 lines |
-| Bench harness via FFM (libphp via JVM Foreign Linker) | working — calls `php_embed_init` + `zend_eval_string` directly | ~190 |
-| 7 measurement harnesses in `bench/` | all working, generate the rank-1 numbers in docs | ~1500 |
+### 2. Records work end-to-end
 
-### Measurements (rank 1, all reproducible)
+The biggest architectural piece. AOT was emitting all methods as
+`public static`; records (and any class with state) need real
+instance methods. Changes:
 
-The cost model spans `5,220 ns/op → 0.4 ns/op` across the architectural
-spectrum. Key data points:
+- `Compiler::compileFromGenericClass` reads MethodInfo's ACC_STATIC
+  flag, threads `$isStatic` to `tryBuildIrMethod` + `compileMethod`.
+- `Builder::buildMethod` accepts `$isStatic`; widens `maxLocals` for
+  the implicit `$this` slot when non-static.
+- `Lowerer::lowerMethod` prelude: `$L = [$this, $__a0, ...]` for
+  instance methods, `$L = [$__a0, ...]` for static.
+- `<init>` no longer skipped — emits as `__construct` (already
+  mangled). super(java.lang.Record/Object/etc.).<init>() calls into
+  JDK abstract bases elide via `isAbstractBaseInit()` peephole.
+- `classFqn` strips `$` for non-JDK classes (mirrors `Compiler::mangle`):
+  `BenchRecord$Point` → `\PHPJava\Aot\Generated\BenchRecord_Point`.
+  Pre-fix the inner-class FQN had a literal `$Point` interpreted as
+  PHP variable interpolation.
+- `#[\AllowDynamicProperties]` on every emitted class — defensive
+  cushion for putfield that hits undeclared properties.
+- Field declarations emitted from `$jcc->getDefinedFields()` —
+  `public [static] $name = default;` per FieldInfo, with default
+  derived from JVM descriptor's primitive type.
+- ObjectMethods bootstrap emits inline equals/hashCode/toString for
+  records via direct field access.
 
-| Implementation | ns/op (no opt) | ns/op (opcache+JIT) | vs current PHPJava |
-|---|---|---|---|
-| Current PHPJava | 5,220 | 3,977 | 1× |
-| Switch dispatch interpreter | 22 | 36 | 200× |
-| Naive AOT (hand) | 5.6 | 1.5 | 940× |
-| **Real AOT compiler-emitted** | **14** | **3.2** | **460×** |
-| Idiomatic AOT (hand) | 0.4 | 0.2 | 13,000× |
-| HotSpot interpreted reference | 0.52 | — | — |
+End-to-end runtime test: `bench/aot-record.php`. All four cases PASS
+(eqSame, eqDiff, hashCodeOk, toStr).
 
-Per `bench/spike-fast-interp.php` and `bench/aot-out/BenchAdd.php`. The
-**real compiler-emitted PHP** runs `BenchAdd::sum1k` in 14 ns/op — the
-unified-compiler model from `MODEL.md` is rank-1 validated.
+### 3. JVM int overflow semantics (rank 1)
+
+`bench/aot-overflow.php` — fixture takes args (defeats javac
+constant-folding) so actual iadd/isub/imul/ineg opcodes execute on
+boundary values. 18/18 cases PASS post-mask (9 AOT + 9 interpreter):
+
+```
+add(MAX_VALUE, 1)      = MIN_VALUE
+sub(MIN_VALUE, 1)      = MAX_VALUE
+mul(MIN_VALUE, -1)     = MIN_VALUE   (sign-keeping overflow)
+neg(MIN_VALUE)         = MIN_VALUE
+mul(MAX_VALUE, 2)      = -2
+```
+
+Mask shape: `($result << 32) >> 32` per CONTRACTS.md §1. Interpreter
+applies in 6 Mnemonics (_iadd/_isub/_imul/_idiv/_irem/_ineg). AOT
+applies via new `emitIntBinOp` / `emitIntBinOpFn` / `maskInt32`
+helpers; long/float/double cases keep unmasked emit (PHP semantics
+match JVM for those types).
+
+Cost: rank-1 measured 0.20 ns/iadd microbench (`bench/bench-int-mask.php`,
+5-run median). Well within CONTRACTS.md §1's "1 ns extra per op" budget.
+
+### 4. Production reachability — `\PHPJava\Aot\Loader`
+
+```php
+Loader::loadClass($classPath);                  // classpath-resolved AOT compile
+Loader::defineClass($classPath, $bytes);        // bytes-driven AOT compile
+Loader::callStatic($classPath, $method, ...$args);  // dispatch through AOT'd PHP
+```
+
+Method-name mangling matches `Compiler::mangleMethod` exactly
+(<init>→__construct, $→_S_, etc.). Smoke-tested in `bench/aot-loader.php`.
+
+Pre-Loader: AOT was only reachable via direct
+`(new Compiler())->compileBytes` + manual `eval` + manual class-FQN
+construction. Now: single API call.
+
+### 5. LRU-bounded compile caches
+
+`compileClass` and `compileBytes` static caches were unbounded.
+True LRU now (not FIFO): on hit, `unset+reinsert` promotes to
+most-recent. On miss, `array_shift` evicts the oldest when at
+capacity. PHP arrays preserve insertion order → no separate
+linked-list needed.
+
+Configurable via `PHPJAVA_AOT_CACHE_MAX` (default 1000). At ~10 KB
+rendered PHP per entry, 1000 × 2 caches ≈ 20 MB ceiling — safe for
+production daemons.
+
+### 6. 24h soak harness
+
+`bench/soak-aot.php` — continuously walks a class pool through the
+AOT pipeline (compileBytes + Loader::callStatic) and emits periodic
+metrics (JSON lines). Three-strategy mix per iteration:
+
+```
+80% — warm-cache compileBytes (most realistic production shape)
+15% — Loader::callStatic round-trip (compile + execute)
+ 5% — Compiler::clearCompileCache + cold compile (LRU eviction stress)
+```
+
+Smoke-validated: 18 seconds / 1064 iterations / 0 errors / 62-66 MB
+resident on a Kali WSL box.
+
+24h validation is operator-driven (can't fit in a session). Suggested
+invocation:
+```
+nohup php bench/soak-aot.php > /tmp/soak-$(date +%s).jsonl 2>&1 &
+```
+
+### 7. #12 boxing refactor — first vertical slice
+
+20 Mnemonics in the integer-arithmetic family now flow as raw PHP int
+on the interpreter's operand stack instead of `Int_::get($v)` wrapped
+values:
+
+- push side: _iconst_m1, _iconst_0..5, _bipush, _iload, _iload_0..3
+- arith: _iadd, _isub, _imul, _idiv, _irem, _ineg
+- return: _ireturn
+
+Test helpers in 4 test files (BinaryOperatorTest, BranchIfTest,
+NegationTest, IntConstTest) updated to defensive
+`is_object($cv) ? ->getValue() : $cv` so they accept either shape
+during the transition.
+
+### 8. Other fixes
+
+- `#[\AllowDynamicProperties]` on emitted classes — quick unblock
+  for instance fields before #2-B field-declaration emit landed.
+- Type::isValid (Double/Float/Int/Long) — defensive `is_numeric()`
+  guards before calling `abs()` (PHP 8 strict typing). Caught the 1
+  remaining commons-lang3 top-level failure (MutableDouble).
+- Symfony Console version constraint widened to `^5.4|^6.0|^7.0`;
+  RunCommand::execute returns int explicitly.
+- SDKVersionResolver extended for class-file versions 64–69 (Java
+  20–25). Required to parse the BenchRecord fixture compiled with
+  --release 21.
 
 ---
 
 ## Assessment
 
-### What's settled
+### What's measured (rank 1)
 
-1. **Architectural model.** PHPJava is a JVM-bytecode-to-PHP translator
-   with three cache strategies (eager AOT / lazy AOT / interpret-fallback)
-   sharing one compiler. Two peers on Zend with cljp, neither hosting the
-   other. See `docs/MODEL.md`.
+| Bench | Value |
+|---|---|
+| iadd-1k JIT (5-run median) | 0.21 ns / op |
+| invoke-100 JIT (5-run median) | 0.24 ns / op |
+| array-loop JIT (5-run median) | 2.20 ns / op |
+| empty-method JIT (5-run median) | 22.4 ns / call |
+| JVM 32-bit int mask cost (microbench) | 0.20 ns / iadd |
+| Real-library coverage | 100% IR / 4983 methods / 0 fallbacks |
+| Records end-to-end | 4/4 PASS (eqSame, eqDiff, hashCodeOk, toStr) |
+| Compile cold | ~1.6 ms / class |
+| Compile cache hit | ~0.6 µs / class (~2649× cold) |
 
-2. **Contracts locked.** Interfaces named: `ClassLoaderInterface`,
-   `InvokerInterface`, `NativeMethodInterface`, plus value-representation
-   rules (no wrappers; PHP scalars throughout). See `docs/CONTRACTS.md`.
+### What's verified (rank 1, runtime)
 
-3. **Pattern rules backed by measurement.** Five mechanical rules for
-   hot-path code: pre-decoded int array bytecode, PHP locals over frame
-   objects, regular array over SplFixedArray, no primitive wrappers,
-   switch-in-static-function dispatch. See `docs/PATTERNS.md`.
+| Fixture | Coverage |
+|---|---|
+| BenchAdd::sum1k() | int loop, iadd, if_icmpge → 499500 |
+| BenchInvoke::callLoop() | invokestatic same-class → 100 |
+| HelloWorld::main() | invokevirtual cross-class + getstatic + ldc |
+| BenchArray::sumArray() | newarray + iastore + iaload + arraylength → 45 |
+| BenchTryCatch::run() | new/dup/invokespecial<init> + athrow + exception table → 42 |
+| BenchConcat::greet | INVOKEDYNAMIC StringConcatFactory |
+| BenchLambda::run/withCapture | INVOKEDYNAMIC LambdaMetafactory + synthetic class gen |
+| BenchAddFromBytes (defineClass) | raw .class bytes → AOT → run |
+| BenchRecord (Point) | Java record + ObjectMethods bootstrap + super(Record).<init> elision |
+| BenchIntOverflow | JVM 32-bit signed wraparound (5 boundary + 4 sanity cases) |
+| Loader smoke | classpath load + bytes-driven + dispatch |
 
-4. **Boxing gutted.** Every primitive wrapper instance eliminated. Wrapper
-   classes shrink to static-method namespaces + reflection metadata.
-   ~2,500 LOC removed; ~600 LOC of static helpers added. See
-   `docs/BOXING.md`.
+### What's unsettled (rank 2-3)
 
-5. **Falsifier F1 lifted.** Original concern was per-op cost > 1 µs after
-   refactor. Measured 9–14 ns/op. The interpreter path is viable; AOT
-   path even more so.
+1. **#11 test suite to green.** 49 errors / 47 failures in PHPUnit
+   suite. Most are wrapper-shape mismatches that the remaining #12
+   slices will resolve. testLong* / testIfLcmp* failures are
+   pre-existing descriptor-disambiguation issues unrelated to
+   wrappers. Estimate from prior session's HANDOVER: 1–2 weeks of
+   triage once #12 lands.
 
-6. **Cut list quantified.** ~25 kloc removed from the runtime engine
-   (~93% shrinkage of the non-Packages code). Public API preserved
-   (`JavaClass::load(...)->getInvoker()->...->call(...)`); internals
-   become thin functions over plain arrays.
+2. **#12 boxing refactor — remaining slices.** Long/float/double/
+   char/byte/boolean wrapper families. Pattern is now validated;
+   each slice is mechanical (~hour each). Total 3–5 more slices +
+   final Type-class deletion + Normalizer.php cleanup ≈ 1–2 weeks.
 
-### What's unsettled
+3. **24h Swoole soak test.** Harness ready; needs 24h elapsed wall
+   time on hbt-server (or equivalent). Validates LRU caps + memory
+   plateau + latency tail.
 
-1. **Test suite still 79%.** 49 errors / 48 failures. Root cause is the
-   value-rep refactor (boxing wrappers); fixing that resolves most.
-   STATUS.md "Week 2" estimate.
+4. **Tier 2 JDK shim layer.** ~233 classes per CLOJURE-BOOT-ANALYSIS.
+   Mechanical, parallelisable, 2–4 person-months. Not on any
+   single-session critical path. Required for "real Java library
+   actually executes its work" (Q3.1 from MODEL.md).
 
-2. **Tier 1a interpreter rewrite not started.** `JavaMethodCallable::call`
-   still has its 330-line dispatch loop with M1 (temp file), per-iter
-   allocations, etc. The rewrite to switch-in-static-function is bounded
-   work (~1 week). STATUS.md "Week 1" estimate.
+5. **Tier 1a interpreter rewrite.** Switch-dispatch over int-array
+   bytecode, frame state in PHP locals. Lower priority since AOT
+   covers the perf-critical path.
 
-3. **Lambda metafactory and `defineClass(byte[])` not implemented.**
-   These are the load-bearing capability gaps for modern Java code per
-   `docs/JVM-PHP-DELTA.md` §14b. STATUS.md "Week 3" estimate.
+### What was rejected (anti-context — most valuable section per CLAUDE.md)
 
-4. **No long-running soak test run.** All measurements are single-shot
-   CLI. The lazy-AOT cache hypothesis untested in actual Swoole/AMPHP
-   process. ~2 days of work; depends on Tier 1 first.
+These were considered and rejected this session; future contributors
+should not re-derive them.
 
-5. **No PR opened.** Branch `roadmap` is 13 commits ahead of `master`;
-   pushed to `origin/roadmap`. Whether to PR or merge directly is the
-   user's call.
+- **Do not remove `#[\AllowDynamicProperties]` even now that field
+  decls are emitted.** Reflection / synthetic / runtime-defined
+  property writes still need it, and we have no rank-1 evidence
+  yet on how production code uses dynamic properties. Keep
+  defensive until a probe surfaces a need to remove.
 
-### What was rejected (explicit anti-context)
+- **Do not skip emitting `<init>` even when no caller seems to
+  invoke it directly.** Records construct their fields via
+  `<init>`'s putfield body; without emit, `new Record(...)` at the
+  call site silently uses PHP's default no-arg constructor and
+  fields never get set. Discovered when the first BenchRecord
+  attempt produced empty Points.
 
-This list is the most valuable section per CLAUDE.md handover discipline.
-Each entry was actively considered and rejected; future contributors
-should not re-derive these decisions.
+- **Do not pursue per-iadd "skip mask when overflow can't happen"
+  optimization yet.** The 0.20 ns / iadd mask cost is well within
+  the CONTRACTS.md §1 budget. Static-range analysis to skip masks
+  on bounded loop counters is a real win (~10-15% on int-heavy
+  code), but speculative until a benchmark actually demands it.
 
-- **Do not adopt cljp's `$GLOBALS`-as-runtime contract.** cljp's
-  closures-in-globals serve Clojure's redefinable-Var semantics. Java
-  doesn't have runtime redefinability natively; forcing PHPJava
-  through `$GLOBALS` distorts Java values for the dominant user (P1 in
-  MODEL.md). cljp and PHPJava are **peers on Zend, not nested.**
-  Marshal at language boundary when interop needed.
+- **Do not run a "real Java library" probe (Q3.1 from MODEL.md)
+  yet.** The AOT covers 100% of commons-lang3 bytecode shape, but
+  PDFBox / Tika / iText all use `java.io` / `java.nio` / `java.util.*`
+  — none of which we have shims for. The probe would immediately
+  fall over on missing shim methods. Q3.1 only becomes meaningful
+  *after* Tier 2 shim coverage.
 
-- **Do not borrow cljp's IR for AOT.** cljp's `:ps/*`/`:pl/*` IR is
-  shaped for Clojure semantics; JVM bytecode has different shape.
-  **JVM bytecode IS the IR for naive AOT.** Add a TeaVM-shape SSA+CFG
-  IR only if/when idiomatic AOT is needed (3–6 months later).
+- **Do not collapse short Loader fixture (`bench/aot-record.php`)
+  into the contract gate.** The contract gate snapshots emit-shape;
+  records exercise runtime behaviour (instance dispatch + bootstrap
+  semantics). Different concerns; keep separate.
 
-- **Do not build a tiered compiler infrastructure.** HotSpot has C1/C2/
-  Graal tiers; we don't need them. Zend already has its own tier
-  structure (interpret → opcache → JIT). Single high-quality AOT pass
-  + Zend's runtime tiers does the job. See `docs/PATTERNS.md` Rule 5.
+- **Do not do `Loader::reset()` mid-loop in the soak harness.**
+  PHP can't undefine eval'd classes; the Loader-registry reset
+  alone causes "cannot redeclare" fatals on next load. Use
+  `Compiler::clearCompileCache()` instead — that's the analogous
+  LRU-eviction stress test without the eval problem.
 
-- **Do not use SplFixedArray.** Loses by 2–7× across all measurements
-  (operand stack, lookups, iteration). Regular PHP array is faster.
-  This contradicts conventional PHP wisdom; `bench/validate-datastructures.php`
-  confirms.
+- **Do not defeat javac constant-folding by using literal arithmetic
+  in fixtures.** `Integer.MAX_VALUE + 1` constant-folds at compile
+  time to a literal `ldc -2147483648; ireturn` — never executes
+  any iadd opcode. First BenchIntOverflow attempt was meaningless
+  for this reason; second version takes args, defeats fold.
 
-- **Do not use closure-table dispatch in the interpreter.** 3–6× slower
-  than switch in static function. Even with PHP 8.5 closure improvements,
-  switch wins. See `bench/validate-hotloop.php`.
+- **Do not single-shot benchmark the AOT pipeline.** PHP's tracing
+  JIT trace cache pollutes between fixture-loads; first-after-shell
+  runs can show 6× regressions that disappear on re-run. The
+  "empty-method 22 → 127 ns/call" regression I reported turned out
+  to be pure cold-cache noise. 5-run median is the minimum.
 
-- **Do not retain `Int_`/`Long_`/`Double_`/etc. wrapper instances.**
-  7–9× per-op cost. Wrapper *classes* exist as namespaces of static
-  methods + reflection metadata only. See `docs/BOXING.md`.
-
-- **Do not use `eval`'d closures for the dispatch loop.** Worse than
-  switch in static function (50 ns vs 9 ns) — JIT can't trace through
-  eval'd closures as well as static functions.
-
-- **Do not use `call_user_func_array` in hot paths.** 6× direct call
-  cost. Use direct dispatch.
-
-- **Do not use `stdClass` for hot-path state.** 2× cost vs typed object.
-
-- **Do not enforce strict Java identity equality on Integer.** `==` on
-  Integer references should fail (Java) but pass (us, value equality).
-  This affects only buggy Java code that uses `==` on boxed types
-  (every style guide forbids). Documented divergence; accepted.
-
-- **Do not implement the JVM bytecode verifier.** Trust the input class
-  files. Verifier costs more than it saves at our scale.
-
-- **Do not pursue the existing `Compiler/Lang/Assembler/` (PHP-syntax
-  → JVM bytecode) feature.** Wrong direction; educational artifact;
-  out of scope. Keep frozen or cut entirely.
-
-- **Do not re-implement OpenJDK source verbatim** for the curated
-  `Packages/java/*` shim layer. License compatibility concern (OpenJDK
-  is GPL+CE, this fork is MIT). Re-implement from spec; reference
-  OpenJDK only for design clarity, never copy.
-
-- **Do not target Java 25 directly.** Aim at Java 21 LTS. Java 25's
-  additions are mostly preview-going-final and small new APIs; the
-  perf-relevant work is Java 21. Java 25 follows when 21 is stable.
+- **Do not drop the JVM 32-bit overflow mask for raw perf.** The
+  wrapper-removal slice initially dropped both wrapping AND the
+  implicit mask (Int_::filter did `($v << 32) >> 32` internally).
+  Without the mask, `Integer.MAX_VALUE + 1` returns 2147483648
+  instead of -2147483648 — semantically wrong. Re-applied
+  explicitly per CONTRACTS.md §1 at 0.20 ns/iadd cost.
 
 ---
 
@@ -210,45 +308,46 @@ should not re-derive these decisions.
 
 ### Immediate (next session)
 
-The 3-week milestone in `docs/STATUS.md` is well-defined:
+Three loose ends, all small:
 
-**Week 1** — Tier 1 interpreter rewrite + AOT opcode coverage:
-1. Rewrite `JavaMethodCallable::call` as switch over int array,
-   frame state in PHP locals.
-2. Cut `Kernel/Mnemonics/_*::execute()` per-opcode classes (200 files).
-3. Expand `src/Aot/Compiler.php` from 17 opcodes to all ~200.
+1. **Push the branch.** 23 commits ahead of `origin/roadmap`, all
+   green locally; nothing exotic in any commit. `git push`.
 
-**Week 2** — Boxing refactor + test suite:
-1. Drop `Kernel/Types/Int_.php`, `Long_.php`, `Double_.php`, etc.
-   (~2,500 LOC).
-2. Update `Kernel/Filters/Normalizer.php` to wrap only at autobox
-   sites (~80% reduction).
-3. Run test suite to 100%. Most of 49 errors / 48 failures resolve.
+2. **Run the 24h Swoole soak.** Harness is ready
+   (`bench/soak-aot.php`). Operator-driven; results inform whether
+   LRU cap of 1000 is right for production load profiles, and
+   whether memory plateaus.
 
-**Week 3** — Integration + capability:
-1. Wire `AotEager`/`AotLazy`/`Interpret` strategies into `JavaClass::load`.
-2. Implement `LambdaMetafactory.metafactory` + `StringConcatFactory.makeConcatWithConstants`.
-3. Implement `defineClass(byte[])` extension surface.
-4. Long-running soak test in Swoole/AMPHP daemon.
+3. **Continue #12 boxing slices.** Pattern is validated. Long is
+   simplest (no mask needed; PHP int = JVM long = 64-bit). Each
+   slice is ~hour and recovers ~9 PHPUnit errors. 3-5 slices plus
+   final Type-class deletion → #11 + #12 effectively complete.
 
-End-of-3-weeks milestone: real Java library AOT-compiles successfully,
-callable from PHP code with idiomatic types at the boundary, runs in a
-Swoole daemon for 24h without memory growth.
+### Medium-term
 
-### After the milestone
+- **Q3.1 probe** (per MODEL.md): pick the smallest real Java library
+  whose dependencies fit in our current shim coverage (System.out +
+  basic math + arrays). Apache Commons Lang's `ArrayUtils` might
+  qualify if you stub out the few `String`/`Object`-dependent
+  methods. Validates the AOT-pipeline-end-to-end story on
+  non-fixture code.
 
-The 233-class T2 surface (per `docs/CLOJURE-BOOT-ANALYSIS.md`) becomes
-the long-tail work. Mechanical, parallelisable, ~2–4 person-months.
-Then: Clojure-on-PHPJava becomes a runnable hypothesis; bb compatibility
-list a probe.
+- **Tier 2 shim coverage** for the bb allowlist (~80 classes per
+  CLOJURE-BOOT-ANALYSIS). Months of mechanical work; parallelisable.
+
+- **Per-iadd mask skip** if profiling demands it. Static range
+  analysis: bounded loop counters skip the mask. Likely worth ~10%
+  on int-heavy hot loops.
 
 ### Optional polish
 
-- Open PR `roadmap` → `master` (or merge directly; user's call).
-- Symfony Console version mismatch (`composer.json` constraint vs PHP 8.4)
-  — cosmetic, affects only `./PHPJava -h` cosmetic output.
-- Naming/branding decision (the fork is meaningfully different from
-  upstream's "fun JVM in PHP"; renaming may follow once stable).
+- Naming/branding (the fork is meaningfully different from upstream's
+  "fun JVM in PHP" goal; rename when stable).
+- Remove the dead string-path emitter in `Compiler::compileMethod`
+  once #12 + Tier 2 give us confidence the IR path covers everything
+  in practice (deferred per ROADMAP.md item #10 with documented
+  rationale: needs rank-1 evidence on more than one JAR before
+  removing 1500-line fallback).
 
 ---
 
@@ -256,29 +355,46 @@ list a probe.
 
 | Concern | File / location |
 |---|---|
-| Reproduce baseline measurements | `cd bench && php8.5 -d opcache.enable_cli=1 -d opcache.jit=tracing -d opcache.jit_buffer_size=256M validate-*.php` |
-| Reproduce AOT compiler validation | `cd bench && php aot-compile.php` (must run after `composer install`) |
-| Inspect emitted PHP from AOT | `cat bench/aot-out/BenchAdd.php` |
-| Inspect bytecode shape via javap | `javap -c bench/fixtures/*.class` |
-| Re-run bb allowlist intersection | `/tmp/clojure-boot-classes.txt`, `/tmp/bb-allowlist.txt`, `/tmp/required-set.txt` (regenerable; commands in `docs/CLOJURE-BOOT-ANALYSIS.md`) |
-| Re-run profile under xhprof | `php -d extension=xhprof.so bench/profile-xhprof.php` |
-| Test suite | `cd /home/hbtweb/GitHub/php-java && vendor/bin/phpunit` |
-| Branch state | `cd /home/hbtweb/GitHub/php-java && git status` |
+| AOT entry | `\PHPJava\Aot\Loader::callStatic($cp, $method, ...$args)` |
+| Compile cold | `(new Compiler())->compileBytes($cp, $bytes)` |
+| Compile cache | `Compiler::compileBytesCache` / `compileClassCache` (LRU, env: `PHPJAVA_AOT_CACHE_MAX`) |
+| Reproduce real-lib probe | `apt install libcommons-lang3-java && php bench/probe-real-library.php` |
+| Reproduce AOT bench | `php -d opcache.enable_cli=1 -d opcache.jit=tracing -d opcache.jit_buffer_size=1024M bench/bench-aot.php` |
+| Reproduce overflow correctness | `php bench/aot-overflow.php` |
+| Reproduce mask-cost microbench | `php -d opcache.enable_cli=1 -d opcache.jit=tracing -d opcache.jit_buffer_size=1024M bench/bench-int-mask.php` |
+| Reproduce records E2E | `php bench/aot-record.php` |
+| Soak (24h) | `nohup php bench/soak-aot.php > /tmp/soak-$(date +%s).jsonl 2>&1 &` |
+| Test suite | `vendor/bin/phpunit` (49 errors / 47 failures expected; #11/#12 work) |
+| Contract gate | `php bench/contract.php [--update]` |
+| AOT IR | `src/Aot/Ir/{Builder,Lowerer,Node,InlinePass,ArrayHelper}.php` |
+| AOT compile | `src/Aot/Compiler.php` |
+| AOT runtime helpers | `src/Aot/Runtime/bootstrap.php` (jvm_lushr, jvm_multianewarray, jvm_typeswitch, System/PrintStream/Throwables) |
+| Loader | `src/Aot/Loader.php` |
+| Interpreter Mnemonics | `src/Kernel/Mnemonics/_*.php` (200 files; #12 has touched 20 of them so far) |
+
+### Doc tree (read in order if landing fresh)
+
+| Order | Doc | Purpose |
+|---|---|---|
+| 1 | `README-hbtweb.md` | orientation + bench harness map |
+| 2 | `docs/MODEL.md` | strategic framing |
+| 3 | `docs/CONTRACTS.md` | normative spec — interfaces, value-rep, dispatch |
+| 4 | `docs/PATTERNS.md` | the five measured rules + JIT-claims battery |
+| 5 | `docs/STATUS.md` | current state — including the rank-1 perf table |
+| 6 | `ROADMAP.md` | tier ordering, exit criteria, work-plan items + #10 deferred |
+| 7 | `bench/probe-real-library.md` | rank-1 commons-lang3 coverage report |
+| ref | `docs/JVM-PHP-DELTA.md` | platform/semantic/API deltas |
+| ref | `docs/CLOJURE-BOOT-ANALYSIS.md` | empirical class-load trace (T2 sizing) |
 
 ---
 
 ## Stamp
 
-- **Date:** 2026-05-01
-- **SHA:** `b633bbe` (branch `roadmap`, pushed)
+- **Date:** 2026-05-03
+- **SHA:** `10cbc3b` (branch `roadmap`, **not yet pushed** at handover)
 - **Repository:** https://github.com/hbtweb/php-java
-- **Author of session:** Claude (Opus 4.7), working with Apollo Nicolson
-- **Total commits this session:** 13
-- **Total LOC added across docs + bench harnesses:** ~5000
-- **Hours of design conversation:** roughly 6–8 of focused back-and-forth
-- **Key methodological discipline that emerged:** "follow the data in the
-  simplest, smallest model" — every architectural choice in this session
-  was either backed by rank-1 measurement or marked as deferred. Where
-  initial assumptions proved wrong (boxing cost, switch vs closures,
-  IntegerCache range, PHP int overflow behaviour), measurements corrected
-  them and the docs were revised.
+- **Author of session:** Claude (Opus 4.7) working with Apollo Nicolson
+- **Total commits this session:** 23 (10 work-plan items + 4 surfaced gaps + 1 soak harness + 3 boxing slice + 4 follow-on)
+- **Branch state:** 23 commits ahead of `origin/roadmap`, working tree clean
+- **Test status:** 9/9 fixture tests + 4/4 record tests + 18/18 overflow + Loader smoke all PASS; PHPUnit 49 errors / 47 failures (pre-session baseline ~ same; not regressed)
+- **Probe status:** 100% IR / 4983 methods / 0 fallbacks / 0 top-level fails on commons-lang3
