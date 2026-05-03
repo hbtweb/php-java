@@ -4,7 +4,6 @@ namespace PHPJava\Kernel\Mnemonics;
 
 use Brick\Math\BigInteger;
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Long_;
 
 final class _lneg extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -29,6 +28,6 @@ final class _lneg extends AbstractOperationCode implements OperationCodeInterfac
         $result = (string) BigInteger::of($value)
             ->multipliedBy(BigInteger::of(-1));
 
-        $this->pushToOperandStack(Long_::get($result));
+        $this->pushToOperandStack($result);
     }
 }

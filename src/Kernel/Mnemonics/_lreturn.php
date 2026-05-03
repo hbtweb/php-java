@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Long_;
+use PHPJava\Kernel\Filters\Normalizer;
 
 final class _lreturn extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -18,9 +18,11 @@ final class _lreturn extends AbstractOperationCode implements OperationCodeInter
     public function execute(): void
     {
         parent::execute();
-        $value = $this->popFromOperandStack();
-        $this->returnValue = ($value instanceof Long_)
-            ? $value
-            : Long_::get($value);
+        // Return raw PHP int — JVM long = PHP int = 64-bit, no mask
+        // (CONTRACTS.md §1). Defensive unwrap during the wrapper-removal
+        // transition in case a caller still pushes Long_.
+        $this->returnValue = (int) Normalizer::getPrimitiveValue(
+            $this->popFromOperandStack()
+        );
     }
 }

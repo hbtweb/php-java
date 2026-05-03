@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Long_;
+use PHPJava\Kernel\Filters\Normalizer;
 
 final class _lload_1 extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -20,10 +20,6 @@ final class _lload_1 extends AbstractOperationCode implements OperationCodeInter
     public function execute(): void
     {
         parent::execute();
-        $this->pushToOperandStack(
-            Long_::get(
-                $this->getLocalStorage(1)
-            )
-        );
+        $this->pushToOperandStack((int) Normalizer::getPrimitiveValue($this->getLocalStorage(1)));
     }
 }
