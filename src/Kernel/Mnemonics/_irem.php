@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Int_;
 
 final class _irem extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -28,9 +27,7 @@ final class _irem extends AbstractOperationCode implements OperationCodeInterfac
         $leftOperand = Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
         $this->pushToOperandStack(
-            Int_::get(
-                $leftOperand % $rightOperand
-            )
+            $leftOperand % $rightOperand
         );
     }
 }

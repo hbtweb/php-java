@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Int_;
 
 final class _iadd extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -24,6 +23,9 @@ final class _iadd extends AbstractOperationCode implements OperationCodeInterfac
         $value2 = (int) Normalizer::getPrimitiveValue($this->popFromOperandStack());
         $value1 = (int) Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
-        $this->pushToOperandStack(Int_::get($value1 + $value2));
+        // Push the raw int — sub-step #12 (drop primitive wrappers from
+        // operand stack). Consumers use Normalizer::getPrimitiveValue
+        // defensively so they accept either shape during the transition.
+        $this->pushToOperandStack($value1 + $value2);
     }
 }

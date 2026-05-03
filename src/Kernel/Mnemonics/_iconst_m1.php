@@ -2,8 +2,6 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Int_;
-
 final class _iconst_m1 extends AbstractOperationCode implements OperationCodeInterface
 {
     protected $isStackingOperation = true;
@@ -20,6 +18,6 @@ final class _iconst_m1 extends AbstractOperationCode implements OperationCodeInt
     public function execute(): void
     {
         parent::execute();
-        $this->pushToOperandStack(Int_::get(-1));
+        $this->pushToOperandStack(-1);
     }
 }

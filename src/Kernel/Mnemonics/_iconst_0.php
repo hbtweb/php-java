@@ -2,7 +2,6 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Int_;
 
 final class _iconst_0 extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -20,6 +19,6 @@ final class _iconst_0 extends AbstractOperationCode implements OperationCodeInte
     public function execute(): void
     {
         parent::execute();
-        $this->pushToOperandStack(Int_::get(0));
+        $this->pushToOperandStack(0);
     }
 }

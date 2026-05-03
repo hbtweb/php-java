@@ -18,7 +18,10 @@ class BinaryOperatorTest extends Base
             ->getMethods()
             ->call($method, $value1, $value2);
 
-        return $calculatedValue->getValue();
+        // Per CONTRACTS.md §1: native PHP scalars at the boundary.
+        // Wrapper-removal sub-step #12 means int-arith Mnemonics return
+        // raw ints; defensively unwrap for tests still in transition.
+        return is_object($calculatedValue) ? $calculatedValue->getValue() : $calculatedValue;
     }
 
     private function callWithLong($method, $value1, $value2)
@@ -33,7 +36,7 @@ class BinaryOperatorTest extends Base
                 Long_::get($value2)
             );
 
-        return $calculatedValue->getValue();
+        return is_object($calculatedValue) ? $calculatedValue->getValue() : $calculatedValue;
     }
 
     public function testIntAdd()

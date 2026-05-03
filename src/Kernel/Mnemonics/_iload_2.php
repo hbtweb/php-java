@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Int_;
+use PHPJava\Kernel\Filters\Normalizer;
 
 final class _iload_2 extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -21,9 +21,7 @@ final class _iload_2 extends AbstractOperationCode implements OperationCodeInter
     {
         parent::execute();
         $this->pushToOperandStack(
-            Int_::get(
-                $this->getLocalStorage(2)
-            )
+            (int) Normalizer::getPrimitiveValue($this->getLocalStorage(2))
         );
     }
 }

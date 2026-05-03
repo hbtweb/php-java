@@ -2,10 +2,7 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Byte_;
-use PHPJava\Kernel\Types\Char_;
-use PHPJava\Kernel\Types\Int_;
-use PHPJava\Kernel\Types\Short_;
+use PHPJava\Kernel\Filters\Normalizer;
 
 final class _ireturn extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -22,12 +19,13 @@ final class _ireturn extends AbstractOperationCode implements OperationCodeInter
     public function execute(): void
     {
         parent::execute();
-        $value = $this->popFromOperandStack();
-        $isIntegerValue = $value instanceof Int_ ||
-            $value instanceof Char_ ||
-            $value instanceof Short_ ||
-            $value instanceof Byte_ ||
-            $value instanceof _Boolean;
-        $this->returnValue = $isIntegerValue ? $value : Int_::get($value);
+        // Per CONTRACTS.md §1: return native PHP scalar. Defensively
+        // unwrap via Normalizer in case a caller still pushes a Char_/
+        // Short_/Byte_/_Boolean wrapper (the int-arithmetic + iload +
+        // iconst Mnemonics now push raw ints; mixed-shape during the
+        // wrapper-removal transition).
+        $this->returnValue = (int) Normalizer::getPrimitiveValue(
+            $this->popFromOperandStack()
+        );
     }
 }

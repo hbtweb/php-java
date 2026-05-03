@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Int_;
 
 final class _idiv extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -24,6 +23,6 @@ final class _idiv extends AbstractOperationCode implements OperationCodeInterfac
         $value2 = (int) Normalizer::getPrimitiveValue($this->popFromOperandStack());
         $value1 = (int) Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
-        $this->pushToOperandStack(Int_::get((int) ($value1 / $value2)));
+        $this->pushToOperandStack((int) ($value1 / $value2));
     }
 }

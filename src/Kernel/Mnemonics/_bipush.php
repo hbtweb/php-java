@@ -2,7 +2,6 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Int_;
 
 final class _bipush extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -24,6 +23,6 @@ final class _bipush extends AbstractOperationCode implements OperationCodeInterf
     public function execute(): void
     {
         parent::execute();
-        $this->pushToOperandStack(Int_::get($this->getOperands()['byte']));
+        $this->pushToOperandStack($this->getOperands()['byte']);
     }
 }
