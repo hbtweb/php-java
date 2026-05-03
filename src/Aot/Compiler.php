@@ -294,7 +294,12 @@ final class Compiler
         // return expression. Runs to fixpoint so a chain of inlinable
         // calls (a calls b calls c) collapses end-to-end.
         $body = $this->inlineAcrossText($body);
-        $main = "<?php\nnamespace PHPJava\\Aot\\Generated;\n\nfinal class {$this->mangle($classPath)}\n{\n{$body}\n}\n";
+        // #[\AllowDynamicProperties]: AOT-emitted classes don't yet
+        // declare PHP fields per Java FieldInfo (gap #2-B). Without
+        // this attribute, putfield emits hit PHP 8.2+ deprecation
+        // warnings (and PHP 9 errors) on dynamic property creation.
+        // Drop once #2-B emits explicit `public $field;` declarations.
+        $main = "<?php\nnamespace PHPJava\\Aot\\Generated;\n\n#[\\AllowDynamicProperties]\nfinal class {$this->mangle($classPath)}\n{\n{$body}\n}\n";
 
         // Append synthetic lambda classes generated during method emit.
         // Each is a self-contained class definition declared in the same
