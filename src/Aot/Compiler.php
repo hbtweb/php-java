@@ -7,6 +7,7 @@ use PHPJava\Core\JavaCompiledClass;
 use PHPJava\Core\Stream\Reader\InlineReader;
 use PHPJava\Kernel\Attributes\BootstrapMethodsAttribute;
 use PHPJava\Kernel\Attributes\CodeAttribute;
+use PHPJava\Kernel\Maps\FieldAccessFlag;
 use PHPJava\Kernel\Maps\MethodAccessFlag;
 use PHPJava\Kernel\Resolvers\AttributionResolver;
 use PHPJava\Kernel\Structures\ClassInfo;
@@ -294,7 +295,18 @@ final class Compiler
             }
         }
 
+        // Emit field declarations from FieldPool. Without these, putfield
+        // emits hit dynamic-property creation (deprecated in PHP 8.2+,
+        // error in 9). Static fields → `public static $name = default;`,
+        // instance fields → `public $name = default;`. Default value
+        // derived from the descriptor's primitive type (int/long → 0,
+        // float/double → 0.0, boolean → false, ref/array → null).
+        $fieldDecls = $this->emitFieldDeclarations($jcc);
+
         $body = implode("\n\n", $emittedMethods);
+        if ($fieldDecls !== '') {
+            $body = $fieldDecls . "\n\n" . $body;
+        }
         // ── cross-method inline pass ────────────────────────────────
         // After all methods have registered any inlinable single-
         // expression bodies, substitute `self::<name>(args)` call
@@ -326,6 +338,54 @@ final class Compiler
      * string-path). The Module assembly + InlinePass + Lower happens
      * at the end of compileFromGenericClass.
      */
+    /**
+     * Emit `public [static] $name = default;` declarations for every
+     * field in the class's FieldPool. Without these, putfield-emit
+     * sites (`$obj->name = $val`) create dynamic properties — fine
+     * with #[\AllowDynamicProperties] but cleaner and more JIT-friendly
+     * with declared properties.
+     *
+     * Default values derive from the JVM descriptor's primitive type;
+     * ConstantValue attribute (for `static final` literals) not yet
+     * threaded — would override the default with the actual constant.
+     */
+    private function emitFieldDeclarations(JavaCompiledClass $jcc): string
+    {
+        $cp = $jcc->getConstantPool()->getEntries();
+        $lines = [];
+        foreach ($jcc->getDefinedFields() as $field) {
+            $nameEntry = $cp[$field->getNameIndex()] ?? null;
+            $descEntry = $cp[$field->getDescriptorIndex()] ?? null;
+            if (!($nameEntry instanceof Utf8Info)
+                || !($descEntry instanceof Utf8Info)) {
+                continue;
+            }
+            $name = $nameEntry->getString();
+            $desc = $descEntry->getString();
+            // Java field names allow `$` (synthetic / inner-class refs);
+            // PHP property names follow the same rule. Mangle anyway
+            // for safety (matches mangle helper for class names).
+            $phpName = str_replace(['$', '<', '>'], ['_S_', '_LT_', '_GT_'], $name);
+            $isStatic = ($field->getAccessFlag() & FieldAccessFlag::ACC_STATIC) !== 0;
+            $default = $this->primitiveDefault($desc);
+            $kw = $isStatic ? 'public static' : 'public';
+            $lines[] = "    {$kw} \${$phpName} = {$default};";
+        }
+        return implode("\n", $lines);
+    }
+
+    /** JVM descriptor → PHP literal for the field's default value. */
+    private function primitiveDefault(string $desc): string
+    {
+        return match ($desc[0] ?? '') {
+            'I', 'J', 'B', 'S', 'C' => '0',
+            'F', 'D' => '0.0',
+            'Z' => 'false',
+            '[', 'L' => 'null',
+            default => 'null',
+        };
+    }
+
     private function tryBuildIrMethod(
         JavaCompiledClass $jcc, string $classPath, string $methodName,
         string $descriptor, string $bytecode, array $exceptionTables,
