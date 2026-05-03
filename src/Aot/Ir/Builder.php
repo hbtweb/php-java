@@ -624,6 +624,58 @@ final class Builder
                 $this->abstractStack[] = $a;
                 $this->abstractStack[] = $b;
                 return;
+            // DUP2: {..., w2, w1} → {..., w2, w1, w2, w1} for category-1
+            // values (we treat all values as one-slot Exprs, matching
+            // the abstract-stack model). Same impure-Expr caveat as dup.
+            case 0x5C:
+                $b = array_pop($this->abstractStack);
+                $a = array_pop($this->abstractStack);
+                if ($a === null || $b === null) {
+                    throw new \LogicException('dup2 stack underflow');
+                }
+                $this->abstractStack[] = $a;
+                $this->abstractStack[] = $b;
+                $this->abstractStack[] = $a;
+                $this->abstractStack[] = $b;
+                return;
+            // ── unsigned shift right ─────────────────────────────
+            // IUSHR (0x7C): treat low 32 bits of $v as unsigned, shift
+            // arithmetic-right (positive after mask), mask shift count
+            // to low 5 bits.
+            case 0x7C:
+                $right = $this->pop();
+                $left = $this->pop();
+                $this->push(new BinOp(
+                    '>>',
+                    new BinOp('&', $left, new IntLit(0xFFFFFFFF)),
+                    new BinOp('&', $right, new IntLit(0x1F))
+                ));
+                return;
+            // LUSHR (0x7D): full 64-bit unsigned >>> ; PHP has no
+            // logical-right-shift, so emit a helper call.
+            case 0x7D:
+                $right = $this->pop();
+                $left = $this->pop();
+                $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                    '\\PHPJava\\Aot\\Runtime\\jvm_lushr', '',
+                    [$left, $right]
+                ));
+                return;
+            // ── multianewarray ────────────────────────────────────
+            // operands: indexbyte1, indexbyte2 (CP class), dimensions (u1)
+            // pops `dimensions` int counts from stack
+            case 0xC5:
+                $this->pc += 2; // skip CP class index
+                $dims = $bytes[$this->pc++];
+                $args = [];
+                for ($i = $dims - 1; $i >= 0; $i--) $args[$i] = $this->pop();
+                ksort($args);
+                $args = array_values($args);
+                $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                    '\\PHPJava\\Aot\\Runtime\\jvm_multianewarray', '',
+                    $args
+                ));
+                return;
             // ── monitorenter/exit (no-op for single-thread PHP) ───
             case 0xC2: case 0xC3:
                 $this->pop();
@@ -1256,7 +1308,9 @@ final class Builder
             0x11, 0x13, 0x14, 0x84, 0x99, 0x9A, 0x9B, 0x9C, 0x9D, 0x9E,
             0x9F, 0xA0, 0xA1, 0xA2, 0xA3, 0xA4, 0xA5, 0xA6, 0xA7, 0xA8,
             0xB2, 0xB3, 0xB4, 0xB5, 0xB6, 0xB7, 0xB8, 0xBB, 0xBD, 0xC0, 0xC1, 0xC6, 0xC7 => 2,
-            0xB9, 0xBA, 0xC5, 0xC8, 0xC9 => 4,
+            // multianewarray: indexbyte1, indexbyte2, dimensions = 3 bytes.
+            0xC5 => 3,
+            0xB9, 0xBA, 0xC8, 0xC9 => 4,
             default => 0,
         };
     }

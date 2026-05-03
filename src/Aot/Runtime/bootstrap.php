@@ -71,6 +71,41 @@ class PrintStream
 
 namespace PHPJava\Aot\Runtime;
 
+/**
+ * JVM unsigned right shift on a 64-bit "long" — emulates `>>>` (PHP
+ * has no logical right shift). Used by the IR Builder for LUSHR (0x7D).
+ *
+ * Mask shift count to low 6 bits per JVM spec; for n=0, return v
+ * unchanged (avoids the "<< 64 is undefined" PHP corner). For n≥1,
+ * shift right 1 with arithmetic shift, mask off the new sign bit, then
+ * shift further (n-1) for the final result.
+ */
+function jvm_lushr(int $v, int $n): int
+{
+    $n &= 0x3F;
+    if ($n === 0) return $v;
+    return (($v >> 1) & PHP_INT_MAX) >> ($n - 1);
+}
+
+/**
+ * Allocate a multi-dimensional array per JVM MULTIANEWARRAY (0xC5).
+ * Inner dimensions filled with 0 for primitive elements (the AOT
+ * doesn't currently distinguish primitive vs reference for this op);
+ * for reference arrays the caller would need null inner-fill — extend
+ * if a fixture surfaces that requirement.
+ */
+function jvm_multianewarray(int ...$dims): array
+{
+    $build = function (array $remaining) use (&$build) {
+        if (empty($remaining)) return 0;
+        $first = (int) array_shift($remaining);
+        $arr = [];
+        for ($i = 0; $i < $first; $i++) $arr[] = $build($remaining);
+        return $arr;
+    };
+    return $build($dims);
+}
+
 // One-time init. Idempotent — safe to require_once any number of times.
 if (\PHPJava\Aot\Runtime\java\lang\System::$out === null) {
     \PHPJava\Aot\Runtime\java\lang\System::$out =
