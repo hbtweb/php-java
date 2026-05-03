@@ -2,7 +2,6 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Float_;
 
 final class _fconst_2 extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -20,6 +19,6 @@ final class _fconst_2 extends AbstractOperationCode implements OperationCodeInte
     public function execute(): void
     {
         parent::execute();
-        $this->pushToOperandStack(Float_::get(2));
+        $this->pushToOperandStack(2.0);
     }
 }
