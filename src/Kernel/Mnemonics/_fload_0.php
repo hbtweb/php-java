@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Float_;
+use PHPJava\Kernel\Filters\Normalizer;
 
 final class _fload_0 extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -20,10 +20,6 @@ final class _fload_0 extends AbstractOperationCode implements OperationCodeInter
     public function execute(): void
     {
         parent::execute();
-        $this->pushToOperandStack(
-            Float_::get(
-                $this->getLocalStorage(0)
-            )
-        );
+        $this->pushToOperandStack((float) Normalizer::getPrimitiveValue($this->getLocalStorage(0)));
     }
 }

@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Float_;
 
 final class _fadd extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -24,6 +23,6 @@ final class _fadd extends AbstractOperationCode implements OperationCodeInterfac
         $value2 = (float) Normalizer::getPrimitiveValue($this->popFromOperandStack());
         $value1 = (float) Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
-        $this->pushToOperandStack(Float_::get($value1 + $value2));
+        $this->pushToOperandStack((float) ($value1 + $value2));
     }
 }

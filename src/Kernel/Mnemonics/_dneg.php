@@ -4,7 +4,6 @@ namespace PHPJava\Kernel\Mnemonics;
 
 use Brick\Math\BigDecimal;
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Double_;
 
 final class _dneg extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -29,6 +28,8 @@ final class _dneg extends AbstractOperationCode implements OperationCodeInterfac
         $result = (string) BigDecimal::of($value)
             ->multipliedBy(BigDecimal::of(-1));
 
-        $this->pushToOperandStack(Double_::get($result));
+        // BigDecimal preserves precision for boundary cases; cast to
+        // float for the operand stack (raw PHP scalar per CONTRACTS.md §1).
+        $this->pushToOperandStack((float) $result);
     }
 }

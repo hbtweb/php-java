@@ -4,7 +4,6 @@ namespace PHPJava\Kernel\Mnemonics;
 
 use Brick\Math\BigDecimal;
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Double_;
 
 final class _dsub extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -28,6 +27,6 @@ final class _dsub extends AbstractOperationCode implements OperationCodeInterfac
         $result = (string) BigDecimal::of($value1)
             ->minus(BigDecimal::of($value2));
 
-        $this->pushToOperandStack(Double_::get($result));
+        $this->pushToOperandStack((float) $result);
     }
 }

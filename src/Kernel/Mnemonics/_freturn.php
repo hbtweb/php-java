@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Float_;
+use PHPJava\Kernel\Filters\Normalizer;
 
 final class _freturn extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -18,9 +18,11 @@ final class _freturn extends AbstractOperationCode implements OperationCodeInter
     public function execute(): void
     {
         parent::execute();
-        $value = $this->popFromOperandStack();
-        $this->returnValue = ($value instanceof Float_)
-            ? $value
-            : Float_::get($value);
+        // Return raw PHP float per CONTRACTS.md §1. JVM float is 32-bit
+        // IEEE 754; PHP float is 64-bit. Documented divergence in
+        // JVM-PHP-DELTA.md. Defensive unwrap during transition.
+        $this->returnValue = (float) Normalizer::getPrimitiveValue(
+            $this->popFromOperandStack()
+        );
     }
 }

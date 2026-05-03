@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Float_;
 
 final class _frem extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -24,10 +23,9 @@ final class _frem extends AbstractOperationCode implements OperationCodeInterfac
         $rightOperand = Normalizer::getPrimitiveValue($this->popFromOperandStack());
         $leftOperand = Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
-        $this->pushToOperandStack(
-            Float_::get(
-                $leftOperand % $rightOperand
-            )
-        );
+        // Per JVM spec: frem uses the IEEE 754 floor-mod definition.
+        // PHP's `%` is integer-modulo (truncates), so use fmod() for
+        // float remainders.
+        $this->pushToOperandStack((float) fmod($leftOperand, $rightOperand));
     }
 }

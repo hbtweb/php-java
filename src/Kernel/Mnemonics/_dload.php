@@ -2,7 +2,7 @@
 declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
-use PHPJava\Kernel\Types\Double_;
+use PHPJava\Kernel\Filters\Normalizer;
 
 final class _dload extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -28,10 +28,6 @@ final class _dload extends AbstractOperationCode implements OperationCodeInterfa
     {
         parent::execute();
         $index = $this->getOperands()['index'];
-        $this->pushToOperandStack(
-            Double_::get(
-                $this->getLocalStorage($index)
-            )
-        );
+        $this->pushToOperandStack((float) Normalizer::getPrimitiveValue($this->getLocalStorage($index)));
     }
 }

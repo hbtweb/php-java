@@ -3,7 +3,6 @@ declare(strict_types=1);
 namespace PHPJava\Kernel\Mnemonics;
 
 use PHPJava\Kernel\Filters\Normalizer;
-use PHPJava\Kernel\Types\Double_;
 
 final class _drem extends AbstractOperationCode implements OperationCodeInterface
 {
@@ -24,10 +23,8 @@ final class _drem extends AbstractOperationCode implements OperationCodeInterfac
         $rightOperand = Normalizer::getPrimitiveValue($this->popFromOperandStack());
         $leftOperand = Normalizer::getPrimitiveValue($this->popFromOperandStack());
 
-        $this->pushToOperandStack(
-            Double_::get(
-                $leftOperand % $rightOperand
-            )
-        );
+        // Per JVM spec drem uses IEEE 754 floor-mod; use fmod() for
+        // float remainders (PHP's `%` is integer modulo only).
+        $this->pushToOperandStack((float) fmod($leftOperand, $rightOperand));
     }
 }
