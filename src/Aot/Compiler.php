@@ -78,8 +78,15 @@ final class Compiler
 
     private int $lambdaCounter = 0;
 
+    /** Cache for compileClass — keyed on classPath. Hit skips
+     *  JavaClass::load + JCC reflection + parse + IR build + lower. */
+    private static array $compileClassCache = [];
+
     public function compileClass(string $classPath): string
     {
+        if (isset(self::$compileClassCache[$classPath])) {
+            return self::$compileClassCache[$classPath];
+        }
         $cls = JavaClass::load($classPath);
         // JavaClass wraps a JavaCompiledClass via `genericClass` (private);
         // reach in via reflection — fine for a spike. The production
@@ -90,7 +97,9 @@ final class Compiler
         /** @var JavaCompiledClass $jcc */
         $jcc = $prop->getValue($cls);
 
-        return $this->compileFromGenericClass($jcc, $classPath);
+        $out = $this->compileFromGenericClass($jcc, $classPath);
+        self::$compileClassCache[$classPath] = $out;
+        return $out;
     }
 
     /**
@@ -105,10 +114,40 @@ final class Compiler
      * namespace and FQN — caller is responsible for matching it to
      * what's actually inside the bytes (parser doesn't enforce this).
      */
+    /**
+     * Per-bytecode-hash compile cache. Keys: xxh3 of the class bytes;
+     * values: the rendered PHP source. Hits skip JCC parse + IR build
+     * + Lower entirely — closes the 1280µs JCC-parse bottleneck per
+     * the 2026-05-03 compile-time profile (parser is 83% of total).
+     *
+     * @var array<string, string>
+     */
+    private static array $compileBytesCache = [];
+
+    /**
+     * Reset the compile cache. Useful in tests, or when the AOT
+     * runtime/shim layer is refreshed and cached output may reference
+     * stale class FQNs.
+     */
+    public static function clearCompileCache(): void
+    {
+        self::$compileBytesCache = [];
+        self::$compileClassCache = [];
+    }
+
     public function compileBytes(string $classPath, string $classBytes): string
     {
+        // Cache key: hash of (classPath, bytes). Different class names
+        // for the same bytes produce different output (the namespace +
+        // class identifier change), so both go into the key.
+        $key = \hash('xxh3', $classPath . "\0" . $classBytes);
+        if (isset(self::$compileBytesCache[$key])) {
+            return self::$compileBytesCache[$key];
+        }
         $jcc = new JavaCompiledClass(new InlineReader($classPath, $classBytes));
-        return $this->compileFromGenericClass($jcc, $classPath);
+        $out = $this->compileFromGenericClass($jcc, $classPath);
+        self::$compileBytesCache[$key] = $out;
+        return $out;
     }
 
     private function compileFromGenericClass(JavaCompiledClass $jcc, string $classPath): string
