@@ -3,137 +3,103 @@ declare(strict_types=1);
 namespace PHPJava\Aot\Runtime\java\util\concurrent\atomic;
 
 /**
- * Auto-generated JDK signature stub. All members throw
- * NotImplementedException — Path C of docs/LAYERS.md §License posture.
+ * java.util.concurrent.atomic.AtomicReference — atomic object
+ * reference. Identity-compare semantics on `compareAndSet` (same as
+ * Java; uses `===` in PHP which is reference-identity for objects,
+ * value-identity for primitives — matches Java's `==` on reference
+ * types).
  *
- * Source: javap signature of java.util.concurrent.atomic.AtomicReference. Regenerate via
- *   php tools/gen-aot-stubs.php java.util.concurrent.atomic.AtomicReference
+ * See AtomicInteger for the cooperative-scheduling rationale.
+ *
+ * @template V
  */
 class AtomicReference
 {
+    /** @var V|null */
+    private mixed $value;
 
-    public function __construct($a0 = null)
+    /** @param V|null $initialValue */
+    public function __construct(mixed $initialValue = null)
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $this->value = $initialValue;
     }
 
-    public function get()
+    /** @return V|null */
+    public function get(): mixed { return $this->value; }
+
+    /** @param V|null $newValue */
+    public function set(mixed $newValue): void { $this->value = $newValue; }
+
+    public function lazySet(mixed $newValue): void { $this->value = $newValue; }
+
+    /**
+     * @param V|null $newValue
+     * @return V|null
+     */
+    public function getAndSet(mixed $newValue): mixed
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $old = $this->value;
+        $this->value = $newValue;
+        return $old;
     }
 
-    public function set($a0 = null)
+    /**
+     * Java semantics: identity compare via `==`. PHP `===` is the
+     * right match — reference-identity for objects, value-identity
+     * for scalars.
+     */
+    public function compareAndSet(mixed $expect, mixed $update): bool
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        if ($this->value === $expect) {
+            $this->value = $update;
+            return true;
+        }
+        return false;
     }
 
-    public function lazySet($a0 = null)
+    public function weakCompareAndSet(mixed $expect, mixed $update): bool
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return $this->compareAndSet($expect, $update);
     }
 
-    public function compareAndSet($a0 = null, $a1 = null)
+    public function compareAndExchange(mixed $expect, mixed $update): mixed
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $current = $this->value;
+        if ($current === $expect) $this->value = $update;
+        return $current;
     }
 
-    public function weakCompareAndSet($a0 = null, $a1 = null)
+    /** @param callable(V|null): (V|null) $fn */
+    public function getAndUpdate(callable $fn): mixed
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $old = $this->value;
+        $this->value = $fn($old);
+        return $old;
     }
 
-    public function weakCompareAndSetPlain($a0 = null, $a1 = null)
+    public function updateAndGet(callable $fn): mixed
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $this->value = $fn($this->value);
+        return $this->value;
     }
 
-    public function getAndSet($a0 = null)
+    public function getAndAccumulate(mixed $x, callable $fn): mixed
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $old = $this->value;
+        $this->value = $fn($old, $x);
+        return $old;
     }
 
-    public function getAndUpdate($a0 = null)
+    public function accumulateAndGet(mixed $x, callable $fn): mixed
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $this->value = $fn($this->value, $x);
+        return $this->value;
     }
 
-    public function updateAndGet($a0 = null)
+    public function __toString(): string
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function getAndAccumulate($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function accumulateAndGet($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function toString()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function getPlain()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function setPlain($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function getOpaque()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function setOpaque($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function getAcquire()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function setRelease($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function compareAndExchange($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function compareAndExchangeAcquire($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function compareAndExchangeRelease($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function weakCompareAndSetVolatile($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function weakCompareAndSetAcquire($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function weakCompareAndSetRelease($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        if ($this->value === null) return 'null';
+        if (\is_object($this->value)) return $this->value::class . '@' . \spl_object_id($this->value);
+        return (string) $this->value;
     }
 }

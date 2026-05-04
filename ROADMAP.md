@@ -261,25 +261,56 @@ The Swoole equivalent requires building a Future type out of channels.
 **Implementation order (post-2026-05-04 reframe):**
 
 1. ✓ **may-suspend analyzer IR pass** — shipped at
-   `src/Aot/Ir/Analysis/MaySuspendAnalyzer.php`. Walks IR Method body
-   for direct calls to a 30-method suspend-point whitelist; classifies
-   methods as may-suspend or definitely-doesn't-suspend.
-   `tests/Cases/MaySuspendAnalyzerTest.php` 4/4.
-2. **InlineExecutor runtime** — clean up `bench/amphp-probe/poc-runtime-v2.php`,
-   promote into `src/Aot/Runtime/Async/InlineExecutor.php`, add cancellation
-   tokens, error propagation, minimal queue-and-drain machinery.
-   ~500 LOC.
-3. **VirtualThreadExecutor runtime** — Fiber-backed for genuinely-suspending tasks.
-   PATTERNS.md-style tight emit: pooled fibers, sealed-shape arrays,
-   switch-dispatched event loop, no virtual dispatch. ~300 LOC.
-4. **Emit-specialiser** — consumes analyzer verdicts at AOT compile
+   `src/Aot/Ir/Analysis/MaySuspendAnalyzer.php`. 4/4 tests.
+2. ✓ **InlineExecutor runtime** — shipped at
+   `src/Aot/Runtime/Async/InlineExecutor.php`. ~500 LOC; PoC v2 measured
+   365 ns/op for the bare async+await round-trip. 15/15 tests in
+   `AsyncInlineExecutorTest.php`.
+3. ✓ **VirtualThreadExecutor runtime** — shipped at
+   `src/Aot/Runtime/Async/VirtualThreadExecutor.php`. ~300 LOC; Fiber-
+   backed cooperative scheduler with sleep / interrupt / await /
+   cancel + event loop. v1 allocates fresh Fiber per async (pool
+   refactor deferred to v2). 12/12 tests.
+4. ✓ **JDK concurrent shim layer (initial)** — shipped at
+   `src/Aot/Runtime/java/...`. AtomicInteger/Long/Reference (Unsafe-
+   backed CAS), ReentrantLock (no-op-uncontended + cooperative-park
+   contended), CompletableFuture (InlineExecutor-backed with full
+   composition surface — supplyAsync, completedFuture, failedFuture,
+   thenApply, thenCombine, exceptionally, allOf, anyOf, manual
+   complete/completeExceptionally), Thread (VTE-backed start/join/
+   sleep/yield/interrupt + Java 21 ofVirtual). 20/20 tests in
+   `JdkConcurrentShimTest.php`.
+5. **Emit-specialiser** — consumes analyzer verdicts at AOT compile
    sites where async/await semantics apply (`Thread.start.join`,
    `CompletableFuture.supplyAsync.get`, `executor.submit.get`, etc.).
    Picks Inlined / InlineExecutor / VirtualThreadExecutor per call site. ~300 LOC.
-5. **JDK shim layer wiring** — `Thread`, `CompletableFuture`,
-   `Future`, `ExecutorService`, `BlockingQueue`, `ReentrantLock`,
-   `CountDownLatch`, `Semaphore`, atomics. Each shim wraps the
-   custom runtime, not AMPHP. ~800 LOC.
+   **NOT STARTED** — required to hit sub-200 ns target on inlinable
+   patterns. Without it, all calls go through InlineExecutor (~365 ns)
+   or VTE (~1 µs).
+6. **State-machine transformation pass** — for sub-200 ns on
+   genuinely-suspending tasks. Rewrites Java methods that suspend
+   into explicit state machines driven by the event loop without
+   using Fibers. JS-engine-style async/await transformation. ~1-2
+   weeks compiler work; would put suspending operations at ~100-200 ns
+   instead of the ~12 µs Fiber suspend/resume floor. **NOT STARTED**.
+7. **Remaining JDK concurrent shims** — ~6-10 weeks total to land
+   complete observable-behaviour parity for the j.u.concurrent
+   surface. Covered shims listed in step 4 above; remaining surface:
+   - **Locks family**: Condition (with ReentrantLock), ReadWriteLock,
+     StampedLock — ~3-5 days each
+   - **Sync primitives**: Semaphore, CountDownLatch, CyclicBarrier,
+     Phaser — ~3 days each
+   - **Queues**: BlockingQueue + LinkedBlockingQueue / ArrayBlockingQueue /
+     SynchronousQueue / PriorityBlockingQueue — ~1 week
+   - **ConcurrentHashMap** (single-mutex impl observably equivalent
+     for most workloads; full lock-striping ~1-2 weeks if perf-critical)
+   - **ConcurrentLinkedQueue/Deque** — ~1 week (lock-free atomics)
+   - **CopyOnWriteArrayList/Set** — ~2 days (trivial single-thread)
+   - **ExecutorService family**: Executors, ThreadPoolExecutor,
+     ScheduledThreadPoolExecutor, ForkJoinPool, ForkJoinTask — ~2 weeks
+   - **VarHandle (Java 9+)** — extends Unsafe, ~3 days
+   - **StructuredTaskScope (Java 21+)** — ~3 days
+   - **ScopedValue (Java 21+)** — ~3 days
 
 Total: ~1,900 LOC across analyzer + runtime + specialiser + shims.
 Days-of-work mechanical implementation; the analyzer is the
