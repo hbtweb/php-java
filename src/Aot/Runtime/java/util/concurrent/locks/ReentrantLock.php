@@ -29,7 +29,7 @@ class ReentrantLock
 {
     private ?int $holderFid = null;
     private int $holdCount = 0;
-    /** @var int[] FIFO of fiber-ids waiting to acquire. */
+    /** @var \Fiber[] FIFO of fibers waiting to acquire. */
     private array $waiters = [];
     private bool $fair;
 
@@ -54,11 +54,9 @@ class ReentrantLock
             $this->holdCount++;
             return;
         }
-        // Contended — park self until released.
-        $this->waiters[] = $fid;
+        // Contended — enqueue and park; unlock() resumes the next waiter.
         while ($this->holderFid !== null && $this->holderFid !== $fid) {
-            // park self via VTE's await-on-self-future trick: spawn a
-            // future that we'll settle from unlock().
+            $this->waiters[] = $current;
             \Fiber::suspend();
         }
         $this->holderFid = $fid;
@@ -78,17 +76,12 @@ class ReentrantLock
             $this->holdCount++;
             return;
         }
-        $this->waiters[] = $fid;
         while ($this->holderFid !== null && $this->holderFid !== $fid) {
+            $this->waiters[] = $current;
             \Fiber::suspend();
-            // Check interrupt on resume — VTE sets the flag via interrupt()
-            // and parks the fiber's resume callback into the ready queue.
-            // We can't call into VTE's private state from here; the
-            // suspending primitive (sleep / await) is the right place
-            // for the check. For lock() we approximate: if we get here
-            // and we're not the holder yet, loop again. interrupt()
-            // throwing requires VTE integration; defer to v2 when
-            // bb-fill exercises the interrupt pattern through locks.
+            // interrupt-throwing on resume requires VTE integration; defer
+            // to v2 when bb-fill exercises the interrupt pattern through
+            // locks.
         }
         $this->holderFid = $fid;
         $this->holdCount = 1;
@@ -122,15 +115,13 @@ class ReentrantLock
         $this->holdCount--;
         if ($this->holdCount === 0) {
             $this->holderFid = null;
-            // Wake the next waiter (FIFO).
+            // Wake the next waiter (FIFO). Resume runs in-line under
+            // cooperative scheduling — the waiter's lock() loop sees
+            // holderFid==null and acquires; if subsequent contended
+            // waiters exist they re-park via the loop body.
             if (!empty($this->waiters)) {
                 $next = \array_shift($this->waiters);
-                // We can't directly resume via VTE's internal API from
-                // here without a circular dep; defer to caller's run loop.
-                // Workaround: VTE exposes the parked fiber registry via
-                // a friend method. For v1 we resume directly.
-                // (Cooperative scheduling means this fires in-line; the
-                // waiter's lock() loop sees the holder change.)
+                if (!$next->isTerminated()) $next->resume();
             }
         }
     }
@@ -152,4 +143,33 @@ class ReentrantLock
     public function isFair(): bool { return $this->fair; }
     public function hasQueuedThreads(): bool { return !empty($this->waiters); }
     public function getQueueLength(): int { return \count($this->waiters); }
+
+    /** Java: lock.newCondition() — returns a Condition bound to this lock. */
+    public function newCondition(): Condition
+    {
+        return new Condition($this);
+    }
+
+    /** Internal — used by Condition to release the lock fully on await(). */
+    public function _drainHoldsForCondition(): int
+    {
+        $current = \Fiber::getCurrent();
+        $fid = $current !== null ? \spl_object_id($current) : 0;
+        if ($this->holderFid !== $fid) {
+            throw new \PHPJava\Packages\java\lang\IllegalMonitorStateException(
+                'Cannot await on Condition without holding the lock'
+            );
+        }
+        $saved = $this->holdCount;
+        $this->holdCount = 0;
+        $this->holderFid = null;
+        return $saved;
+    }
+
+    /** Internal — used by Condition to re-acquire the lock at requested depth. */
+    public function _restoreHoldsAfterCondition(int $count): void
+    {
+        $this->lock();
+        $this->holdCount = $count;
+    }
 }

@@ -293,13 +293,19 @@ The Swoole equivalent requires building a Future type out of channels.
    using Fibers. JS-engine-style async/await transformation. ~1-2
    weeks compiler work; would put suspending operations at ~100-200 ns
    instead of the ~12 µs Fiber suspend/resume floor. **NOT STARTED**.
-7. **Remaining JDK concurrent shims** — ~6-10 weeks total to land
-   complete observable-behaviour parity for the j.u.concurrent
-   surface. Covered shims listed in step 4 above; remaining surface:
-   - **Locks family**: Condition (with ReentrantLock), ReadWriteLock,
-     StampedLock — ~3-5 days each
-   - **Sync primitives**: Semaphore, CountDownLatch, CyclicBarrier,
-     Phaser — ~3 days each
+7. **Remaining JDK concurrent shims** — ~5-8 weeks remaining (down
+   from ~6-10 with steps below shipped). Covered shims listed in
+   step 4 above; remaining surface:
+   - ~~**Locks family**: Condition, ReadWriteLock~~ — DONE
+     (`Condition.php`, `ReentrantReadWriteLock.php` + Lock interface,
+     ReadLockView, WriteLockView).
+   - **Locks family remaining**: StampedLock — ~3-5 days. Distinct
+     enough from RWLock (optimistic-read mode) to need its own shim.
+   - ~~**Sync primitives**: Semaphore, CountDownLatch, CyclicBarrier~~
+     — DONE (`Semaphore.php`, `CountDownLatch.php`, `CyclicBarrier.php`
+     + `BrokenBarrierException`).
+   - **Sync primitives remaining**: Phaser — ~3 days. Hierarchical
+     cyclic-barrier with dynamic-party support.
    - **Queues**: BlockingQueue + LinkedBlockingQueue / ArrayBlockingQueue /
      SynchronousQueue / PriorityBlockingQueue — ~1 week
    - **ConcurrentHashMap** (single-mutex impl observably equivalent
@@ -311,6 +317,11 @@ The Swoole equivalent requires building a Future type out of channels.
    - **VarHandle (Java 9+)** — extends Unsafe, ~3 days
    - **StructuredTaskScope (Java 21+)** — ~3 days
    - **ScopedValue (Java 21+)** — ~3 days
+
+   Cross-fiber lock-contention fix landed in this step: ReentrantLock
+   now stores `\Fiber` waiters (not just fiber-ids) and resumes the
+   next waiter from `unlock()`. Required for Condition.signal() →
+   re-acquire-lock to work correctly.
 
 Total: ~1,900 LOC across analyzer + runtime + specialiser + shims.
 Days-of-work mechanical implementation; the analyzer is the
