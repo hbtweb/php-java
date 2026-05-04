@@ -293,39 +293,41 @@ The Swoole equivalent requires building a Future type out of channels.
    using Fibers. JS-engine-style async/await transformation. ~1-2
    weeks compiler work; would put suspending operations at ~100-200 ns
    instead of the ~12 µs Fiber suspend/resume floor. **NOT STARTED**.
-7. **Remaining JDK concurrent shims** — ~2-3 weeks remaining (down
-   from ~3-5 with steps below shipped). Covered shims listed in
-   step 4 above; remaining surface:
+7. **Remaining JDK concurrent shims** — ~3-5 days remaining (down
+   from ~2-3 weeks). The blocking item is **VTE timer-wheel
+   integration** — required for DelayQueue +
+   ScheduledExecutorService and timed-await variants. Without it,
+   those primitives can't model "wake at time T" properly.
    - ~~**Locks family**: Condition, ReadWriteLock, StampedLock~~ —
-     DONE. StampedLock includes optimistic-read fast path
-     (tryOptimisticRead + validate) — the distinguishing feature
-     over RWLock.
+     DONE. StampedLock includes optimistic-read fast path.
    - ~~**Sync primitives**: Semaphore, CountDownLatch, CyclicBarrier,
-     Phaser~~ — DONE. Phaser includes dynamic-party register +
-     bulkRegister, arriveAndAwaitAdvance, arriveAndDeregister with
-     auto-termination on zero parties.
+     Phaser~~ — DONE.
    - ~~**Queues**: BlockingQueue + LinkedBlockingQueue / ArrayBlockingQueue /
-     SynchronousQueue, ConcurrentLinkedQueue, ConcurrentLinkedDeque~~
-     — DONE.
-   - **Queues remaining**: PriorityBlockingQueue (~150 LOC, heap-ordered),
-     LinkedBlockingDeque (~200 LOC, blocking-variant of
-     ConcurrentLinkedDeque), DelayQueue (~200 LOC, time-ordered).
+     SynchronousQueue, ConcurrentLinkedQueue, ConcurrentLinkedDeque,
+     PriorityBlockingQueue, LinkedBlockingDeque~~ — DONE.
+   - **Queues remaining**: DelayQueue — needs VTE timer-wheel.
    - ~~**ConcurrentHashMap, CopyOnWriteArrayList, CopyOnWriteArraySet**~~
      — DONE.
    - ~~**ExecutorService family**: Executor, ExecutorService, Executors,
      ThreadPoolExecutor, ThreadFactory, DefaultThreadFactory, Future,
      ConcreteFuture, ExecutionException, TimeoutException, TimeUnit~~
-     — DONE. Routes through VTE for the cooperative-scheduling case;
-     pool-size limits documented but observably no-ops on PHP.
+     — DONE.
+   - ~~**ForkJoinPool / ForkJoinTask / RecursiveTask /
+     RecursiveAction**~~ — DONE. Work-stealing collapses on a single
+     carrier thread; ForkJoinPool extends ThreadPoolExecutor.
+     ForkJoinTask routes fork() through VTE.
    - **ScheduledExecutorService / ScheduledThreadPoolExecutor** —
-     needs VTE timer integration (~150 LOC each).
-   - **ForkJoinPool / ForkJoinTask** — work-stealing not relevant
-     under cooperative single-thread scheduling; ForkJoinPool can
-     alias ThreadPoolExecutor; ForkJoinTask covers RecursiveTask /
-     RecursiveAction (~200 LOC).
-   - **VarHandle (Java 9+)** — extends Unsafe, ~3 days
-   - **StructuredTaskScope (Java 21+)** — ~3 days
-   - **ScopedValue (Java 21+)** — ~3 days
+     needs VTE timer-wheel.
+   - ~~**VarHandle (Java 9+)**~~ — DONE. Plain / Volatile / Acquire-
+     Release / CAS / atomic-update / bitwise-ops surface. All
+     access modes collapse to plain ops under PHP cooperative
+     scheduling (no other physical thread to observe ordering).
+   - ~~**StructuredTaskScope (Java 21+) + ShutdownOnFailure /
+     ShutdownOnSuccess + Subtask**~~ — DONE. Maps to Fiber-backed
+     subtask handles via VTE.
+   - ~~**ScopedValue (Java 21+) + Carrier**~~ — DONE. Per-fiber
+     binding stack tracks scoped values; Carrier.run() / Carrier.call()
+     install + remove bindings around the closure.
 
    Cross-fiber lock-contention fix landed: ReentrantLock now stores
    `\Fiber` waiters (not just fiber-ids) and resumes the next waiter
