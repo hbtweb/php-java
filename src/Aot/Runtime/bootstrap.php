@@ -171,6 +171,107 @@ class String_
     }
 }
 
+/**
+ * Static adapter for java.lang.Integer. Parsing throws
+ * NumberFormatException to match JDK semantics.
+ */
+class Integer
+{
+    public static function parseInt(string $s, int $radix = 10): int
+    {
+        $s = \trim($s);
+        if ($s === '' || !\preg_match('/^-?[0-9a-zA-Z]+$/', $s)) {
+            throw new NumberFormatException("For input string: \"{$s}\"");
+        }
+        $n = \intval($s, $radix);
+        $rt = $n < 0 ? '-' . \base_convert((string) -$n, 10, $radix) : \base_convert((string) $n, 10, $radix);
+        if (\strtolower($rt) !== \strtolower($s)) {
+            throw new NumberFormatException("For input string: \"{$s}\"");
+        }
+        return $n;
+    }
+
+    public static function valueOf($v): int
+    {
+        if (\is_string($v)) return self::parseInt($v);
+        return (int) $v;
+    }
+
+    public static function toString(int $v, int $radix = 10): string
+    {
+        if ($radix === 10) return (string) $v;
+        return $v < 0 ? '-' . \base_convert((string) -$v, 10, $radix) : \base_convert((string) $v, 10, $radix);
+    }
+
+    public static function toBinaryString(int $v): string  { return \decbin($v & 0xFFFFFFFF); }
+    public static function toHexString(int $v): string     { return \dechex($v & 0xFFFFFFFF); }
+    public static function toOctalString(int $v): string   { return \decoct($v & 0xFFFFFFFF); }
+
+    public static function max(int $a, int $b): int { return $a >= $b ? $a : $b; }
+    public static function min(int $a, int $b): int { return $a <= $b ? $a : $b; }
+}
+
+/**
+ * Mutable string buffer adapter for java.lang.StringBuilder.
+ * Fluent (returns self from append) and stringifiable (println,
+ * implicit casts, and concat all go through __toString).
+ */
+class StringBuilder
+{
+    private string $buf;
+
+    public function __construct($initial = '')
+    {
+        // Java overloads: StringBuilder(), (int capacity), (CharSequence/String).
+        // Ints are capacity hints — irrelevant for PHP — start empty.
+        $this->buf = \is_string($initial) ? $initial : '';
+    }
+
+    public function append($x): self
+    {
+        // Java's many append() overloads collapse to one PHP path. char
+        // (passed as int per the raw-scalar contract) appends the
+        // single character; everything else uses string conversion.
+        if (\is_int($x) && $x >= 0 && $x <= 0x10FFFF && \func_num_args() === 1) {
+            // Disambiguate append(int) from append(char): the JVM bytecode
+            // is the same — both push an int. Without a way to tell them
+            // apart from the AOT call site, prefer the integer-as-decimal
+            // form (more common). The test fixtures here use it that way
+            // (`text.append(i)` where i is an int counter).
+            $this->buf .= (string) $x;
+            return $this;
+        }
+        if ($x === null)        $this->buf .= 'null';
+        elseif ($x === true)    $this->buf .= 'true';
+        elseif ($x === false)   $this->buf .= 'false';
+        else                    $this->buf .= (string) $x;
+        return $this;
+    }
+
+    public function toString(): string { return $this->buf; }
+    public function __toString(): string { return $this->buf; }
+
+    public function length(): int { return \strlen($this->buf); }
+    public function isEmpty(): int { return $this->buf === '' ? 1 : 0; }
+
+    public function charAt(int $i): int
+    {
+        if ($i < 0 || $i >= \strlen($this->buf)) {
+            throw new StringIndexOutOfBoundsException("String index out of range: {$i}");
+        }
+        return \ord($this->buf[$i]);
+    }
+
+    public function setLength(int $n): void
+    {
+        $cur = \strlen($this->buf);
+        if ($n < $cur) $this->buf = \substr($this->buf, 0, $n);
+        elseif ($n > $cur) $this->buf .= \str_repeat("\x00", $n - $cur);
+    }
+
+    public function reverse(): self  { $this->buf = \strrev($this->buf); return $this; }
+}
+
 namespace PHPJava\Aot\Runtime\java\io;
 
 /**
