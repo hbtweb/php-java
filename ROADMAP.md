@@ -202,10 +202,20 @@ The Java thread/concurrent surface separates cleanly into two axes:
   ([`~/GitHub/ClojurePHP/docs/CLJP-CONCURRENCY.md` §"AMPHP/Revolt
   Mapping"](../../ClojurePHP/docs/CLJP-CONCURRENCY.md)).
 
-**AMPHP/Revolt is the primary target** because it's pure PHP — runs
-on FPM, on PHAR, on shared hosting, anywhere PHP 8.1+ is. Swoole
-remains available for the Tier-2 cross-process shared-memory case
-(`Swoole\Atomic`, `Swoole\Table`) but isn't the default.
+**Update 2026-05-04 (post-bench):** AMPHP-primary is structurally
+wrong. AMPHP at 2,031 ns/op is **10,155× the AOT iadd-loop cost**
+(0.20 ns/op rank-1) — pairing it with the AOT pipeline throws away
+the project's headline perf claim at every concurrency call site.
+See `bench/amphp-probe/REVISED.md` for the math + reframe.
+
+**Canonical target: custom Tier A / Tier B runtime + B's emit-specialiser.**
+Total ~1,900 LOC (vs 1,600 LOC for AMPHP-shim) but at AOT-class perf
+on the inlinable hot path (9 ns/op via B-emit specialisation) and
+HotSpot-class overhead on the genuinely-async path (~150-365 ns/op
+Tier A; ~1 µs Tier B). Swoole remains the alternative backend for
+Tier-2 cross-process shared memory; AMPHP drops out of the canonical
+path (could be optional backend later if a deployment context wants
+the pure-PHP-no-Swoole shape AND can accept the perf cost).
 
 | Java | AMPHP/Revolt | Swoole |
 |---|---|---|
