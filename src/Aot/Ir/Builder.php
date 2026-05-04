@@ -505,6 +505,21 @@ final class Builder
                 if ($delta & 0x80) $delta -= 0x100;
                 $this->currentBb->stmts[] = new IincLocal($idx, $delta);
                 return;
+            // ── wide iinc ───────────────────────────────────────────
+            // The `wide` prefix (0xC4) followed by iinc (0x84) takes a
+            // 2-byte unsigned index and a 2-byte signed short delta.
+            // Other wide variants (iload/istore/aload/etc.) still fall
+            // through to the legacy emitter — surfaced here only because
+            // javac uses wide-iinc when the delta exceeds signed-byte
+            // range (e.g. `x += 200`).
+            case 0xC4:
+                if ($bytes[$this->pc] !== 0x84) break;
+                $this->pc++; // skip target opcode (iinc)
+                $idx = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
+                $delta = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
+                if ($delta & 0x8000) $delta -= 0x10000; // sign-extend short
+                $this->currentBb->stmts[] = new IincLocal($idx, $delta);
+                return;
             // ── two-operand if ──────────────────────────────────────
             case 0x9F: $this->emitCondGoto('===', $bytes, $start); return;
             case 0xA0: $this->emitCondGoto('!==', $bytes, $start); return;

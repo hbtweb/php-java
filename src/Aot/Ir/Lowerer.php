@@ -206,7 +206,11 @@ final class Lowerer
             return "        \$L[{$s->slot}] = " . $this->lowerExpr($s->value) . ";";
         }
         if ($s instanceof IincLocal) {
-            return "        \$L[{$s->slot}] += {$s->delta};";
+            // iinc is a JVM int op — must wrap modulo 2^32 with sign
+            // extension. Without the mask, a local at Integer.MAX_VALUE
+            // increments to 2^31 (PHP int, no overflow) instead of
+            // wrapping to -2^31 like Java. Same shape as maskInt32().
+            return "        \$L[{$s->slot}] = ((\$L[{$s->slot}] + {$s->delta}) << 32) >> 32;";
         }
         if ($s instanceof ExprStmt) {
             return "        " . $this->lowerExpr($s->expr) . ";";
