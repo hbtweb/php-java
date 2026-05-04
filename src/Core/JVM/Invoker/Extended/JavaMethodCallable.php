@@ -46,6 +46,35 @@ trait JavaMethodCallable
     }
 
     /**
+     * Unbox a wrapper argument to the AOT-side raw scalar shape.
+     *
+     * Plain `getValue()` is correct for Int_/Long_/Short_/Byte_/Float_/
+     * Double_ — they store the scalar directly. The two divergences
+     * per CONTRACTS.md §1:
+     *
+     * - Char_ stores int (the code point), but contract says char is a
+     *   1-character PHP string. Convert via __toString (which renders
+     *   the UTF-8 form).
+     * - Boolean_::getValue returns the strings 'true'/'false' (legacy
+     *   stringification), but contract says boolean is PHP bool.
+     *   Convert to bool.
+     */
+    private static function aotUnboxArg($argument)
+    {
+        if (!\is_object($argument)) return $argument;
+        if ($argument instanceof \PHPJava\Kernel\Types\Char_) {
+            return (string) $argument;
+        }
+        if ($argument instanceof \PHPJava\Kernel\Types\Boolean_) {
+            return (string) $argument->getValue() === \PHPJava\Kernel\Types\Boolean_::TRUE;
+        }
+        if (\method_exists($argument, 'getValue')) {
+            return $argument->getValue();
+        }
+        return $argument;
+    }
+
+    /**
      * @throws IllegalJavaClassException
      * @throws RuntimeException
      * @throws UndefinedOpCodeException
@@ -64,9 +93,7 @@ trait JavaMethodCallable
                 ->getClassName();
             $rawArgs = [];
             foreach ($arguments as $argument) {
-                $rawArgs[] = is_object($argument) && method_exists($argument, 'getValue')
-                    ? $argument->getValue()
-                    : $argument;
+                $rawArgs[] = self::aotUnboxArg($argument);
             }
             [$found, $result] = Loader::tryCallStatic($classPath, $name, $rawArgs);
             if ($found) {
