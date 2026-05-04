@@ -62,7 +62,13 @@ class JavaStaticField implements FieldInterface
         if (Loader::isLoaded($classPath)) {
             $aotFqn = 'PHPJava\\Aot\\Generated\\'
                 . str_replace(['.', '/', '\\', '$'], '_', $classPath);
-            if (property_exists($aotFqn, $name)) {
+            // property_exists matches both static and instance
+            // properties; reflect to verify it's actually static before
+            // accessing as `::$name` (otherwise `Access to undeclared
+            // static property` errors out for instance fields the AOT
+            // class declares with `public $name`).
+            if (property_exists($aotFqn, $name)
+                && (new \ReflectionProperty($aotFqn, $name))->isStatic()) {
                 return $aotFqn::${$name};
             }
         }

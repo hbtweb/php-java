@@ -32,6 +32,20 @@ use PHPJava\Utilities\Formatter;
 trait JavaMethodCallable
 {
     /**
+     * Mirror of `Loader::mangleMethod` for the dynamic AOT dispatch
+     * path. Kept private to this trait — `Loader`'s version is
+     * private to that class, but the mapping is identical:
+     * `<init>` → `__construct`, `<clinit>` → `__staticConstruct`,
+     * and JVM-illegal-in-PHP characters (`$`, `<`, `>`) substitute.
+     */
+    private static function mangleAotMethod(string $name): string
+    {
+        if ($name === '<init>')   return '__construct';
+        if ($name === '<clinit>') return '__staticConstruct';
+        return \str_replace(['$', '<', '>'], ['_S_', '_LT_', '_GT_'], $name);
+    }
+
+    /**
      * @throws IllegalJavaClassException
      * @throws RuntimeException
      * @throws UndefinedOpCodeException
@@ -43,10 +57,7 @@ trait JavaMethodCallable
         // Phase A flip (docs/LAYERS.md): AOT is the default for static
         // dispatch — no env gate. Compile failures and exceptions
         // inside AOT'd code propagate. Method-not-found falls through
-        // to the interpreter loop below (legit case during Phase A:
-        // instance methods reach the dynamic invoker today, and there
-        // is no AOT instance-method on the static class to find;
-        // Phase B will unify receiver shape and remove this fall-through).
+        // to the interpreter loop below.
         if (!$this->isDynamic()) {
             $classPath = $this->javaClassInvoker
                 ->getJavaClass()
@@ -60,6 +71,37 @@ trait JavaMethodCallable
             [$found, $result] = Loader::tryCallStatic($classPath, $name, $rawArgs);
             if ($found) {
                 return $result;
+            }
+        }
+
+        // Phase B: dynamic (instance) dispatch. When the JavaClassInvoker
+        // has an AOT instance bound by ->construct(...), route the call
+        // through PHP-native dispatch on that instance. The receiver
+        // shape is `\PHPJava\Aot\Generated\<X>` and method names match
+        // the JVM mangled form (<init>→__construct, $→_S_, etc.).
+        if ($this->isDynamic()) {
+            $aotInstance = $this->javaClassInvoker->getAotInstance();
+            if ($aotInstance !== null) {
+                $rawArgs = [];
+                foreach ($arguments as $argument) {
+                    $rawArgs[] = is_object($argument) && method_exists($argument, 'getValue')
+                        ? $argument->getValue()
+                        : $argument;
+                }
+                // <init> already ran inside ->construct(); a re-call here
+                // would re-construct mid-instance, which the interp path
+                // does not. Skip to preserve semantics.
+                if ($name === '<init>') {
+                    return null;
+                }
+                $mangled = self::mangleAotMethod($name);
+                if (\method_exists($aotInstance, $mangled)) {
+                    return $aotInstance->$mangled(...$rawArgs);
+                }
+                // Method not found on the AOT instance — fall through
+                // to the interpreter dispatch below (legit case during
+                // the Phase B → D transition: not every instance method
+                // may be AOT-compiled yet for every fixture).
             }
         }
 
