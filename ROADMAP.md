@@ -739,34 +739,57 @@ broadly.
   acceptable for scripting/library use, not for tight inner loops in
   performance-critical code.
 - **PHP-frontend / unified-IR for shim inlining (perf-motivated).
-  FALSIFIED 2026-05-05** at `bench/php-frontend-falsifier.php`.
-  The proposal — lift hand-written PHP shims through a token-driven
-  Pratt parser into the same IR as bytecode-derived methods, then let
-  InlinePass fold shim calls into call sites — was pre-registered with
-  four falsifiers (lift coverage, integrated perf, IR compatibility,
-  semantic equivalence). F1, F3, F4 passed; **F2 falsified**: when the
-  lifted form is emitted to a real `.php` file and called via
-  namespace-function-dispatch, it runs at 28 ns/op vs the static-method
-  shim at 15.6 ns/op under PHP 8.4's tracing JIT. PHP JIT already
-  inlines static-method shims aggressively enough that user-space IR
-  inlining adds back the overhead JIT had eliminated. The earlier
-  closure-wrapped microbenchmarks that suggested a 2.1× speedup were
-  confounded by closure-call overhead in both arms; the
-  through-real-include path is the production-relevant measurement.
+  PARTIALLY FALSIFIED — verdict qualified by meta-falsification 2026-05-05.**
 
-  Frontend mechanics work (15/17 Math methods lift; 1000/1000 semantic
-  match; IR shapes substitute cleanly into existing Expr trees). The
-  architectural unification is engineering-clean — single optimisation
-  pipeline, type narrowing, code reuse — but is no longer
-  perf-motivated. A unified frontend would be worth building if a
-  future cross-frontend optimisation (e.g., proving a Java-derived call
-  chain inlinable into a PHP-source caller for type-narrowing reasons)
-  surfaces a use case JIT can't reach. Not today.
+  Original falsifier at `bench/php-frontend-falsifier.php` pre-registered
+  four claims (lift coverage, integrated perf, IR compatibility,
+  semantic equivalence). F1, F3, F4 passed. F2 measured single-hop
+  `Math::abs` in a hot loop: lifted via require ran at 28 ns/op vs the
+  static-method shim at 15.6 ns/op under PHP 8.4 JIT — slower, not
+  faster. Initial verdict: PHP JIT already inlines static-method shims
+  aggressively enough that user-space IR inlining adds back the
+  overhead JIT had eliminated.
+
+  Meta-falsifier at `bench/php-frontend-meta-falsifier.php` interrogated
+  F2's methodology with three probes. Two overturned, one supported:
+
+    M1 CHAIN-INLINING — 3-deep static-method chain (Outer→Middle→Inner)
+    vs lifted-fused single function. Shim chain: 33.98 ns/op JIT.
+    Lifted-fused: 9.47 ns/op JIT. **3.59× speedup.** PHP JIT inlines
+    single hops but gives up at depth ≥3. F2 measured the one case JIT
+    handles cleanly — single hop, hot loop. Real bb-fill workloads
+    compose (Objects.hashCode → String_.hashCode → loop;
+    Integer.parseInt(s.trim()); HashMap.put walking hash → equals →
+    bucket). The architecture wins where composition lives.
+
+    M2 TYPE-NARROWING — compile-time JVM-type info eliding shim's
+    runtime is_int branch. 1.25× speedup, below the 1.4× threshold.
+    JIT's tracer specialises types well enough that compile-time
+    narrowing alone is marginal. Not load-bearing.
+
+    M3 COLD-PATH — single call, no JIT warmup. Shim 17.40 ns/op vs
+    lifted-ranged 13.10 ns/op. **1.33× speedup cold.** Request-scoped
+    FPM (ROADMAP §Goal's dominant deployment) is cold-path. JIT-warm
+    measurements understate the architecture's value for the project's
+    primary target.
+
+  **Refined verdict:**
+   - Single-hop hot loop with JIT warm: F2 stands. Lifting doesn't help.
+   - Composition depth ≥3 hot: lifting wins ~3.6×.
+   - Any depth, cold path / FPM: lifting wins ~1.3×.
+
+  The 4-week unified-frontend refactor is more justified than the F2
+  initial verdict suggested. Whether to build it is a director call —
+  bb-fill on the current substrate ships v1; the unified frontend is a
+  perf optimisation for compositional and cold-path workloads that
+  PHP JIT can't reach. The decision turns on workload character: how
+  much real bb-fill traffic is composition-heavy or cold.
 
   Anti-context for future sessions: when a "compile shims through the
-  same pipeline as user bytecode for perf" pitch surfaces, the answer
-  is *measured-falsified* — re-read `bench/php-frontend-falsifier.php`
-  before re-arguing.
+  same pipeline as user bytecode for perf" pitch surfaces, re-read both
+  `bench/php-frontend-falsifier.php` (the simple-hop case where it
+  doesn't help) and `bench/php-frontend-meta-falsifier.php` (the
+  composition + cold cases where it does) before deciding.
 
 ## Cadence
 
