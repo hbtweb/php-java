@@ -773,23 +773,38 @@ broadly.
     measurements understate the architecture's value for the project's
     primary target.
 
-  **Refined verdict:**
+  **Refined verdict (where lifting helps):**
    - Single-hop hot loop with JIT warm: F2 stands. Lifting doesn't help.
    - Composition depth ≥3 hot: lifting wins ~3.6×.
    - Any depth, cold path / FPM: lifting wins ~1.3×.
 
-  The 4-week unified-frontend refactor is more justified than the F2
-  initial verdict suggested. Whether to build it is a director call —
-  bb-fill on the current substrate ships v1; the unified frontend is a
-  perf optimisation for compositional and cold-path workloads that
-  PHP JIT can't reach. The decision turns on workload character: how
-  much real bb-fill traffic is composition-heavy or cold.
+  **Orthogonal to bb-fill workflow.** Shim authoring is unchanged —
+  same PHP file at `src/Aot/Runtime/java/<...>.php`, same parity
+  battery, same oracle validation. The unified frontend processes
+  *those same files* at compile time; nothing changes for bb-fill
+  authors. The 4-week refactor is substrate engineering, not
+  author-side disruption. Zero opportunity cost on the v1 gate
+  beyond the engineer-week allocation. The decision is a scheduling
+  question (when to spend the engineer-weeks), not an either/or
+  against bb-fill.
+
+  **Generalisation that falls out.** Once IR is the canonical
+  representation and frontends pluggable, "PHPJava" stops being
+  "JVM-bytecode-to-PHP transpiler" and becomes "multi-frontend
+  compiler with PHP backend." JVM bytecode is one frontend among
+  potentially many — Lua source, WebAssembly, hand-coded IR DSL, or
+  any language with a `.class` generator (Kotlin / Scala / Clojure /
+  Groovy already work via that path). The unified-frontend substrate
+  is what enables non-bytecode frontends; without it, every new
+  source language requires its own ad-hoc translation to bytecode.
 
   Anti-context for future sessions: when a "compile shims through the
   same pipeline as user bytecode for perf" pitch surfaces, re-read both
   `bench/php-frontend-falsifier.php` (the simple-hop case where it
   doesn't help) and `bench/php-frontend-meta-falsifier.php` (the
-  composition + cold cases where it does) before deciding.
+  composition + cold cases where it does) before deciding. The
+  earlier "bb-fill OR unified-frontend" framing was a false dichotomy
+  — they're orthogonal substrates that don't compete for author time.
 
 ## Cadence
 
