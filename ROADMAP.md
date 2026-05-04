@@ -529,7 +529,8 @@ prerequisite.
    stubs (`tools/gen-aot-stubs.php` + `src/Aot/Runtime/java/**`); this
    step replaces the stub bodies with real implementations.
 
-   **Progress (2026-05-05): 3/80 shipped + parity-validated.**
+   **Progress (2026-05-05): 4/80 shipped + parity-validated. 183/183
+   total parity cases.**
    - `java.lang.Math` — `src/Aot/Runtime/java/lang/Math.php`. Surface:
      abs/min/max (polymorphic int+long+float+double), sqrt/pow/floor/
      ceil, round (Java half-up semantics, not PHP half-away-from-zero),
@@ -560,6 +561,17 @@ prerequisite.
      after driver gained Object[] dispatch). compare/Comparator,
      deepEquals, requireNonNullElse, checkIndex/checkFromToIndex/
      checkFromIndexSize still deferred.
+   - `java.lang.Integer` — extension to the existing 7 methods in
+     bootstrap.php (parseInt/valueOf/toString/toBinaryString/etc.).
+     Added: bitCount (SWAR popcount), numberOfLeadingZeros /
+     numberOfTrailingZeros, highestOneBit / lowestOneBit, reverse
+     (32-bit bit reversal), reverseBytes (endian swap), compare, sum,
+     signum, hashCode (identity for int), constants MIN_VALUE /
+     MAX_VALUE / SIZE / BYTES. All bit ops mask-and-narrow at 32-bit
+     to match Java's signed int semantics. parseUnsignedInt /
+     toUnsignedString / divideUnsigned / remainderUnsigned /
+     compareUnsigned deferred (rarely-used in bb). **57/57 parity
+     vs HotSpot.**
 
    Driver capability gained — `find-method` does name+arity+
    assignable-types lookup with primitive ↔ wrapper unboxing and

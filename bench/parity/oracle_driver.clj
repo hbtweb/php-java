@@ -58,6 +58,22 @@
     (into-array Object (map box-arg v))
     v))
 
+(defn- coerce-arg
+  "Narrow an arg to match a primitive parameter type. Reflection
+   requires exact wrapper-to-primitive correspondence; case specs
+   pass JSON ints (decode as Long) but bb-allowlist methods often
+   take int. Manual conversion at the wrapper level — the Java
+   reflection layer then unboxes."
+  [^Class param arg]
+  (cond
+    (nil? arg) arg
+    (and (= param Integer/TYPE) (instance? Long arg))    (Integer/valueOf (int (long arg)))
+    (and (= param Short/TYPE)   (instance? Long arg))    (Short/valueOf (short (long arg)))
+    (and (= param Short/TYPE)   (instance? Integer arg)) (Short/valueOf (short (int arg)))
+    (and (= param Byte/TYPE)    (instance? Long arg))    (Byte/valueOf (byte (long arg)))
+    (and (= param Float/TYPE)   (instance? Double arg))  (Float/valueOf (float (double arg)))
+    :else (box-arg arg)))
+
 (defn- param-accepts?
   "Whether a parameter Class<?> can accept an arg whose runtime class
    is `arg-cls`. Models JVM overload-resolution: identity, subtype,
@@ -82,7 +98,17 @@
     (and (= param Integer/TYPE)   (#{Byte Short} arg-cls))
     (and (= param Long/TYPE)      (#{Byte Short Integer} arg-cls))
     (and (= param Float/TYPE)     (#{Byte Short Integer Long} arg-cls))
-    (and (= param Double/TYPE)    (#{Byte Short Integer Long Float} arg-cls))))
+    (and (= param Double/TYPE)    (#{Byte Short Integer Long Float} arg-cls))
+    ;; primitive narrowing — case spec uses JSON ints (decode as Long)
+    ;; but bb-allowlist methods often take int. Allow Long → int when
+    ;; the value's actual range fits; coerce-args performs the
+    ;; truncation. Mirrors Java's auto-boxing-with-explicit-cast at
+    ;; call sites where the JSON spec is the source of truth on
+    ;; intended type.
+    (and (= param Integer/TYPE)   (= arg-cls Long))
+    (and (= param Short/TYPE)     (#{Long Integer} arg-cls))
+    (and (= param Byte/TYPE)      (#{Long Integer Short} arg-cls))
+    (and (= param Float/TYPE)     (= arg-cls Double))))
 
 (defn- specificity
   "Lower score = more specific match. Used to disambiguate when the
@@ -165,7 +191,8 @@
       (try
         (let [cls       (Class/forName class-fqn)
               ^Method m (find-method cls method-name args)
-              boxed     (object-array (map box-arg args))
+              params    (.getParameterTypes m)
+              boxed     (object-array (map coerce-arg params args))
               result    (.invoke m nil boxed)]
           {"kind"   "ok"
            "return" (normalise-return result)

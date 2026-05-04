@@ -287,6 +287,132 @@ class Integer
 
     public static function max(int $a, int $b): int { return $a >= $b ? $a : $b; }
     public static function min(int $a, int $b): int { return $a <= $b ? $a : $b; }
+
+    public const MIN_VALUE = -2147483648;
+    public const MAX_VALUE =  2147483647;
+    public const SIZE      = 32;
+    public const BYTES     = 4;
+
+    public static function sum(int $a, int $b): int
+    {
+        // Java: a + b with int wraparound. PHP int is 64-bit; the
+        // caller's bytecode-level narrowing handles the int-32 wrap
+        // at storage points, so we just add.
+        return $a + $b;
+    }
+
+    public static function compare(int $a, int $b): int
+    {
+        return $a <=> $b;
+    }
+
+    /**
+     * Java Integer.hashCode(int) is identity. AOT contract treats
+     * PHP int as Java long (64-bit); for the int-typed overload,
+     * caller bytecode has narrowed to 32-bit at storage. Identity
+     * is correct.
+     */
+    public static function hashCode(int $v): int
+    {
+        return $v;
+    }
+
+    public static function signum(int $v): int
+    {
+        return $v <=> 0;
+    }
+
+    /**
+     * Population count of the 32-bit value's 1-bits. PHP 8.4 has
+     * no native popcount; the SWAR fold is the standard trick:
+     * pair-then-quad-then-byte-then-word reduction in O(1) ops.
+     */
+    public static function bitCount(int $v): int
+    {
+        $v &= 0xFFFFFFFF;
+        $v = $v - (($v >> 1) & 0x55555555);
+        $v = ($v & 0x33333333) + (($v >> 2) & 0x33333333);
+        $v = ($v + ($v >> 4)) & 0x0F0F0F0F;
+        return (($v * 0x01010101) >> 24) & 0xFF;
+    }
+
+    public static function numberOfLeadingZeros(int $v): int
+    {
+        $v &= 0xFFFFFFFF;
+        if ($v === 0) return 32;
+        $n = 0;
+        if ($v <= 0x0000FFFF) { $n += 16; $v <<= 16; $v &= 0xFFFFFFFF; }
+        if ($v <= 0x00FFFFFF) { $n +=  8; $v <<=  8; $v &= 0xFFFFFFFF; }
+        if ($v <= 0x0FFFFFFF) { $n +=  4; $v <<=  4; $v &= 0xFFFFFFFF; }
+        if ($v <= 0x3FFFFFFF) { $n +=  2; $v <<=  2; $v &= 0xFFFFFFFF; }
+        if ($v <= 0x7FFFFFFF) { $n +=  1; }
+        return $n;
+    }
+
+    public static function numberOfTrailingZeros(int $v): int
+    {
+        $v &= 0xFFFFFFFF;
+        if ($v === 0) return 32;
+        $n = 31;
+        $y = ($v << 16) & 0xFFFFFFFF; if ($y !== 0) { $n -= 16; $v = $y; }
+        $y = ($v <<  8) & 0xFFFFFFFF; if ($y !== 0) { $n -=  8; $v = $y; }
+        $y = ($v <<  4) & 0xFFFFFFFF; if ($y !== 0) { $n -=  4; $v = $y; }
+        $y = ($v <<  2) & 0xFFFFFFFF; if ($y !== 0) { $n -=  2; $v = $y; }
+        return $n - ((($v << 1) & 0xFFFFFFFF) >> 31);
+    }
+
+    /**
+     * Highest-set-bit isolation: 2^k for the most-significant 1-bit,
+     * 0 if v is 0. Java spec returns int (signed 32-bit); narrow at
+     * the boundary.
+     */
+    public static function highestOneBit(int $v): int
+    {
+        $v &= 0xFFFFFFFF;
+        $v |= ($v >> 1);
+        $v |= ($v >> 2);
+        $v |= ($v >> 4);
+        $v |= ($v >> 8);
+        $v |= ($v >> 16);
+        $r = $v - (($v >> 1) & 0x7FFFFFFF);
+        // Narrow to signed int32 — high-bit-set values represent negatives.
+        return ($r & 0x80000000) ? ($r - 0x100000000) : $r;
+    }
+
+    public static function lowestOneBit(int $v): int
+    {
+        // v & -v isolates the lowest 1-bit. PHP's unary - on the
+        // narrowed value gives the right two's-complement negation.
+        $v &= 0xFFFFFFFF;
+        $neg = (-$v) & 0xFFFFFFFF;
+        $r = $v & $neg;
+        return ($r & 0x80000000) ? ($r - 0x100000000) : $r;
+    }
+
+    /**
+     * Reverse all 32 bits. Standard SWAR pattern — pair-swap then
+     * quad-swap etc.
+     */
+    public static function reverse(int $v): int
+    {
+        $v &= 0xFFFFFFFF;
+        $v = ((($v & 0xAAAAAAAA) >>  1) | (($v & 0x55555555) <<  1)) & 0xFFFFFFFF;
+        $v = ((($v & 0xCCCCCCCC) >>  2) | (($v & 0x33333333) <<  2)) & 0xFFFFFFFF;
+        $v = ((($v & 0xF0F0F0F0) >>  4) | (($v & 0x0F0F0F0F) <<  4)) & 0xFFFFFFFF;
+        $v = ((($v & 0xFF00FF00) >>  8) | (($v & 0x00FF00FF) <<  8)) & 0xFFFFFFFF;
+        $v = ((($v >> 16) | (($v << 16) & 0xFFFFFFFF))) & 0xFFFFFFFF;
+        return ($v & 0x80000000) ? ($v - 0x100000000) : $v;
+    }
+
+    public static function reverseBytes(int $v): int
+    {
+        $v &= 0xFFFFFFFF;
+        $v = ((($v & 0xFF000000) >> 24)
+            | (($v & 0x00FF0000) >>  8)
+            | (($v & 0x0000FF00) <<  8)
+            | (($v & 0x000000FF) << 24)) & 0xFFFFFFFF;
+        return ($v & 0x80000000) ? ($v - 0x100000000) : $v;
+    }
 }
 
 /**

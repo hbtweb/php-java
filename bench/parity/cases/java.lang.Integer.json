@@ -1,0 +1,89 @@
+{
+  "class": "java.lang.Integer",
+  "_note": [
+    "Fourth bb-allowlist parity battery. Integer extension covers the",
+    "bit-twiddle family (bitCount, numberOfLeadingZeros, etc.) +",
+    "compare/signum/hashCode/sum. Constants (MIN_VALUE/MAX_VALUE/SIZE/",
+    "BYTES) are static fields; case battery doesn't test those — they",
+    "carry through the AOT path's getstatic lowering, not method",
+    "dispatch. Java's int is 32-bit; PHP int is 64-bit. Caller bytecode",
+    "narrows at storage points; the case spec passes values within",
+    "[Integer.MIN_VALUE, Integer.MAX_VALUE] so the contract holds.",
+    "",
+    "JSON ints decode as Long; reflection picks the (long)... overload",
+    "where Java has both int and long. Integer methods take int — most",
+    "have no long overload, so reflection auto-narrows the Long arg",
+    "to int. Values outside int range would fail the reflection check;",
+    "the cases below stay in range."
+  ],
+  "cases": [
+    {"method": "bitCount", "args": [0]},
+    {"method": "bitCount", "args": [1]},
+    {"method": "bitCount", "args": [-1]},
+    {"method": "bitCount", "args": [305419896]},
+    {"method": "bitCount", "args": [2147483647]},
+    {"method": "bitCount", "args": [-2147483648]},
+
+    {"method": "numberOfLeadingZeros", "args": [0]},
+    {"method": "numberOfLeadingZeros", "args": [1]},
+    {"method": "numberOfLeadingZeros", "args": [256]},
+    {"method": "numberOfLeadingZeros", "args": [2147483647]},
+    {"method": "numberOfLeadingZeros", "args": [-1]},
+
+    {"method": "numberOfTrailingZeros", "args": [0]},
+    {"method": "numberOfTrailingZeros", "args": [1]},
+    {"method": "numberOfTrailingZeros", "args": [8]},
+    {"method": "numberOfTrailingZeros", "args": [256]},
+    {"method": "numberOfTrailingZeros", "args": [-1]},
+
+    {"method": "highestOneBit", "args": [0]},
+    {"method": "highestOneBit", "args": [1]},
+    {"method": "highestOneBit", "args": [255]},
+    {"method": "highestOneBit", "args": [256]},
+    {"method": "highestOneBit", "args": [2147483647]},
+    {"method": "highestOneBit", "args": [-1]},
+
+    {"method": "lowestOneBit", "args": [0]},
+    {"method": "lowestOneBit", "args": [12]},
+    {"method": "lowestOneBit", "args": [1]},
+    {"method": "lowestOneBit", "args": [256]},
+    {"method": "lowestOneBit", "args": [-1]},
+
+    {"method": "reverse", "args": [0]},
+    {"method": "reverse", "args": [1]},
+    {"method": "reverse", "args": [-1]},
+    {"method": "reverse", "args": [16909060]},
+
+    {"method": "reverseBytes", "args": [0]},
+    {"method": "reverseBytes", "args": [16909060]},
+    {"method": "reverseBytes", "args": [-1]},
+
+    {"method": "compare", "args": [3, 5]},
+    {"method": "compare", "args": [5, 3]},
+    {"method": "compare", "args": [3, 3]},
+    {"method": "compare", "args": [-1, 0]},
+    {"method": "compare", "args": [-2147483648, 2147483647]},
+
+    {"method": "signum", "args": [0]},
+    {"method": "signum", "args": [42]},
+    {"method": "signum", "args": [-42]},
+    {"method": "signum", "args": [2147483647]},
+    {"method": "signum", "args": [-2147483648]},
+
+    {"method": "hashCode", "args": [0]},
+    {"method": "hashCode", "args": [42]},
+    {"method": "hashCode", "args": [-1]},
+    {"method": "hashCode", "args": [2147483647]},
+    {"method": "hashCode", "args": [-2147483648]},
+
+    {"method": "sum", "args": [0, 0]},
+    {"method": "sum", "args": [1, 2]},
+    {"method": "sum", "args": [-1, 1]},
+    {"method": "sum", "args": [1000, 2000]},
+
+    {"method": "max", "args": [3, 5]},
+    {"method": "max", "args": [-1, 0]},
+    {"method": "min", "args": [3, 5]},
+    {"method": "min", "args": [-1, 0]}
+  ]
+}
