@@ -10,6 +10,13 @@ class OutputDebugTraceTest extends Base
 
     public function testCallMain()
     {
+        // Exercises the legacy interp's bytecode-trace debug output
+        // (->debug() dumps PC/opcode/mnemonic/operands/locals as the
+        // interpreter steps through the bytecode). No AOT analog —
+        // AOT-emitted PHP runs as native PHP, not as a stepped JVM
+        // interpretation. Slated for removal in Phase D (interpreter
+        // delete) per docs/LAYERS.md.
+        $this->markTestSkipped('Interp-only debug trace; no AOT analog (Phase D delete)');
         $calculatedValue = static::$initiatedJavaClasses['OutputDebugTraceTest']
             ->getInvoker()
             ->getStatic()
