@@ -493,21 +493,28 @@ final class Builder
             case 0x32: case 0x33: case 0x34: case 0x35:
                 $i = $this->pop();
                 $a = $this->pop();
+                // Char arrays (caload, 0x34) store contract-shape 1-char
+                // strings per CONTRACTS.md §1; widen to JVM-stack int.
+                $elemDesc = $op === 0x34 ? 'C' : '';
                 if ($a instanceof LocalRead) {
-                    $this->push(new \PHPJava\Aot\Ir\ArrayElementRead($a->slot, $i));
+                    $read = new \PHPJava\Aot\Ir\ArrayElementRead($a->slot, $i);
                 } else {
                     // Fallback: array came from elsewhere (field, call return, etc).
-                    // Need an in-line array-index expression; build via BinOp shim.
-                    $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                    $read = new \PHPJava\Aot\Ir\StaticCall(
                         '\\PHPJava\\Aot\\Ir\\ArrayHelper', 'get', [$a, $i]
-                    ));
+                    );
                 }
+                $this->push(self::widenForJvmStack($elemDesc, $read));
                 return;
             case 0x4F: case 0x50: case 0x51: case 0x52: // *astore
             case 0x53: case 0x54: case 0x55: case 0x56:
                 $v = $this->pop();
                 $i = $this->pop();
                 $a = $this->pop();
+                // Char arrays (castore, 0x55): incoming int → narrow to
+                // 1-char UTF-8 string for storage.
+                $elemDesc = $op === 0x55 ? 'C' : '';
+                $v = self::narrowForFieldStorage($elemDesc, $v);
                 if ($a instanceof LocalRead) {
                     $this->currentBb->stmts[] = new \PHPJava\Aot\Ir\StoreArrayElement(
                         $a->slot, $i, $v
@@ -567,32 +574,34 @@ final class Builder
             // ── field access ───────────────────────────────────────
             case 0xB2: // getstatic
                 $idx = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
-                [$cls, $field, ] = $this->resolveFieldRef($idx);
+                [$cls, $field, $desc] = $this->resolveFieldRef($idx);
                 $folded = self::lowerWrapperStaticField($cls, $field);
                 if ($folded !== null) {
                     $this->push($folded);
                     return;
                 }
-                $this->push(new \PHPJava\Aot\Ir\StaticFieldRead($this->classFqn($cls), $field));
+                $read = new \PHPJava\Aot\Ir\StaticFieldRead($this->classFqn($cls), $field);
+                $this->push(self::widenForJvmStack($desc, $read));
                 return;
             case 0xB3: // putstatic
                 $idx = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
-                [$cls, $field, ] = $this->resolveFieldRef($idx);
-                $val = $this->pop();
+                [$cls, $field, $desc] = $this->resolveFieldRef($idx);
+                $val = self::narrowForFieldStorage($desc, $this->pop());
                 $this->currentBb->stmts[] = new \PHPJava\Aot\Ir\StoreStaticField(
                     $this->classFqn($cls), $field, $val
                 );
                 return;
             case 0xB4: // getfield
                 $idx = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
-                [, $field, ] = $this->resolveFieldRef($idx);
+                [, $field, $desc] = $this->resolveFieldRef($idx);
                 $obj = $this->pop();
-                $this->push(new \PHPJava\Aot\Ir\FieldRead($obj, $this->mangleField($field)));
+                $read = new \PHPJava\Aot\Ir\FieldRead($obj, $this->mangleField($field));
+                $this->push(self::widenForJvmStack($desc, $read));
                 return;
             case 0xB5: // putfield
                 $idx = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
-                [, $field, ] = $this->resolveFieldRef($idx);
-                $val = $this->pop();
+                [, $field, $desc] = $this->resolveFieldRef($idx);
+                $val = self::narrowForFieldStorage($desc, $this->pop());
                 $obj = $this->pop();
                 $this->currentBb->stmts[] = new \PHPJava\Aot\Ir\StoreField($obj, $this->mangleField($field), $val);
                 return;
@@ -1435,6 +1444,38 @@ final class Builder
     {
         return $d === 'I' || $d === 'J' || $d === 'D' || $d === 'F'
             || $d === 'S' || $d === 'B' || $d === 'C' || $d === 'Z';
+    }
+
+    /**
+     * Convert a value coming OFF a Z (boolean) or C (char) field — stored
+     * per CONTRACTS.md §1 as PHP bool / 1-char string — to the int the
+     * JVM operand stack expects (boolean and char are int-on-stack at
+     * the JVM bytecode level).
+     *
+     * Other descriptors pass through unchanged.
+     */
+    private static function widenForJvmStack(string $desc, Expr $e): Expr
+    {
+        if ($desc === 'Z') return new StaticCall('\\intval', '', [$e]);
+        // Java char is UTF-16 (0..0xFFFF), so the storage form is multi-
+        // byte UTF-8. Use mb_ord so we get the codepoint, not just the
+        // first byte (\ord on a multi-byte string returns the leading
+        // byte only — wrong for any non-ASCII char).
+        if ($desc === 'C') return new StaticCall('\\mb_ord', '', [$e, new StringLit('UTF-8')]);
+        return $e;
+    }
+
+    /**
+     * Convert a value coming OFF the JVM stack (int for Z/C) to the
+     * contract-shaped storage form (PHP bool / multi-byte UTF-8 string)
+     * before writing to a Z- or C-typed field. Round-trip with
+     * widenForJvmStack.
+     */
+    private static function narrowForFieldStorage(string $desc, Expr $e): Expr
+    {
+        if ($desc === 'Z') return new BinOp('!==', $e, new IntLit(0));
+        if ($desc === 'C') return new StaticCall('\\mb_chr', '', [$e, new StringLit('UTF-8')]);
+        return $e;
     }
 
     /**
