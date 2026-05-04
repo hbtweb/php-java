@@ -11,7 +11,7 @@ class AccessDynamicFieldTest extends Base
     public function testGetPuttedField()
     {
         $constructed = static::$initiatedJavaClasses['AccessDynamicFieldTest']->getInvoker()->construct();
-        $this->assertEquals(5, $constructed->getDynamic()->getFields()->get('number')->getValue());
+        $this->assertEquals(5, $constructed->getDynamic()->getFields()->get('number'));
         $this->assertEquals('Hello World', $constructed->getDynamic()->getFields()->get('string'));
     }
 
@@ -32,7 +32,7 @@ class AccessDynamicFieldTest extends Base
 
         // affected assertion
         $constructed = static::$initiatedJavaClasses['AccessDynamicFieldTest']->getInvoker()->construct();
-        $this->assertEquals(5, $constructed->getDynamic()->getFields()->get('number')->getValue());
+        $this->assertEquals(5, $constructed->getDynamic()->getFields()->get('number'));
         $this->assertEquals('Hello World', $constructed->getDynamic()->getFields()->get('string'));
     }
 }
