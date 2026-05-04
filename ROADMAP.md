@@ -27,7 +27,6 @@ than new architecture.
 | F1 | Per-op > 1 µs after Phase 2 → abandon interpreter | **lifted** | Spike measured 22 ns/op switch dispatch; 5.6 ns/op naive AOT; 0.4 ns/op idiomatic AOT |
 | F2 | bb allowlist transitive deps > 200 unknowns → narrow goal | open | needs probe after T1 lands |
 | F3 | Concurrency adapter > 2kloc → narrow goal | open | depends on Swoole/FFI work |
-| F4 | cljp-bridge cost > 50 µs → drop bridge | open | only meaningful after AOT lands |
 
 ## Current state (2026-05-04, HEAD = `b631328`)
 
@@ -198,24 +197,36 @@ The Java thread/concurrent surface separates cleanly into two axes:
   shape regardless of runtime backend.
 - **Runtime binding** — which event loop / mutex / atomics
   implementation backs the API surface. Strategy-dispatcher picks at
-  boot time, same pattern as cljp's
-  ([`~/GitHub/ClojurePHP/docs/CLJP-CONCURRENCY.md` §"AMPHP/Revolt
-  Mapping"](../../ClojurePHP/docs/CLJP-CONCURRENCY.md)).
+  boot time. Both backends are PHPJava-internal: a custom 2-tier
+  runtime (default) with Swoole as the alternative for Tier-2
+  shared-memory deployments.
 
-**Update 2026-05-04 (post-bench):** AMPHP-primary is structurally
-wrong. AMPHP at 2,031 ns/op is **10,155× the AOT iadd-loop cost**
-(0.20 ns/op rank-1) — pairing it with the AOT pipeline throws away
-the project's headline perf claim at every concurrency call site.
-See `bench/amphp-probe/REVISED.md` for the math + reframe.
+**Decision (2026-05-04, post-bench): skip AMPHP, ship a custom
+runtime sized to the AOT pipeline's perf class.** AMPHP at
+2,031 ns/op is **10,155× the AOT iadd-loop cost** (0.20 ns/op
+rank-1) — pairing AMPHP with AOT throws away the project's headline
+perf claim at every concurrency call site. See
+`bench/amphp-probe/REVISED.md` for the math.
 
-**Canonical target: custom Tier A / Tier B runtime + B's emit-specialiser.**
-Total ~1,900 LOC (vs 1,600 LOC for AMPHP-shim) but at AOT-class perf
-on the inlinable hot path (9 ns/op via B-emit specialisation) and
-HotSpot-class overhead on the genuinely-async path (~150-365 ns/op
-Tier A; ~1 µs Tier B). Swoole remains the alternative backend for
-Tier-2 cross-process shared memory; AMPHP drops out of the canonical
-path (could be optional backend later if a deployment context wants
-the pure-PHP-no-Swoole shape AND can accept the perf cost).
+**Target: full Java concurrency surface at iadd-class perf.** Three
+emit shapes per call site, picked at AOT compile time:
+
+  - **Tier 0 — inlined direct call.** When may-suspend analysis
+    proves the body is non-suspending AND surrounding context
+    permits, the entire async/await pair compiles to a direct
+    expression. ~9 ns/op (just the closure call) or AOT-iadd-class
+    when even that is folded. Covers the dominant pattern of Java
+    concurrency code (Thread.start + immediate join, AtomicInteger
+    increment, ReentrantLock when no contention possible,
+    CompletableFuture chains where every link is non-suspending).
+  - **Tier A — non-suspending fast path runtime.** Queue + drain,
+    no Fiber. ~150-365 ns/op (PoC v2 demonstrated 365; further
+    PATTERNS.md-style tightening can reach ~150). For tasks that
+    aren't reducible to inline but still don't suspend.
+  - **Tier B — suspending runtime.** Fiber-backed for tasks that
+    genuinely need cooperative scheduling. ~1 µs/op tuned (raw
+    Fiber suspend/resume is the floor; PATTERNS.md tightening
+    minimises everything outside that primitive op).
 
 | Java | AMPHP/Revolt | Swoole |
 |---|---|---|
@@ -247,33 +258,40 @@ The Swoole equivalent requires building a Future type out of channels.
    when explicitly required. AMPHP path falls back to
    `amphp/parallel` actor pattern for the same use case.
 
-**Higher-leverage variant — two-tier runtime + IR may-suspend analysis**
+**Implementation order (post-2026-05-04 reframe):**
 
-`bench/amphp-probe/POC-RESULTS.md` (rank-1, 2026-05-04) demonstrates
-a ~500 LOC two-tier async runtime that is **3–5× faster than AMPHP**
-on non-suspending tasks (pure-compute `Thread.start(runnable)`). The
-mechanism: AMPHP unconditionally allocates `Fiber + Suspension`;
-the PoC recognises non-suspending bodies and runs them as queued
-callbacks (Tier A). For suspending bodies (Tier B) the cost
-converges to AMPHP-equivalent.
+1. ✓ **may-suspend analyzer IR pass** — shipped at
+   `src/Aot/Ir/Analysis/MaySuspendAnalyzer.php`. Walks IR Method body
+   for direct calls to a 30-method suspend-point whitelist; classifies
+   methods as may-suspend or definitely-doesn't-suspend.
+   `tests/Cases/MaySuspendAnalyzerTest.php` 4/4.
+2. **Tier A runtime** — clean up `bench/amphp-probe/poc-runtime-v2.php`,
+   promote into `src/Aot/Runtime/Async/TierA.php`, add cancellation
+   tokens, error propagation, minimal queue-and-drain machinery.
+   ~500 LOC.
+3. **Tier B runtime** — Fiber-backed for genuinely-suspending tasks.
+   PATTERNS.md-style tight emit: pooled fibers, sealed-shape arrays,
+   switch-dispatched event loop, no virtual dispatch. ~300 LOC.
+4. **Emit-specialiser** — consumes analyzer verdicts at AOT compile
+   sites where async/await semantics apply (`Thread.start.join`,
+   `CompletableFuture.supplyAsync.get`, `executor.submit.get`, etc.).
+   Picks Tier 0 / Tier A / Tier B per call site. ~300 LOC.
+5. **JDK shim layer wiring** — `Thread`, `CompletableFuture`,
+   `Future`, `ExecutorService`, `BlockingQueue`, `ReentrantLock`,
+   `CountDownLatch`, `Semaphore`, atomics. Each shim wraps the
+   custom runtime, not AMPHP. ~800 LOC.
 
-This is shape-aware emit, which AMPHP can't do because it ships
-one shape as a runtime library. A compile-time emit (cljp or
-PHPJava's AOT) **can** make the choice via static analysis: scan
-the async body's call graph for suspend points
-(`await`, `BlockingQueue.take`, `Thread.sleep`, `Object.wait`,
-`socket.read`, etc.); if none, emit Tier A; otherwise Tier B.
+Total: ~1,900 LOC across analyzer + runtime + specialiser + shims.
+Days-of-work mechanical implementation; the analyzer is the
+load-bearing piece and it's already shipped.
 
-Strategic implication: **the canonical implementation path is
-cljp-emit + a 2-tier runtime + an IR may-suspend pass**, not a
-hand-written-PHP rewrite. The rule-configurable-compiler frame
-(write Clojure once, recompile per backend, optimisation rules
-travel with the source) makes this tractable at sister-project scale.
-
-For the AMPHP-as-default fallback: ship that first; reopen this
-when cljp's compiler architecture supports the may-suspend analysis
-+ dual-emit at async sites. The runtime stays small (~500 LOC); the
-emit's the leverage.
+The runtime stays purpose-built for the AOT pipeline's perf class.
+No AMPHP dependency. The correctness machinery (cancellation, error
+propagation, composition) becomes ours; at ~1,000 LOC for Tier A+B
+it's in scope. Comparable to existing IR transforms in
+`src/Aot/Ir/InlinePass.php` (~120 LOC) + escape-analysis paths in
+`src/Aot/Ir/Builder.php`. We already build optimisation infra; an
+async runtime sized to it is structurally consistent.
 
 ### Tier 3 — probes (questions, not features)
 
@@ -283,9 +301,7 @@ Each is a question answered by running, not built features.
 |---|---|
 | Q3.1 — Java library call | Does PDFBox / Tika / iText work end-to-end from PHP? |
 | Q3.2 — Clojure boot | Does `clojure-1.13.0-slim.jar` reach `user=>` REPL? |
-| Q3.3 — cljp interop | Can a cljp `defn` call into AOT'd Java code at < 5 µs? |
-| Q3.4 — bb compatibility | Do bb's pure-Clojure libs run on cljp+PHPJava? |
-| Q3.5 — hot reload | Edit `.java`, re-AOT, callers see new methods? |
+| Q3.3 — hot reload | Edit `.java`, re-AOT, callers see new methods? |
 
 ## Next-work hierarchy (post-2026-05-04 audit)
 
@@ -328,11 +344,11 @@ prerequisite.
    captures (return, exception, stdout, stderr) for one PHPJava AOT
    invocation, serialises to JSON per the contract in
    `bench/parity/README.md`. Smoke-tested against the audit-T1
-   long-overflow fixture. **REMAINING**: Clojure-side oracle driver
-   (~750 LOC) that uses cljp.transport.ffm to invoke against real
-   HotSpot in parallel, runs the comparator, emits per-class parity
-   reports. Sister-project coordination work; bench/baseline.clj's
-   FFM transport is the substrate.
+   long-overflow fixture. **REMAINING**: oracle driver (~750 LOC)
+   that drives a real HotSpot JVM in parallel via FFM transport
+   (the pattern established in `bench/baseline.clj`), runs the
+   comparator, emits per-class parity reports. Internal PHPJava
+   tooling.
 2. **bb-allowlist non-stub fill** (~80 most-used babashka classes,
    2–4 months) — work each class against the oracle. The actual v1
    gate. ~110 of the ~130 stub-only T2 classes are already Path C
@@ -376,23 +392,20 @@ prerequisite.
    super-class load (per `bench/probe-real-library.md`); the audit's
    pointer to `ConstantPool.php:42–59` was a misdiagnosis (CP entries
    store indices only, no eager class loads at exec time).
-9. **Substitution table for cljp dual-runtime** — API hook **DONE**.
+9. **Compiler-time FQN substitution API** — **DONE**.
    `Compiler::compileBytes($classPath, $bytes, $substitutionMap = [])`
    accepts a binary-name → PHP-FQN map; consulted in
    `src/Aot/Ir/Builder.php`'s `classFqn()` ahead of the JDK / AOT-Generated
    routing (substituted classes bypass the default
    `\PHPJava\Aot\Runtime\<...>` shape entirely). Cache key includes a
    hash of the map so substituted and non-substituted compiles don't
-   collide. Test: `tests/Cases/AotSubstitutionMapTest.php`.
-   **REMAINING**: the actual ~150-class
-   `clojure.lang.* → cljp.lang.*` mapping table is sister-project
-   work — built in cljp, passed at compile time to php-java. Defer
-   until cljp pulls a JAR through.
+   collide. Test: `tests/Cases/AotSubstitutionMapTest.php`. Generally-
+   useful API for any compile-time consumer that needs to remap class
+   FQNs at translate time.
 10. **`java.lang.foreign.*` shim over Zend FFI** (Path B in LAYERS).
-    Distinct from #9: the substitution table covers cljp ↔ emulated-Java
-    on the *same* Zend heap (no boundary). FFM over Zend FFI covers
-    AOT-compiled Java code calling *real C libraries* outside Zend.
-    Both API surfaces are C-ABI bridges; the mapping is mechanical.
+    AOT-compiled Java code that calls real C libraries via the Foreign
+    Linker API gets routed through Zend's FFI extension. Both API
+    surfaces are C-ABI bridges; the mapping is mechanical.
     **NOT STARTED** — niche per `docs/JVM-PHP-DELTA.md:445`; waits
     for a workload that exercises `java.lang.foreign.Linker`.
 
@@ -415,7 +428,7 @@ broadly.
    when a real overload set surfaces a mismatch.
 4. **Multi-interface implementation** — needs PHP `traits` + `interface`
    combo. Single suffices today (`src/Aot/Compiler.php:500–507`).
-5. **cljp by-ref patterns 2+3** — known-PHP-mutating-fn registry;
+5. **By-ref auto-detect patterns 2+3** — known-PHP-mutating-fn registry;
    chained user fns (`src/Aot/Ir/Builder.php:356–366` defer comment).
    Direct-aset alone covers current tests.
 6. **AOT class-emit shape doc companion** in

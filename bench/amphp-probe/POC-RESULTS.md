@@ -79,23 +79,24 @@ the case concrete:
 
 The right async runtime isn't a single shape — it's two shapes plus
 a static analysis to choose between them. AMPHP can't make this
-choice because it's a runtime library shipping one shape. A
-compile-time emit (cljp / PHPJava's AOT) can:
+choice because it's a runtime library shipping one shape. PHPJava's
+AOT compiler **can**:
 
 1. Static analysis on the `async()` body: does it ever call `await()`,
    `BlockingQueue.take()`, `Thread.sleep()`, `socket.read()`,
    `Object.wait()`, or any other suspend point?
-2. If no → emit Tier A (queue+drain, ~0.5 µs/call)
-3. If yes → emit Tier B (Fiber+Suspension+Future, ~2.5 µs/call —
-   AMPHP-equivalent, plausibly tunable to ~1.5 µs with PATTERNS.md
-   rules but the structural cost dominates)
+2. If no → emit Tier A (queue+drain, ~0.5 µs/call) or, when fully
+   foldable, Tier 0 (inlined direct call, ~iadd-class).
+3. If yes → emit Tier B (Fiber-backed runtime, ~1 µs/op tuned —
+   raw Fiber suspend/resume is the floor; PATTERNS.md tightening
+   minimises everything around it).
 
-This is exactly the kind of choice cljp's IR transforms already make
-for other patterns (escape analysis on Java arrays, inline pass for
-single-return-expr methods, peephole on operand-stack residue).
-Adding a "may-suspend" analysis to the IR + a dual-emit at the async
-site is structural work — but it's the right work, and it's the kind
-of work that's hard for AMPHP to do because they don't have an IR.
+This is the same kind of choice PHPJava's existing IR transforms
+already make for other patterns (escape analysis on Java arrays,
+inline pass for single-return-expr methods, peephole on operand-stack
+residue). Adding a may-suspend analysis to the IR + a tri-emit at
+async sites is structurally consistent — and AMPHP can't do it
+because they don't have an IR.
 
 ## Constraints and caveats
 
@@ -113,38 +114,27 @@ of work that's hard for AMPHP to do because they don't have an IR.
   `fwrite` would still block; making them non-blocking requires a
   StreamSelectDriver-equivalent (~333 LOC in Revolt).
 
-## Verdict
+## Verdict (updated 2026-05-04 — see REVISED.md)
 
-The previous "don't fork AMPHP" decision was correct under the
-assumption that a rewrite would be 1.35× over AMPHP. With the
-shape-change insight, a rewrite (or cljp-emit) could be 3–5× faster
-on the Tier A workload — but only because we know how to choose
-between shapes via compile-time analysis. AMPHP doesn't know that
-trick.
+The earlier "don't fork AMPHP, 1.35× over Fibers is fine" decision
+anchored against the wrong baseline (raw Fibers as the cost we
+accept). Real anchor: the AOT pipeline's per-op cost (0.20 ns/op
+for hot int loops). AMPHP at 2,031 ns/op is **10,155× the AOT
+iadd-loop cost** — too slow to pair with the rest of the project.
 
-The real opportunity isn't "rewrite AMPHP." It's "give the AOT
-compiler enough static analysis to pick the right shape per call
-site," and let the runtime stay shaped to handle either. The
-~330 LOC PoC + the ~150 LOC the cancellation/IO stubs would add =
-~500 LOC of runtime. Plus an IR analysis pass in cljp / php-java
-that classifies async-bodies as suspend-or-not. That last part is
-the leverage.
+Skip AMPHP. The canonical path is PHPJava-internal:
 
-## What to do with this
-
-Three options ranked by leverage:
-
-| Option | Cost | What we get |
+| Layer | LOC | Cost |
 |---|---|---|
-| Stay on AMPHP | 0 | 1× baseline; loses the Tier A speedup forever |
-| Ship the PoC runtime | ~500–1000 LOC + ongoing maintenance | 3–5× on Tier A; ~1× on Tier B; reinvent AMPHP's correctness machinery |
-| **cljp-emit + 2-tier runtime + IR analysis pass** | sister-project compiler work + ~500 LOC runtime | 3–5× on Tier A AS DEFAULT; ~1.5–2× on Tier B with PATTERNS.md rules; runtime is generated, not maintained |
+| Inlined emit (analyzer + specialiser) | ~550 | ~iadd-class when fully foldable |
+| Tier A custom runtime | ~500 | ~150–365 ns/op |
+| Tier B custom runtime | ~300 | ~1 µs/op tuned |
 
-The third is the user's strategic vision applied. It's also clearly
-out of scope for this PHPJava session — the pieces are split across
-projects. Adding to ROADMAP §Build "concurrency adapter (T3)" as
-the canonical implementation path; the AMPHP-as-default story stands
-as the fallback when the cljp path isn't ready.
+Total ~1,350 LOC custom code. PHPJava-owned, profileable, sized to
+the project's perf class. The correctness machinery (cancellation,
+error propagation, composition) becomes ours; ~1,000 LOC for
+Tier A+B is in scope, comparable to the existing IR transforms in
+`src/Aot/Ir/`.
 
 ## Reproducibility
 

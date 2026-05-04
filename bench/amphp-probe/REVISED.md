@@ -51,81 +51,88 @@ project has already proven (the 4.8 kloc `src/Aot/` substrate) that
 purpose-built PHP runtime layers can hit perf classes 10–100× tighter
 than off-the-shelf libraries. AMPHP is the off-the-shelf library here.
 
-## Revised plan
+## Revised plan — full Java concurrency at AOT-class perf
 
-Three layers, layered:
+Apollo's reframe (2026-05-04): "we can get this to similar speed as
+iadd with the breadth that we need for full Java concurrency."
 
-| Layer | LOC | Cost | vs AOT |
+That's plausible because most "concurrency" in real Java code reduces
+to patterns the compiler can prove are non-suspending or non-racy:
+
+- `Thread.start(runnable).join()` where the runnable is provably
+  non-suspending → emit as direct call (`$runnable();`)
+- `AtomicInteger.incrementAndGet()` → emit as `++$value` (PHP single-
+  threaded so no actual atomicity needed; observable behaviour
+  identical)
+- `ReentrantLock.lock()/unlock()` when no contention possible →
+  emit as no-op pair (single-threaded; no-one to contend with)
+- `BlockingQueue.put + take` when producer + consumer share a
+  scheduling context → emit as direct array push/pop
+- `CompletableFuture.supplyAsync(fn).thenApply(g).join()` where every
+  link is non-suspending → fold whole chain to inline expressions
+
+For these patterns, the AOT-emit collapses the entire concurrency
+construct to ~iadd-class operations. The breadth comes from the
+analyzer covering enough JVM-API surface that the compiler recognises
+the reducible patterns; the perf comes from emitting nothing more
+than the underlying work needs.
+
+For genuinely-async patterns (real cooperative scheduling, real I/O
+suspension, real cross-task communication) the runtime must engage —
+but that's a smaller fraction of real concurrency code, and it's the
+fraction where Fiber suspend/resume's cost is unavoidable in any
+PHP-runtime.
+
+| Layer | LOC | Cost | vs AOT iadd |
 |---|---|---|---|
-| **B-emit (inlinable)** | ~300 specialiser + ~250 analyzer (shipped) | **9 ns/op** | 45× |
-| **Tier A custom runtime** (non-suspending fallback) | ~500 | **~150–365 ns/op** | 750–1,800× |
-| **Tier B custom runtime** (suspending — real Fibers) | ~300 | ~1 µs/op tuned | 5,000× |
+| **Inlined emit** (analyzer + specialiser) | ~550 | **~iadd-class** when fully foldable | 1× — 10× |
+| **Tier A custom runtime** (non-suspending fallback) | ~500 | ~150-365 ns/op (PoC v2 measured) | ~1,000-2,000× |
+| **Tier B custom runtime** (suspending; real Fibers) | ~300 | ~1 µs/op tuned | ~5,000× |
 | ~~AMPHP~~ | (skipped) | 2,031 ns/op | 10,155× |
 
-Total: ~1,000–1,500 LOC of custom code (vs the original "AMPHP-shim
-~1,600 LOC + B's ~550 LOC = 2,150 LOC"). Custom path is *fewer* LOC
-than the AMPHP-shim path AND faster across every workload.
-
-The correctness machinery AMPHP provides (cancellation, error
-propagation, composition) becomes our code. At ~1,000 LOC total it's
-in scope — comparable to the existing IR transforms in
-`src/Aot/Ir/InlinePass.php` (~120 LOC) + `src/Aot/Ir/Builder.php`'s
-escape-analysis paths. We already build optimisation infrastructure;
-adding a tight async runtime to it is structurally consistent.
+Total: ~1,350 LOC of custom code (analyzer ~250 shipped + specialiser
+~300 + Tier A ~500 + Tier B ~300). Comparable to existing IR-transform
+substrate in `src/Aot/`. The correctness machinery AMPHP would
+provide (cancellation, error propagation, composition) becomes ours;
+that's the price of matching the project's perf class on the
+concurrency surface.
 
 ## What ships
 
-- ✓ **B's analyzer** (this session, `src/Aot/Ir/Analysis/MaySuspendAnalyzer.php`)
+- ✓ **Analyzer** (this session, `src/Aot/Ir/Analysis/MaySuspendAnalyzer.php`).
 - **Tier A runtime** — clean up `bench/amphp-probe/poc-runtime-v2.php`,
-  promote into `src/Aot/Runtime/Async/Tier_A.php`, add cancellation
-  + error propagation. ~500 LOC, ~3 days.
-- **Tier B runtime** — Fiber-backed for genuinely-suspending tasks
-  (the cases AMPHP needs a Fiber for). PATTERNS.md-style tight
-  emit. ~300 LOC, ~2 days.
-- **B's emit-specialiser** — consumes analyzer verdicts at AOT
-  compile sites; emits direct call (Tier 0 — inlined), Tier A call,
-  or Tier B call per the analyzer's verdict. ~300 LOC, ~2 days.
+  promote into `src/Aot/Runtime/Async/TierA.php`, add cancellation
+  + error propagation. ~500 LOC.
+- **Tier B runtime** — Fiber-backed for genuinely-suspending tasks.
+  PATTERNS.md-style tight emit: pooled fibers, sealed-shape arrays,
+  switch-dispatched event loop, no virtual dispatch. ~300 LOC.
+- **Emit-specialiser** — consumes analyzer verdicts at AOT compile
+  sites; emits inlined direct call (Tier 0 — full fold), Tier A call,
+  or Tier B call per the analyzer's verdict. ~300 LOC.
 - **JDK shim layer wiring** (`Thread`, `CompletableFuture`, `Future`,
-  `ExecutorService`, `BlockingQueue`, `ReentrantLock` etc.) — these
-  shims wrap the Tier A/B runtime, not AMPHP. Maps directly to per
-  the cljp CLJP-CONCURRENCY.md AMPHP/Revolt pattern but the Revolt
-  primitives are replaced by our custom equivalents. ~800 LOC, ~3 days.
+  `ExecutorService`, `BlockingQueue`, `ReentrantLock`, atomics) —
+  these shims wrap the Tier A/B runtime. ~800 LOC.
 
 Total: ~1,900 LOC, ~10 days focused work to deliver a T3 surface
-that hits AOT-class performance on the inlinable hot path AND
-HotSpot-class overhead on the genuinely-async path.
-
-Vs the AMPHP-shim plan (~1,600 LOC, ~3-5 days, 2 µs/op everywhere):
-- More LOC and more time, but the perf class matches the rest of
-  the project.
-- The deliverable is a runtime PHPJava owns, can profile, can
-  optimise, and can emit from cljp's compiler when the dual-runtime
-  story matures.
-- The strategic-vision endpoint (rule-configurable cljp compiler
-  emits the async runtime as part of its standard library) gets
-  cleaner because the runtime is already shaped to the project's
-  perf class. Compiling it via cljp later is a recompile-the-runtime
-  step, not a fork-AMPHP step.
+that hits AOT-class performance on the inlinable hot path
+(via the emit-specialiser folding the construct away) AND tight
+overhead on the genuinely-async path (Tier A/B sized to the project's
+perf class).
 
 ## What this means for ROADMAP
 
-T3's "AMPHP-primary" framing flips. The canonical path becomes:
+T3's canonical path:
 
-  1. ✓ **B's analyzer** (shipped this session)
-  2. **Tier A + Tier B custom runtime** (replaces AMPHP-shim plan)
+  1. ✓ **Analyzer** (shipped this session)
+  2. **Tier A + Tier B custom runtime**
   3. **JDK shim wiring against Tier A/B** (the actual j.u.concurrent
      surface; what `bb-allowlist non-stub fill` will exercise)
-  4. **B's emit-specialiser** (consumes analyzer; chooses inline /
-     Tier A / Tier B per call site)
-  5. **Eventually: rewrite Tier A/B in cljp** (the rule-configurable-
-     compiler endpoint — runtime becomes a cljp deliverable, not a
-     hand-maintained chunk of PHP)
+  4. **Emit-specialiser** (consumes analyzer; picks Tier 0 / A / B
+     per call site)
 
 Swoole stays in the picture as the alternative backend for Tier-2
 shared-memory cases. AMPHP/Revolt drops out of the canonical path
-entirely; could be added back as an optional backend if a deployment
-context wants it (composer.json suggest, not require), but it's
-not the default.
+entirely.
 
 ## Resequencing the immediate next steps
 

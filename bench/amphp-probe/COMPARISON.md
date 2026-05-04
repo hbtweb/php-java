@@ -155,7 +155,7 @@ So:
 | Unblocks user code | only when paired with 3 | yes — j.u.concurrent stops throwing NotImplemented |
 | Perf ceiling | 220× over AMPHP for inlinable; ~1× for fallback | 1× AMPHP-baseline |
 | Standalone deliverable | analyzer alone is dormant | yes |
-| Sister-project shape | could move to cljp's IR | PHP-side per cljp's CLJP-CONCURRENCY mapping |
+| Project location | PHPJava's IR + AOT | PHPJava's JDK shim layer |
 
 **Verdict**: this session shipped B's analyzer (the prerequisite) plus
 the bench measurement substantiating the 220× claim. Next focused
