@@ -125,6 +125,21 @@ final class Loader
         if (!method_exists($aotFqn, $mangled)) {
             return [false, null];
         }
+        // Translate PHP's ArgumentCountError to NoSuchMethodException to
+        // match JDK reflective-dispatch semantics: a method invoked with
+        // the wrong arity isn't "found" in the JVM-method-resolution
+        // sense. Validate up-front via reflection so the caller doesn't
+        // see PHP's exception type leak through.
+        $rm = new \ReflectionMethod($aotFqn, $mangled);
+        $required = $rm->getNumberOfRequiredParameters();
+        $total    = $rm->getNumberOfParameters();
+        $argc     = \count($args);
+        if ($argc < $required || $argc > $total) {
+            throw new \PHPJava\Packages\java\lang\NoSuchMethodException(
+                "{$classPath}.{$methodName}/{$argc}"
+                . " (expected {$required}" . ($required !== $total ? "..{$total}" : '') . ')'
+            );
+        }
         return [true, $aotFqn::$mangled(...$args)];
     }
 
