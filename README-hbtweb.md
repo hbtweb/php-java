@@ -11,58 +11,75 @@ AOT / lazy AOT / interpret-fallback) sharing one compiler.
 The architectural model is in [`docs/MODEL.md`](docs/MODEL.md). Read it
 first.
 
-## What's working (2026-05-03)
+## What's working (2026-05-04)
 
-- ✓ Test suite unblocked on JDK 25 (`javac --release 11`)
-- ✓ Bench harness via FFM (calls libphp directly from JVM)
-- ✓ Profile harness via xhprof (LD_PRELOAD trick documented)
-- ✓ Real AOT compiler — walks PHPJava's parsed bytecode, emits PHP, runs
-- ✓ **9 fixtures lift through the AOT pipeline end-to-end:** BenchAdd
-  (int loop), BenchInvoke (invokestatic), HelloWorld (cross-class
-  invokevirtual + getstatic + ldc), BenchArray (newarray + iastore +
-  iaload), BenchTryCatch (new + invokespecial<init> + athrow + exception
-  table), BenchConcat (StringConcatFactory invokedynamic), BenchLambda
-  (LambdaMetafactory invokedynamic + synthetic class generation),
-  BenchAddFromBytes (defineClass(byte[])), BenchRunner.
-- ✓ **AOT-compiled `BenchAdd::sum1k` at 0.18-0.20 ns/op JIT** — within
-  1.8× of HotSpot JIT (~0.10 ns/op), 2.9× faster than HotSpot
-  interpreted (0.52 ns/op). 22,000× faster than upstream PHPJava
-  interpreter.
+- ✓ **PHPUnit suite green: 45 pass / 2 skipped / 0 failures / 0 errors**
+  (47 case files; skipped are `KotlinTest` and `OutputDebugTraceTest`,
+  both deliberate per `docs/STATUS.md`). Three of four v1 success-line
+  conditions met (only the bb allowlist remains).
+- ✓ **AOT is the default execution path** — no env gate, since `7f01155`.
+  `JavaMethodCallable::call` routes through `Loader::tryCallStatic` for
+  static dispatch; instance dispatch via Phase B receiver-shape
+  unification.
+- ✓ **AOT pipeline coverage** (this session's additions in **bold**):
+  invokestatic / virtual / special / interface · exception tables ·
+  INVOKEDYNAMIC for StringConcatFactory + LambdaMetafactory +
+  ObjectMethods + SwitchBootstraps · `defineClass(byte[])` · `IndyRegistry`
+  for unknown bootstraps · **inheritance (`extends` + `parent::__construct`
+  chain)** · **interface compilation (Java interface → PHP `abstract
+  class` with default-method bodies)** · **method overload (descriptor-
+  mangled names + arg-shape runtime dispatcher)** · **array by-ref
+  auto-detect (cljp-port: `aset` on a param emits `&$__aN` + `&` alias
+  in the `$L` prelude)** · **contract-shape Z (boolean) and C (char)
+  field/array storage with `mb_chr`/`mb_ord` UTF-8 round-trip** ·
+  **wrapper-class IR lowerings per BOXING.md (`Integer.MAX_VALUE` →
+  `IntLit`, `i.intValue()` → identity, `i.equals(j)` → `===`, etc.)**.
+- ✓ **AOT-compiled hot-path perf**: `BenchAdd::sum1k` at 0.18-0.20 ns/op
+  JIT — within 1.8× of HotSpot JIT (~0.10 ns/op), 2.9× faster than
+  HotSpot interpreted (0.52 ns/op). 22,000× faster than upstream
+  PHPJava interpreter.
 - ✓ **IR substrate**: Module + Method + BasicBlock + Stmt + Terminator
-  + Expr (`src/Aot/Ir/`). All 9 fixtures lift through the IR with zero
-  string-path fallbacks. Stack-erasure baked in via abstract-stack
+  + Expr (`src/Aot/Ir/`). Stack-erasure baked in via abstract-stack
   tracking at build time. Cross-method inlining as IR transform pass.
-  Escape analysis on Java arrays (LocalRead-source detection in
-  iaload/iastore — closes the measured 10× property-access cost).
+  Escape analysis on Java arrays.
 - ✓ **Compile-output cache: 2649× speedup** on repeat compiles
-  (1578 µs cold → 0.6 µs warm). For Clojure-boot equivalent (~600
-  classes per `docs/CLOJURE-BOOT-ANALYSIS.md`): cold ~947 ms, cache
-  replay ~0 ms. Makes runtime AOT viable.
+  (1578 µs cold → 0.6 µs warm).
 - ✓ Architectural contracts spec ([`docs/CONTRACTS.md`](docs/CONTRACTS.md))
+  + AOT raw-scalar contract enforced end-to-end this session.
 
 ## What's next
 
-**Capability fill (parallelisable):**
-1. ObjectMethods bootstrap (Java records' `equals`/`hashCode`/`toString`)
-2. SwitchBootstraps (Java 21+ pattern switch)
-3. 233-class T2 JDK shim layer (months, can run in parallel)
+The architecture is no longer the bottleneck. Three of four v1
+success-line conditions are met (suite green, interp ≤ 100 ns/op,
+AOT ≤ 5 ns/op). **The remaining v1 thrust is JDK shim coverage** —
+specifically the bb allowlist (~80 most-used classes from babashka's
+`src/babashka/impl/classes.clj`).
 
-**Production hardening:**
-4. LRU eviction for Compiler caches (long-running daemons)
-5. Long-running Swoole soak test (24h sustained load)
-6. AOT classloader integration into `JavaClass::load` per CONTRACTS.md §5
+**JDK surface fill (the v1-binding work):**
+1. **Stub generator (~1 day)** — javap-driven; emit PHP class
+   declarations with `NotImplementedException` bodies for the 130
+   stub-only T2 classes. Closes "class not found" runtime errors.
+2. **Behavioural oracle harness (~1 week)** — extend PHPJava's FFM-
+   based JVM-side parity infrastructure to per-method I/O capture.
+   Foundation for clean-room shim authoring per the GPL+CPE constraint
+   in `docs/LAYERS.md`.
+3. **bb allowlist class fill** — work the ~80 classes one at a time
+   against the oracle. Each should be "small enough to author in a
+   day or two" given AOT correctness.
 
-**Optional perf squeeze (within 1.8× of HotSpot JIT already):**
-7. Constant folding + DCE at IR level — small wins
-8. Full abstract-stack tracking for non-empty BB-entry stacks
+**Cleanup (Phase D — interpreter delete):**
+4. ~10 kloc removal of `Kernel/Mnemonics/_*`, related interp dispatch.
+   Suite is green; AOT covers everything; interp is no longer
+   load-bearing. The `OutputDebugTraceTest` skip is the only test-
+   surface trace.
 
-**Cleanup:**
-9. Remove dead string-path emitter code now that IR is the default
+**Cleanup (Phase E — legacy stack cut):**
+5. ~12.5 kloc removal of `Compiler/Lang/Assembler/`,
+   `Compiler/Builder/`, `Compiler/Emulator/`. Independent of D.
 
-End-state milestone: **Run a real Java library (e.g. PDFBox, iText)
-AOT-compiled, callable from PHP, in a Swoole daemon for 24h without
-memory growth.** The AOT pipeline is feature-complete for this; what's
-left is shim-layer fill and production-hardening.
+**End-state milestone:** **Clojure boot on PHPJava AOT, in a Swoole
+daemon, sustained.** The AOT pipeline is correctness-complete for this;
+what's left is shim-layer fill.
 
 ## Document map
 

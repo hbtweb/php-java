@@ -1,11 +1,56 @@
-# Project status — 2026-05-03
+# Project status — 2026-05-04 (suite green, AOT contract-complete)
 
 > Snapshot of where we are, what's measured, what's next.
 > Updated as work lands. The roadmap is a hypothesis; this is reality.
-> Last updated after #12 wrapper-removal complete + Type::get root-cause
-> fix (HEAD = `390e46d`).
+> Last updated after AOT contract-compliance pass: inheritance, interfaces,
+> overload mangling, by-ref auto-detect, contract-shape Z/C, wrapper IR
+> lowerings (HEAD = `b631328`).
 
-## Headline
+## Headline (2026-05-04)
+
+**Test suite green — 45 pass / 2 skipped / 0 failures / 0 errors** across
+47 case files. Three of the four v1 success-line conditions from
+`ROADMAP.md` are now met:
+
+- ✓ Test suite passes 100%
+- ✓ Interpreter ≤ 100 ns/op (~64 ns/op JIT measured prior session)
+- ✓ AOT ≤ 5 ns/op (0.18-0.20 ns/op JIT for hot int loops)
+- ✗ **bb allowlist (~80 babashka classes) non-stub** — the remaining
+  v1 thrust. ~80% of `src/Packages/` files still raise
+  `NotImplementedException`.
+
+The architecture is no longer the bottleneck. The work landing this
+session was contract compliance and missing semantics, not new
+substrate. **JDK shim coverage is the next bottleneck.**
+
+### What landed (2026-05-04, 15 commits `549d6cc..b631328`)
+
+The session opened with 30 of 47 files passing. All 15 failing files
+moved to passing or were marked correctly-skipped:
+
+| Cluster | Closed | Mechanism |
+|---|---|---|
+| Inner-class dispatch (`Outer$Inner`) | InnerClassTest | Binary-name routing via `Loader::newInstance`/`callStatic` |
+| Inheritance (`extends` + parent ctor chain) | EnclosingMethod, ExtendingClass, JarTest | Compiler emits `extends`, super-init peephole emits `parent::__construct` |
+| Interface compilation | DefaultSyntaxInInterface | Java interfaces emit as PHP `abstract class` (single-inheritance suffices for current tests) |
+| Method overload | AccessStaticMethod, CallToAmbiguous | Per-class overload index → descriptor-mangled names + arg-shape dispatcher |
+| Array by-ref (cljp port) | QuickSort | IR scan for `StoreArrayElement` on param slot → `&$__aN` in signature + `&` alias in `$L` prelude |
+| Z (boolean) field+array contract | BoundaryBoolean (8) | IR Builder narrows Z on putfield/putstatic/bastore; `boolean[]` slot tracker disambiguates from `byte[]` |
+| C (char) field+array contract | BoundaryChar (14) | `mb_chr`/`mb_ord` UTF-8 conversion at field/array boundaries |
+| Wrapper IR lowerings | infrastructure | `Integer.MAX_VALUE` → `IntLit`, `i.intValue()` → identity, etc. — AOT bypasses shim per BOXING.md |
+| `NoSuchMethodException` translation | MethodParameter (2) | `Loader::tryCallStatic` validates arity via Reflection up-front |
+| Static-field write-through | AccessStaticField::testOverwriteField | `JavaStaticField::set` mirror of read-side AOT bridge |
+| JDK shims (Integer, StringBuilder) | FizzBuzz | `Aot/Runtime/bootstrap.php` |
+| Test boxing-shape migration | AccessDynamic, AccessStatic, Array | Drop `->getValue()`/`->offsetGet()`; assert raw scalars per CONTRACTS.md §1 |
+
+Two skipped tests are deliberate, not failing:
+- `KotlinTest` — pre-existing, requires Kotlin runtime not in CI.
+- `OutputDebugTraceTest` — interp-only bytecode-trace dumper; no AOT
+  analog. Slated for delete in Phase D per `docs/LAYERS.md`.
+
+---
+
+## Prior status (2026-05-03 — superseded by above) {#prior-status-2026-05-03}
 
 **The AOT pipeline is feature-complete and within 1.8× of HotSpot JIT.**
 A real compiler walks PHPJava's parsed bytecode through an IR substrate

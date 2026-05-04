@@ -83,15 +83,96 @@ instance methods): `_invokedynamic` mnemonic, `InvokeDynamicInfo`,
 
 | File | Lines | Role |
 |---|---|---|
-| `Aot/Compiler.php` | 1,812 | Top-level: parse a class via PHPJava parser, build IR per method, lower IR to PHP, emit fields + classes + lambda classes, eval. Contains the legacy string-path emitter (~1,500 lines) as fallback for opcodes the IR Builder doesn't yet cover (currently zero on commons-lang3). |
-| `Aot/Ir/Builder.php` | 1,704 | JVM bytecode → IR walker. Bakes operand-stack erasure into the IR via abstract-stack tracking during construction. ~150 opcodes covered. 100% IR coverage on commons-lang3-3.17.0 (4983 methods, 0 fallbacks). |
-| `Aot/Ir/Lowerer.php` | 241 | IR → PHP. Live-label elision, redundant-goto elision, try/catch wrapping. |
-| `Aot/Ir/Node.php` | 310 | IR node hierarchy: `Module`, `Method`, `BasicBlock`, `Stmt` (`StoreLocal`, `IincLocal`, `ExprStmt`, `StoreStaticField`, …), `Terminator` (`Goto_`, `CondGoto`, `Return_`, `Throw_`, `Switch_`), `Expr` (literals, `LocalRead`, `BinOp`, `StaticCall`, `StaticFieldRead`, …). Pure-vs-impure flag at the Expr level. |
+| `Aot/Compiler.php` | ~2,040 | Top-level: parse a class via PHPJava parser, build IR per method, lower IR to PHP, emit fields + classes + lambda classes, eval. Contains the legacy string-path emitter (~1,500 lines) as fallback for opcodes the IR Builder doesn't yet cover. **2026-05-04**: per-class overload index + descriptor-mangled-name dispatcher generator, interface-as-`abstract class` emit (with `abstract` stubs for body-less methods), `extends` clause + parent preload via `Loader::loadClass`, `aotSuperClassBin` falls back to first interface when super is Object. |
+| `Aot/Ir/Builder.php` | ~2,070 | JVM bytecode → IR walker. Bakes operand-stack erasure into the IR via abstract-stack tracking during construction. ~150 opcodes covered. **2026-05-04**: binary-name threading on `New_`/`StaticCall` (closes inner-class `Outer$Inner` autoload ambiguity); super-init peephole emits `parent::__construct` when class extends; wrapper-class IR lowerings per BOXING.md (getstatic constants, `valueOf`/`compare`/`intValue`/`equals` etc); contract-shape Z/C narrow at putfield/putstatic/castore + widen at getfield/getstatic/caload; `boolean[]` slot tracker (disambiguates from `byte[]` at the shared bastore opcode); array by-ref auto-detect (cljp port — `StoreArrayElement` on a param slot marks `byrefParamIndices` on the Method); descriptor-aware mangle for self-class invokes when the name is overloaded. |
+| `Aot/Ir/Lowerer.php` | ~270 | IR → PHP. Live-label elision, redundant-goto elision, try/catch wrapping. **2026-05-04**: `&$__aN` in signature + `&` alias in `$L` prelude for byref params (without the prelude alias the array literal value-copies and the signature `&` is lost on the first $L write); INF/-INF distinct from NAN in FloatLit emit; `BoolLit` rendering. |
+| `Aot/Ir/Node.php` | ~330 | IR node hierarchy: `Module`, `Method`, `BasicBlock`, `Stmt` (`StoreLocal`, `IincLocal`, `ExprStmt`, `StoreStaticField`, …), `Terminator` (`Goto_`, `CondGoto`, `Return_`, `Throw_`, `Switch_`), `Expr` (literals, `LocalRead`, `BinOp`, `StaticCall`, `StaticFieldRead`, …). Pure-vs-impure flag at the Expr level. **2026-05-04**: optional `binaryName` on `New_`/`StaticCall` (cross-class AOT routing); `byrefParamIndices` on `Method`; `BoolLit`. |
 | `Aot/Ir/InlinePass.php` | 163 | IR-level cross-method inlining. Single-`return <expr>` methods substituted into `StaticCall` sites. Fixpoint. |
 | `Aot/Ir/Flat.php` | 155 | Alternate flat-array IR shape (PoC). F-IR5 falsified the 10× speedup hypothesis (1.29× actual); kept for reference. |
 | `Aot/Ir/ArrayHelper.php` | 43 | Java-array-wrapper adapter for non-LocalRead-source array operations (escape analysis falls back here). |
-| `Aot/Loader.php` | 169 | Public AOT entry: `loadClass($cp)`, `defineClass($cp, $bytes)`, `callStatic(...)`, `tryCallStatic(...)`. Reuses `$loaded` / `$failed` registries. |
-| `Aot/Runtime/bootstrap.php` | 232 | Runtime helpers required by AOT-emitted code: `\PHPJava\Aot\Runtime\java\lang\System` (out/err), `PrintStream`, `Throwable_` + 11 exception subclasses, `IndyRegistry`, `jvm_lushr`/`jvm_typeswitch` helpers. Per CONTRACTS.md §1: raw PHP scalars, no boxing wrappers. |
+| `Aot/Loader.php` | ~210 | Public AOT entry: `loadClass($cp)`, `defineClass($cp, $bytes)`, `callStatic(...)`, `tryCallStatic(...)`. Reuses `$loaded` / `$failed` registries. **2026-05-04**: `newInstance($cp, ...$args)` mirror of `callStatic` for `New_` IR routing; `tryCallStatic` validates arity via `ReflectionMethod` and throws JVM-shaped `NoSuchMethodException` (instead of letting PHP's `ArgumentCountError` leak). |
+| `Aot/Runtime/bootstrap.php` | ~480 | Runtime helpers required by AOT-emitted code. **The AOT-routed JDK shim namespace** (per `Builder::classFqn` mapping `java/`/`javax/`/`jdk/`/`sun/`/`com/sun/` to `\PHPJava\Aot\Runtime\…`). Currently: `\PHPJava\Aot\Runtime\java\lang\{System, String_, Integer, StringBuilder, Throwable_, +11 exception subclasses}`, `java\io\PrintStream`, `IndyRegistry`, `jvm_lushr`/`jvm_typeswitch`/`jvm_multianewarray` helpers, autoloader registration. Per CONTRACTS.md §1: raw PHP scalars, no boxing wrappers. |
+
+#### AOT class-emit shape (2026-05-04)
+
+What an AOT-emitted PHP class looks like, with the conventions
+established this session:
+
+```php
+<?php
+namespace PHPJava\Aot\Generated;
+
+// Pre-load the parent before the class declaration. PHP autoloads
+// `extends` targets at class-decl time; the AOT autoloader's `_ → /`
+// heuristic can't reverse Outer$Inner. Same root-cause as the
+// New_/StaticCall binary-name routing.
+\PHPJava\Aot\Loader::loadClass('Outer$Inner');
+
+#[\AllowDynamicProperties]
+class Outer_1 extends \PHPJava\Aot\Generated\Outer
+{
+    public $field_S_0 = null;  // mangled `this$0` (synthetic outer ref)
+
+    // __construct ()V
+    public function __construct()
+    {
+        $L = [$this];
+        $stack = []; $sp = 0;
+        L_0:
+        parent::__construct();   // emitted by super-init peephole
+        // ... field initialisers, etc.
+        return;
+    }
+
+    // ascQuickSort ([III)[I — array param mutated → byref
+    public static function ascQuickSort(&$__a0, $__a1, $__a2)
+    {
+        // & on the param signature; & on the $L alias too — without
+        // both, the array literal value-copies and the signature `&`
+        // is lost on the first $L[0][i] = ... write.
+        $L = [&$__a0, $__a1, $__a2, 0, 0, 0, 0];
+        // ...
+    }
+
+    // main(String[]) — overloaded with main(int[]); descriptor-mangled
+    public static function main_aLjava_lang_String__V($__a0) { ... }
+    public static function main_aI_V($__a0) { ... }
+
+    // Runtime dispatcher for the overloaded name
+    public static function main(...$args)
+    {
+        $argc = \count($args);
+        if ($argc === 1) {
+            if (\is_array($args[0]) && (empty($args[0]) || \is_string($args[0][\array_key_first($args[0])])))
+                return self::main_aLjava_lang_String__V(...$args);
+            if (\is_array($args[0]) && (empty($args[0]) || \is_int($args[0][\array_key_first($args[0])])))
+                return self::main_aI_V(...$args);
+        }
+        throw new \PHPJava\Packages\java\lang\NoSuchMethodException('No matching overload for main/' . $argc);
+    }
+}
+
+// Trailing __staticConstruct() trigger if Java had <clinit>
+\PHPJava\Aot\Generated\Outer_1::__staticConstruct();
+```
+
+Java interfaces emit similarly but as `abstract class` with default-
+method bodies + `abstract` stubs for body-less methods. Implementers
+`extends` the interface-as-abstract-class.
+
+Cross-class invokes — `new Foo()`, `Foo::bar(...)` — for non-current,
+non-JDK targets emit as `\PHPJava\Aot\Loader::newInstance('Foo', ...)`
+or `\PHPJava\Aot\Loader::callStatic('Foo', 'bar', ...)`, threading the
+exact JVM binary name to bypass the autoloader heuristic.
+
+JDK-routed class refs (e.g. `System.out.println`) emit directly as
+`\PHPJava\Aot\Runtime\java\lang\System::$out->println(...)` — no
+loader hop, the bootstrap.php shim is required-once at eval time.
+
+Z (boolean) and C (char) field/array values are stored in their
+contract shape (PHP bool / 1-char UTF-8 string per CONTRACTS.md §1)
+and round-tripped to JVM-stack int at the field/array boundaries via
+`\intval`/`(\$x !== 0)` and `\mb_ord`/`\mb_chr` respectively.
 
 ### `src/Core/` — class loading + dispatch polymorphism (4.4 kloc, 74 files)
 
