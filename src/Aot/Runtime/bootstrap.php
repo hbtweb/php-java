@@ -25,26 +25,44 @@ class System
     public static ?\PHPJava\Aot\Runtime\java\io\PrintStream $err = null;
 }
 
-// Throwable hierarchy. Java's checked vs unchecked distinction is a
-// javac concern, not a runtime one — PHP catch matches by class name.
-// We piggyback on PHP's native Throwable hierarchy: Throwable → Exception
-// (RuntimeException, IllegalArgumentException, etc.) → custom subclasses.
+// Throwable hierarchy. Each AOT-runtime exception extends its
+// `\PHPJava\Packages\java\lang\*` counterpart so that:
+//   - `catch (\PHPJava\Packages\java\lang\IndexOutOfBoundsException $e)`
+//     in test or library code catches an exception thrown by AOT code
+//     (the AOT exception is-a Packages exception via inheritance).
+//   - `catch (\PHPJava\Aot\Runtime\java\lang\IndexOutOfBoundsException $e)`
+//     still works for AOT-internal catch handlers emitted by the
+//     IR Lowerer.
+//   - `catch (\Throwable $e)` and `catch (\Exception $e)` continue to
+//     work because the Packages hierarchy ultimately extends \Exception.
 //
-// `__construct(string $message = "")` matches Java's String-arg constructor;
-// the Throwable cause-chain (`Throwable cause` arg) is mapped to PHP's
-// $previous. Fields beyond message/cause come back via getMessage() etc.
-class Throwable_ extends \Exception {}
-class Exception_ extends \Exception {}
-class RuntimeException extends \RuntimeException {}
-class IllegalArgumentException extends \InvalidArgumentException {}
-class IllegalStateException extends \LogicException {}
-class NullPointerException extends \TypeError {}
-class ArithmeticException extends \DivisionByZeroError {}
-class ArrayIndexOutOfBoundsException extends \OutOfBoundsException {}
-class ClassCastException extends \TypeError {}
-class IndexOutOfBoundsException extends \OutOfBoundsException {}
-class NumberFormatException extends \InvalidArgumentException {}
-class UnsupportedOperationException extends \BadMethodCallException {}
+// Java's checked vs unchecked distinction is a javac concern, not a
+// runtime one — PHP catch matches by class. `__construct(string $message
+// = "")` matches Java's String-arg constructor; the cause-chain
+// (`Throwable cause`) maps to PHP's $previous.
+// Top of the hierarchy — anchored to Packages so external catches match.
+class Throwable_                    extends \PHPJava\Packages\java\lang\Throwable {}
+class Exception_                    extends \PHPJava\Packages\java\lang\Exception {}
+class RuntimeException              extends \PHPJava\Packages\java\lang\RuntimeException {}
+
+// Direct subclasses of RuntimeException — also extend Packages so external
+// catches at any of these classes match too.
+class IllegalArgumentException      extends \PHPJava\Packages\java\lang\IllegalArgumentException {}
+class IllegalStateException         extends \PHPJava\Packages\java\lang\RuntimeException {} // Packages\IllegalStateException missing — fall back to RuntimeException
+class NullPointerException          extends \PHPJava\Packages\java\lang\NullPointerException {}
+class ArithmeticException           extends \PHPJava\Packages\java\lang\RuntimeException {} // Packages\ArithmeticException missing — fall back to RuntimeException
+class IndexOutOfBoundsException     extends \PHPJava\Packages\java\lang\IndexOutOfBoundsException {}
+class ClassCastException            extends \PHPJava\Packages\java\lang\ClassCastException {}
+class UnsupportedOperationException extends \PHPJava\Packages\java\lang\UnsupportedOperationException {}
+
+// Sub-subclasses extend the AOT parent (not Packages) to preserve the
+// JVM-hierarchy on the AOT side. e.g. catching AOT IndexOutOfBoundsException
+// must catch AOT StringIndexOutOfBoundsException (sibling-via-parent).
+// External catch on Packages\IndexOutOfBoundsException still works because
+// the AOT IndexOutOfBoundsException extends it.
+class ArrayIndexOutOfBoundsException  extends IndexOutOfBoundsException {}
+class StringIndexOutOfBoundsException extends IndexOutOfBoundsException {}
+class NumberFormatException           extends IllegalArgumentException {}
 
 /**
  * Raw-scalar adapter for `java.lang.String`. AOT-emitted code receives
@@ -65,7 +83,9 @@ class String_
     public static function charAt(string $s, int $i): int
     {
         if ($i < 0 || $i >= \strlen($s)) {
-            throw new IndexOutOfBoundsException("String index out of range: {$i}");
+            // JDK throws StringIndexOutOfBoundsException, which extends
+            // IndexOutOfBoundsException — both `catch` patterns work.
+            throw new StringIndexOutOfBoundsException("String index out of range: {$i}");
         }
         return \ord($s[$i]);
     }

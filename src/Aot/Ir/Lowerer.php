@@ -37,18 +37,18 @@ final class Lowerer
             ? "public static function {$method->name}({$paramStr})"
             : "public function {$method->name}({$paramStr})";
 
-        // Prelude: $L initialised with all method-entry locals.
-        // For static methods: $L = [$__a0, $__a1, ..., 0, ...].
-        // For instance methods: $L = [$this, $__a0, $__a1, ..., 0, ...]
-        // — slot 0 holds $this per JVM convention.
-        $thisSlot = $method->isStatic ? 0 : 1;
-        $argc = count($method->params);
+        // Prelude: $L initialised with all method-entry locals. JVM
+        // long and double take 2 slots each (the second is unaddressable
+        // continuation); other types take 1. Param-to-slot mapping
+        // accounts for this — without it, `longAdd(JJ)J` ends up with
+        // both args at slots [0, 1] but the bytecode reads from [0, 2].
+        $slotToArg = self::slotToArgMap($method);
         $initVals = [];
         for ($i = 0; $i < $method->maxLocals; $i++) {
             if (!$method->isStatic && $i === 0) {
                 $initVals[] = '$this';
-            } elseif ($i - $thisSlot >= 0 && $i - $thisSlot < $argc) {
-                $initVals[] = $method->params[$i - $thisSlot];
+            } elseif (isset($slotToArg[$i])) {
+                $initVals[] = $method->params[$slotToArg[$i]];
             } else {
                 $initVals[] = '0';
             }
@@ -129,6 +129,59 @@ final class Lowerer
         }
         $bodyStr = implode("\n", $bodyLines);
         return "    // {$method->name} {$method->descriptor}\n    {$sig}\n    {\n{$bodyStr}\n    }";
+    }
+
+    /**
+     * JVM slot-to-arg-index map for the prelude. Long and double take
+     * 2 JVM slots each per JVM spec §2.6.1; other types take 1. The
+     * unaddressable continuation slot stays at the default zero-fill
+     * (the bytecode never reads it directly — `lload N` reads slots N
+     * and N+1 as a single 64-bit value, but our IR Lowerer treats the
+     * long as a single PHP int at slot N).
+     */
+    private static function slotToArgMap(Method $method): array
+    {
+        $thisSlot = $method->isStatic ? 0 : 1;
+        $argTypes = self::parseArgTypes($method->descriptor);
+        $map = [];
+        $slot = $thisSlot;
+        foreach ($argTypes as $argIdx => $type) {
+            $map[$slot] = $argIdx;
+            $slot += ($type === 'J' || $type === 'D') ? 2 : 1;
+        }
+        return $map;
+    }
+
+    /**
+     * Extract the arg-type tags from a JVM method descriptor. Returns
+     * an ordered list of single-char type codes (`B`, `C`, `D`, `F`,
+     * `I`, `J`, `S`, `Z`, `L` for refs, `[` for arrays). Returns
+     * 'L' for any reference type (the FQN is not needed here).
+     */
+    private static function parseArgTypes(string $descriptor): array
+    {
+        $types = [];
+        $end = \strpos($descriptor, ')');
+        $i = 1; // skip leading '('
+        while ($i < $end) {
+            $c = $descriptor[$i];
+            if ($c === '[') {
+                while ($descriptor[$i] === '[') $i++;
+                if ($descriptor[$i] === 'L') {
+                    $i = \strpos($descriptor, ';', $i) + 1;
+                } else {
+                    $i++;
+                }
+                $types[] = 'L'; // arrays are refs (1 slot)
+            } elseif ($c === 'L') {
+                $i = \strpos($descriptor, ';', $i) + 1;
+                $types[] = 'L';
+            } else {
+                $types[] = $c;
+                $i++;
+            }
+        }
+        return $types;
     }
 
     public function lowerStmt(Stmt $s): string
