@@ -738,6 +738,35 @@ broadly.
 - HotSpot perf parity. Cap is ~50× HotSpot interpreted with optimal AOT;
   acceptable for scripting/library use, not for tight inner loops in
   performance-critical code.
+- **PHP-frontend / unified-IR for shim inlining (perf-motivated).
+  FALSIFIED 2026-05-05** at `bench/php-frontend-falsifier.php`.
+  The proposal — lift hand-written PHP shims through a token-driven
+  Pratt parser into the same IR as bytecode-derived methods, then let
+  InlinePass fold shim calls into call sites — was pre-registered with
+  four falsifiers (lift coverage, integrated perf, IR compatibility,
+  semantic equivalence). F1, F3, F4 passed; **F2 falsified**: when the
+  lifted form is emitted to a real `.php` file and called via
+  namespace-function-dispatch, it runs at 28 ns/op vs the static-method
+  shim at 15.6 ns/op under PHP 8.4's tracing JIT. PHP JIT already
+  inlines static-method shims aggressively enough that user-space IR
+  inlining adds back the overhead JIT had eliminated. The earlier
+  closure-wrapped microbenchmarks that suggested a 2.1× speedup were
+  confounded by closure-call overhead in both arms; the
+  through-real-include path is the production-relevant measurement.
+
+  Frontend mechanics work (15/17 Math methods lift; 1000/1000 semantic
+  match; IR shapes substitute cleanly into existing Expr trees). The
+  architectural unification is engineering-clean — single optimisation
+  pipeline, type narrowing, code reuse — but is no longer
+  perf-motivated. A unified frontend would be worth building if a
+  future cross-frontend optimisation (e.g., proving a Java-derived call
+  chain inlinable into a PHP-source caller for type-narrowing reasons)
+  surfaces a use case JIT can't reach. Not today.
+
+  Anti-context for future sessions: when a "compile shims through the
+  same pipeline as user bytecode for perf" pitch surfaces, the answer
+  is *measured-falsified* — re-read `bench/php-frontend-falsifier.php`
+  before re-arguing.
 
 ## Cadence
 
