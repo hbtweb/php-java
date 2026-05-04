@@ -375,6 +375,40 @@ class JavaCompiledClass implements JavaGenericClassInterface, JavaClassInterface
         return $this->superClassName;
     }
 
+    /**
+     * Class access flags as a bitmask (ACC_PUBLIC, ACC_INTERFACE,
+     * ACC_ABSTRACT, ACC_FINAL, etc.). Required by AOT to detect
+     * interface vs class for the abstract-class emission shape.
+     */
+    public function getAccessFlag(): int
+    {
+        return $this->accessFlag;
+    }
+
+    /**
+     * JVM binary names of the interfaces this class implements
+     * (or, for an interface, extends). Comes from the interfaces[]
+     * constant-pool table.
+     *
+     * @return string[]
+     */
+    public function getInterfaceBinaryNames(): array
+    {
+        $names = [];
+        foreach ($this->interfacePool->getEntries() as $entry) {
+            // InterfacePool entries are ClassInfo CP indices resolved
+            // via the constant pool to Utf8 binary names.
+            $info = $this->constantPool[$entry] ?? null;
+            if ($info instanceof \PHPJava\Kernel\Structures\ClassInfo) {
+                $utf8 = $this->constantPool[$info->getClassIndex()] ?? null;
+                if ($utf8 instanceof \PHPJava\Kernel\Structures\Utf8Info) {
+                    $names[] = $utf8->getString();
+                }
+            }
+        }
+        return $names;
+    }
+
     public function getSuperClass()
     {
         // Lazy retry: if the eager load deferred (super-class not on

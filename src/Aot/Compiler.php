@@ -280,6 +280,14 @@ final class Compiler
                     CodeAttribute::class
                 );
             } catch (\PHPJava\Exceptions\UnableToFindAttributionException $e) {
+                // No Code attribute = abstract method (interface signature
+                // or abstract class method). Emit a PHP `abstract` stub
+                // so the abstract class declaration is well-formed and
+                // implementing classes get a clear "must override" hook.
+                $stringEmittedMethods[] = $this->emitAbstractMethodStub(
+                    $name, $desc,
+                    ($method->getAccessFlag() & MethodAccessFlag::ACC_STATIC) !== 0
+                );
                 continue;
             }
 
@@ -381,7 +389,26 @@ final class Compiler
         $extends = $superBin !== null
             ? ' extends \\PHPJava\\Aot\\Generated\\' . $this->mangle($superBin)
             : '';
-        $main = "<?php\nnamespace PHPJava\\Aot\\Generated;\n\n#[\\AllowDynamicProperties]\nclass {$this->mangle($classPath)}{$extends}\n{\n{$body}\n}\n";
+        // Pre-load the parent before the class declaration, with the
+        // exact JVM binary name. PHP autoloads `extends` targets at
+        // class-decl time; the AOT autoloader's `_ → /` heuristic
+        // can't reverse `Outer$Inner` (mangled to `Outer_Inner`) —
+        // same root cause as the inner-class new/static-call routing.
+        $extendsPreload = $superBin !== null
+            ? "\\PHPJava\\Aot\\Loader::loadClass('"
+              . \addcslashes($superBin, "'\\")
+              . "');\n"
+            : '';
+        // Interfaces are emitted as PHP `abstract class` — single
+        // inheritance allows implementing classes to `extends` the
+        // interface-as-class, inheriting default-method bodies and
+        // honouring the abstract-method contracts. PHP `interface`
+        // can't carry method bodies, which is what default methods
+        // require; PHP `trait` can but doesn't compose with type
+        // checks. Abstract class is the closest single-shape match.
+        $isInterface = ($jcc->getAccessFlag() & \PHPJava\Kernel\Maps\ClassAccessFlag::ACC_INTERFACE) !== 0;
+        $classKw = $isInterface ? 'abstract class' : 'class';
+        $main = "<?php\nnamespace PHPJava\\Aot\\Generated;\n\n{$extendsPreload}#[\\AllowDynamicProperties]\n{$classKw} {$this->mangle($classPath)}{$extends}\n{\n{$body}\n}\n";
 
         // Append synthetic lambda classes generated during method emit.
         // Each is a self-contained class definition declared in the same
@@ -466,6 +493,13 @@ final class Compiler
      * emitted as a PHP `extends` target — i.e. when the parent is an
      * AOT-routed class (not Object, not a JDK shim). Null otherwise.
      *
+     * Java interfaces are emitted as PHP abstract classes — single
+     * inheritance suffices for the failing test surface (anon class
+     * implementing one interface). When this class's JVM superclass
+     * is Object but it implements an interface, treat the first
+     * interface as the extends target. Multi-interface implementation
+     * needs PHP traits; deferred.
+     *
      * JDK supers (java/lang/Throwable etc.) are intentionally not
      * chained: the AOT runtime shims for exceptions are flat classes
      * extending the legacy Packages exceptions; threading an AOT-class
@@ -475,15 +509,46 @@ final class Compiler
     private function aotSuperClassBin(JavaCompiledClass $jcc): ?string
     {
         $bin = $jcc->getSuperClassName();
-        if ($bin === null || $bin === 'java/lang/Object') return null;
-        if (\str_starts_with($bin, 'java/')
+        if ($bin !== null && !$this->isJdkBin($bin) && $bin !== 'java/lang/Object') {
+            return $bin;
+        }
+        // Object super + implements interface(s): use first interface
+        // as extends target (interface emitted as abstract class).
+        $ifaces = $jcc->getInterfaceBinaryNames();
+        foreach ($ifaces as $iface) {
+            if (!$this->isJdkBin($iface)) {
+                return $iface;
+            }
+        }
+        return null;
+    }
+
+    private function isJdkBin(string $bin): bool
+    {
+        return \str_starts_with($bin, 'java/')
             || \str_starts_with($bin, 'javax/')
             || \str_starts_with($bin, 'jdk/')
             || \str_starts_with($bin, 'sun/')
-            || \str_starts_with($bin, 'com/sun/')) {
-            return null;
+            || \str_starts_with($bin, 'com/sun/');
+    }
+
+    /**
+     * Emit a PHP `abstract` method stub for a Java method without a
+     * Code attribute (interface signature, abstract class method).
+     * The implementing class's concrete override satisfies PHP's
+     * abstract-method contract.
+     */
+    private function emitAbstractMethodStub(string $name, string $desc, bool $isStatic): string
+    {
+        $argTypes = $this->parseDescriptorArgTypes($desc);
+        $params = [];
+        foreach ($argTypes as $i => $_) {
+            $params[] = "\$__a{$i}";
         }
-        return $bin;
+        $paramStr = \implode(', ', $params);
+        $mangled = self::mangleMethodForOverload($name, $desc, $this->overloadIndex);
+        $sigQual = $isStatic ? 'public static function' : 'public function';
+        return "    abstract {$sigQual} {$mangled}({$paramStr});";
     }
 
     private function tryBuildIrMethod(
