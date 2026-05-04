@@ -313,6 +313,27 @@ The Swoole equivalent requires building a Future type out of channels.
    skips, timed-get-variant-skips, nested-rewrite-collapses-inner,
    lowerer-emits-correct-PHP, idempotent-on-already-collapsed.
 
+   Per-site saving — measured 2026-05-04 on Kali WSL, PHP 8.4.20,
+   `bench/specialiser-saving.php` (rank 1, 100k iters × 7 reps,
+   median ns/op; numbers vary ~10-20% across runs from system noise,
+   the order of magnitude is stable):
+
+   | Pattern                              | Runtime path | Specialised | Saving |
+   |--------------------------------------|-------------:|------------:|-------:|
+   | `CF::supplyAsync(s)->get()`  JIT off |   575 ns/op |    21 ns/op | 554 ns |
+   | `CF::supplyAsync(s)->join()` JIT off |   587 ns/op |    21 ns/op | 565 ns |
+   | `CF::runAsync(r)->get()`     JIT off |   990 ns/op |    21 ns/op | 969 ns |
+   | `CF::supplyAsync(s)->get()`  JIT on  |   379 ns/op |    12 ns/op | 368 ns |
+   | `CF::supplyAsync(s)->join()` JIT on  |   370 ns/op |    12 ns/op | 358 ns |
+   | `CF::runAsync(r)->get()`     JIT on  |   813 ns/op |    12 ns/op | 802 ns |
+
+   `runAsync` saves more because its supplier is wrapped in an extra
+   closure (line 82 of `CompletableFuture.php`) that the specialised
+   form skips entirely. The earlier 365 ns/op figure cited from the
+   InlineExecutor PoC v2 (`bench/amphp-probe/bench-v2.php`)
+   underestimated the saving here — the production CF wrapper adds
+   ~50–100 ns on top of the bare async+await floor.
+
    Future extensions (not blocking this checkpoint):
    - Single-use no-escape detection: collapse `var cf = supplyAsync(s);
      cf.get();` when `cf` is only read by the .get and never escapes
