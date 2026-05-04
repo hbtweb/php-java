@@ -293,31 +293,25 @@ The Swoole equivalent requires building a Future type out of channels.
    using Fibers. JS-engine-style async/await transformation. ~1-2
    weeks compiler work; would put suspending operations at ~100-200 ns
    instead of the ~12 µs Fiber suspend/resume floor. **NOT STARTED**.
-7. **Remaining JDK concurrent shims** — ~3-5 weeks remaining (down
-   from ~5-8 with steps below shipped). Covered shims listed in
+7. **Remaining JDK concurrent shims** — ~2-3 weeks remaining (down
+   from ~3-5 with steps below shipped). Covered shims listed in
    step 4 above; remaining surface:
-   - ~~**Locks family**: Condition, ReadWriteLock~~ — DONE
-     (`Condition.php`, `ReentrantReadWriteLock.php` + Lock interface,
-     ReadLockView, WriteLockView).
-   - **Locks family remaining**: StampedLock — ~3-5 days. Distinct
-     enough from RWLock (optimistic-read mode) to need its own shim.
-   - ~~**Sync primitives**: Semaphore, CountDownLatch, CyclicBarrier~~
-     — DONE (`Semaphore.php`, `CountDownLatch.php`, `CyclicBarrier.php`
-     + `BrokenBarrierException`).
-   - **Sync primitives remaining**: Phaser — ~3 days. Hierarchical
-     cyclic-barrier with dynamic-party support.
+   - ~~**Locks family**: Condition, ReadWriteLock, StampedLock~~ —
+     DONE. StampedLock includes optimistic-read fast path
+     (tryOptimisticRead + validate) — the distinguishing feature
+     over RWLock.
+   - ~~**Sync primitives**: Semaphore, CountDownLatch, CyclicBarrier,
+     Phaser~~ — DONE. Phaser includes dynamic-party register +
+     bulkRegister, arriveAndAwaitAdvance, arriveAndDeregister with
+     auto-termination on zero parties.
    - ~~**Queues**: BlockingQueue + LinkedBlockingQueue / ArrayBlockingQueue /
-     SynchronousQueue~~ — DONE.
+     SynchronousQueue, ConcurrentLinkedQueue, ConcurrentLinkedDeque~~
+     — DONE.
    - **Queues remaining**: PriorityBlockingQueue (~150 LOC, heap-ordered),
-     LinkedBlockingDeque (~200 LOC, both-ends symmetric), DelayQueue
-     (~200 LOC, time-ordered).
-   - ~~**ConcurrentHashMap**~~ — DONE (single-mutex; observably
-     equivalent on PHP cooperative scheduling).
-   - **ConcurrentLinkedQueue/Deque** — ~1 week (lock-free atomics not
-     needed under PHP's single-threaded model; SplDoublyLinkedList
-     wrapper).
-   - ~~**CopyOnWriteArrayList**~~ — DONE.
-   - **CopyOnWriteSet** — ~50 LOC (wraps COW list).
+     LinkedBlockingDeque (~200 LOC, blocking-variant of
+     ConcurrentLinkedDeque), DelayQueue (~200 LOC, time-ordered).
+   - ~~**ConcurrentHashMap, CopyOnWriteArrayList, CopyOnWriteArraySet**~~
+     — DONE.
    - ~~**ExecutorService family**: Executor, ExecutorService, Executors,
      ThreadPoolExecutor, ThreadFactory, DefaultThreadFactory, Future,
      ConcreteFuture, ExecutionException, TimeoutException, TimeUnit~~
