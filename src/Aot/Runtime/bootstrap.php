@@ -400,6 +400,45 @@ function jvm_f32(float $v): float
     return \unpack('f', \pack('f', $v))[1];
 }
 
+/**
+ * JVM fcmpl/dcmpl 3-way comparison — returns -1 / 0 / 1, with -1 if
+ * either operand is NaN ("less" form, used by `if_lt`/`if_le` chains).
+ * PHP `<=>` returns 0 for `NaN <=> NaN`, which diverges. Rare in
+ * practice but breaks any sort/comparator that puts NaN at one end.
+ */
+function jvm_fcmpl(float $a, float $b): int
+{
+    if (\is_nan($a) || \is_nan($b)) return -1;
+    return $a <=> $b;
+}
+
+/**
+ * JVM fcmpg/dcmpg — same as fcmpl but +1 on NaN ("greater" form,
+ * used by `if_gt`/`if_ge` chains).
+ */
+function jvm_fcmpg(float $a, float $b): int
+{
+    if (\is_nan($a) || \is_nan($b)) return 1;
+    return $a <=> $b;
+}
+
+/**
+ * Float.equals / Double.equals — NaN-aware equality. Java spec:
+ * `Float.NaN.equals(Float.NaN)` returns true (so equal-Floats can be
+ * keyed in HashMap). PHP `NaN === NaN` returns false. This helper
+ * makes the AOT path match the documented Java semantics.
+ *
+ * Also returns true for +0.0/-0.0 ≠ same as Java where Float.equals
+ * treats them as not-equal. PHP === treats 0.0 === -0.0 as true.
+ * This helper preserves PHP behavior for now (treats them equal);
+ * fix if a real workload surfaces the divergence.
+ */
+function jvm_float_equals(float $a, float $b): bool
+{
+    if (\is_nan($a) && \is_nan($b)) return true;
+    return $a === $b;
+}
+
 /** GMP-based wrap recovery for long arithmetic that overflowed. */
 function jvm_lwrap_arith(string $op, int $a, int $b): int
 {

@@ -25,13 +25,13 @@ class FloatInfo implements StructureInterface
 
     public function getBytes(): float
     {
-        if ($this->realByte) {
+        if (isset($this->realByte)) {
             return $this->realByte;
         }
-        $bits = $this->bytes;
-        $s = ($bits >> 31) == 0 ? 1 : -1;
-        $e = ($bits >> 23) & 0xff;
-        $m = ($e == 0) ? (($bits & 0x7fffff) << 1) : ($bits & 0x7fffff) | 0x800000;
-        return $this->realByte = ($s * $m * pow(2, $e - 150));
+        // Decode via IEEE754 round-trip: pack as big-endian uint32, then
+        // unpack as a big-endian binary32 ('G'). Manual mantissa/exponent
+        // math previously here returned INF for every NaN encoding —
+        // see DoubleInfo for the same fix.
+        return $this->realByte = \unpack('G', \pack('N', $this->bytes))[1];
     }
 }

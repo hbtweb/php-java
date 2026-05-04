@@ -464,9 +464,22 @@ final class Builder
                 return;
             case 0x8D: return; // f2d — no-op (widening F→D preserves precision exactly)
             // ── 3-way comparison (lcmp/fcmpl/g/dcmpl/g) ────────────
-            case 0x94: case 0x95: case 0x96: case 0x97: case 0x98:
+            // lcmp: long has no NaN. fcmp/dcmp: NaN → -1 (cmpl) or +1 (cmpg).
+            case 0x94: // lcmp
                 $right = $this->pop(); $left = $this->pop();
                 $this->push(new BinOp('<=>', $left, $right));
+                return;
+            case 0x95: case 0x97: // fcmpl, dcmpl
+                $right = $this->pop(); $left = $this->pop();
+                $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                    '\\PHPJava\\Aot\\Runtime\\jvm_fcmpl', '', [$left, $right]
+                ));
+                return;
+            case 0x96: case 0x98: // fcmpg, dcmpg
+                $right = $this->pop(); $left = $this->pop();
+                $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                    '\\PHPJava\\Aot\\Runtime\\jvm_fcmpg', '', [$left, $right]
+                ));
                 return;
             // ── if_acmpeq / if_acmpne — same emit as ===/!== ───────
             case 0xA5: $this->emitCondGoto('===', $bytes, $start); return;
@@ -1544,10 +1557,29 @@ final class Builder
             // i.equals(j) → ($i === $j ? 1 : 0). JVM semantics: returns
             // boolean (Z), which is int 0/1 on the operand stack.
             if ($method === 'equals') {
+                // Float.equals / Double.equals: NaN-aware (Java spec
+                // returns true for NaN.equals(NaN), used so floats can
+                // key into HashMap). PHP `===` returns false for NaN.
+                if ($cls === 'java/lang/Float' || $cls === 'java/lang/Double') {
+                    return new StaticCall(
+                        '\\PHPJava\\Aot\\Runtime\\jvm_float_equals', '',
+                        [$receiver, $args[0]]
+                    );
+                }
                 return new BinOp('===', $receiver, $args[0]);
             }
             // i.compareTo(j) → $i <=> $j (returns -1/0/1).
             if ($method === 'compareTo') {
+                // Float/Double.compareTo: NaN sorts greater than any
+                // value; -0.0 < +0.0. Use jvm_fcmpg semantics (NaN→+1)
+                // for the non-equal-NaN cases; equal-NaN matches the
+                // helper's `<=>` path which is 0. Approximate.
+                if ($cls === 'java/lang/Float' || $cls === 'java/lang/Double') {
+                    return new StaticCall(
+                        '\\PHPJava\\Aot\\Runtime\\jvm_fcmpg', '',
+                        [$receiver, $args[0]]
+                    );
+                }
                 return new BinOp('<=>', $receiver, $args[0]);
             }
         }

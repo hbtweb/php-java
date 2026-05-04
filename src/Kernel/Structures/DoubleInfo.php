@@ -31,13 +31,18 @@ class DoubleInfo implements StructureInterface
 
     public function getBytes(): float
     {
-        if ($this->realByte) {
+        if (isset($this->realByte)) {
             return $this->realByte;
         }
-        $bits = ($this->highBytes << 32) + $this->lowBytes;
-        $s = ($bits >> 63) == 0 ? 1 : -1;
-        $e = ($bits >> 52) & 0x7ff;
-        $m = ($e == 0) ? (($bits & 0xfffffffffffff) << 1) : ($bits & 0xfffffffffffff) | 0x10000000000000;
-        return $this->realByte = ($s * $m * pow(2, $e - 1075));
+        // Decode via IEEE754 round-trip: pack the two 32-bit halves as
+        // big-endian, then unpack as a big-endian binary64 ('E'). The
+        // manual mantissa/exponent math previously here returned INF for
+        // every NaN encoding (exponent=0x7ff, non-zero mantissa) because
+        // it computed s*m*2^(e-1075) which overflows. pack/unpack handles
+        // every special case (±0, denormals, ±INF, NaN) natively.
+        return $this->realByte = \unpack(
+            'E',
+            \pack('NN', $this->highBytes, $this->lowBytes)
+        )[1];
     }
 }
