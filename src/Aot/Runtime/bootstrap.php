@@ -381,6 +381,25 @@ function jvm_lneg(int $a): int
     return -$a;
 }
 
+/**
+ * Java `float` narrowing — PHP `float` is binary64; Java `float` is
+ * binary32. At the JVM contract boundary (putfield/putstatic on F
+ * field, fastore on float[], explicit d2f/i2f/l2f conversion), narrow
+ * by round-tripping through the 4-byte single-precision IEEE754 form.
+ *
+ * Cost: ~50 ns/call. Per-arithmetic-op narrowing (fadd/fmul/etc.) is
+ * NOT done; that would compound on hot float code, and float-heavy
+ * Java workloads are already 3.8× slower than int per
+ * docs/BOTTLENECKS.md §E. The boundary narrowing here catches the
+ * user-visible cases (write-then-read on a float field/array, explicit
+ * cast); per-op intermediate-precision divergence is a documented
+ * limitation under CONTRACTS.md §1.
+ */
+function jvm_f32(float $v): float
+{
+    return \unpack('f', \pack('f', $v))[1];
+}
+
 /** GMP-based wrap recovery for long arithmetic that overflowed. */
 function jvm_lwrap_arith(string $op, int $a, int $b): int
 {

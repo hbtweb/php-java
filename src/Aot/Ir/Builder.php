@@ -451,12 +451,18 @@ final class Builder
                 $top = $this->pop();
                 $this->push(new \PHPJava\Aot\Ir\StaticCall('\\intval', '', [$top]));
                 return;
-            case 0x86: case 0x87:                       // i2f, i2d
-            case 0x89: case 0x8A:                       // l2f, l2d
+            case 0x87: case 0x8A:                       // i2d, l2d (no narrow — D is binary64)
                 $top = $this->pop();
                 $this->push(new \PHPJava\Aot\Ir\StaticCall('\\floatval', '', [$top]));
                 return;
-            case 0x8D: case 0x90: return; // f2d, d2f — no-op (PHP float == double)
+            case 0x86: case 0x89: case 0x90:            // i2f, l2f, d2f — narrow to 32-bit precision
+                $top = $this->pop();
+                $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                    '\\PHPJava\\Aot\\Runtime\\jvm_f32', '',
+                    [new \PHPJava\Aot\Ir\StaticCall('\\floatval', '', [$top])]
+                ));
+                return;
+            case 0x8D: return; // f2d — no-op (widening F→D preserves precision exactly)
             // ── 3-way comparison (lcmp/fcmpl/g/dcmpl/g) ────────────
             case 0x94: case 0x95: case 0x96: case 0x97: case 0x98:
                 $right = $this->pop(); $left = $this->pop();
@@ -1600,6 +1606,10 @@ final class Builder
     {
         if ($desc === 'Z') return new BinOp('!==', $e, new IntLit(0));
         if ($desc === 'C') return new StaticCall('\\mb_chr', '', [$e, new StringLit('UTF-8')]);
+        // Java `float` is binary32; PHP `float` is binary64. Narrow at
+        // the field/array storage boundary so write-then-read round-trips
+        // give the 32-bit-precise value Java code expects.
+        if ($desc === 'F') return new StaticCall('\\PHPJava\\Aot\\Runtime\\jvm_f32', '', [$e]);
         return $e;
     }
 

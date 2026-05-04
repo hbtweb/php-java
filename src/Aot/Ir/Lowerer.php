@@ -270,7 +270,13 @@ final class Lowerer
             if (\is_nan($v)) return 'NAN';
             if ($v === \INF)  return 'INF';
             if ($v === -\INF) return '-INF';
-            return (string) $v;
+            // var_export uses serialize_precision=-1 (round-trip mode in
+            // PHP 8+) so the literal parses back to the same binary64.
+            // (string)$v truncates at PHP's default `precision` setting
+            // (~14 sig figs) and loses bits for tightly-packed values like
+            // narrowed binary32 floats. var_export also keeps the trailing
+            // `.0` on whole-valued floats so they don't round-trip as int.
+            return \var_export($v, true);
         }
         if ($e instanceof StringLit) return var_export($e->value, true);
         if ($e instanceof BoolLit) return $e->value ? 'true' : 'false';
