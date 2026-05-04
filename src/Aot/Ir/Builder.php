@@ -567,14 +567,14 @@ final class Builder
                 $idx = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
                 [, $field, ] = $this->resolveFieldRef($idx);
                 $obj = $this->pop();
-                $this->push(new \PHPJava\Aot\Ir\FieldRead($obj, $field));
+                $this->push(new \PHPJava\Aot\Ir\FieldRead($obj, $this->mangleField($field)));
                 return;
             case 0xB5: // putfield
                 $idx = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
                 [, $field, ] = $this->resolveFieldRef($idx);
                 $val = $this->pop();
                 $obj = $this->pop();
-                $this->currentBb->stmts[] = new \PHPJava\Aot\Ir\StoreField($obj, $field, $val);
+                $this->currentBb->stmts[] = new \PHPJava\Aot\Ir\StoreField($obj, $this->mangleField($field), $val);
                 return;
             // ── single-operand if ───────────────────────────────────
             case 0x99: $this->emitIfPop('===', new IntLit(0), $bytes, $start); return; // ifeq
@@ -1767,6 +1767,19 @@ final class Builder
     {
         if ($name === '<init>') return '__construct';
         if ($name === '<clinit>') return '__staticConstruct';
+        return str_replace(['$', '<', '>'], ['_S_', '_LT_', '_GT_'], $name);
+    }
+
+    /**
+     * Field-name mangle. Matches `Compiler::emitFieldDeclarations`'s
+     * substitution: `$` → `_S_`, `<` → `_LT_`, `>` → `_GT_`. Without
+     * this, JVM-internal field names like `this$0` (the synthetic
+     * outer-reference on inner classes) emit as `$obj->this$0` —
+     * which PHP parses as `$obj->this` concatenated with `$0`,
+     * a syntax error at the next token.
+     */
+    private function mangleField(string $name): string
+    {
         return str_replace(['$', '<', '>'], ['_S_', '_LT_', '_GT_'], $name);
     }
 

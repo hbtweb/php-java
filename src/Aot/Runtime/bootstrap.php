@@ -372,4 +372,10 @@ if (\PHPJava\Aot\Runtime\java\lang\System::$out === null) {
         new \PHPJava\Aot\Runtime\java\io\PrintStream(\STDOUT);
     \PHPJava\Aot\Runtime\java\lang\System::$err =
         new \PHPJava\Aot\Runtime\java\io\PrintStream(\STDERR);
+
+    // Lazy-compile AOT-Generated classes the first time PHP resolves
+    // them — covers the cross-class reference case where AOT-emitted
+    // bytecode does `new OtherClass()` or `OtherClass::staticMethod()`
+    // and OtherClass hasn't been loaded yet.
+    \spl_autoload_register([\PHPJava\Aot\Loader::class, 'autoloadAotClass']);
 }

@@ -142,6 +142,64 @@ final class Loader
         Compiler::clearCompileCache();
     }
 
+    /**
+     * spl_autoload_register hook: when AOT-emitted code references
+     * `\PHPJava\Aot\Generated\<X>` and `<X>` hasn't been AOT-compiled
+     * yet, this triggers a lazy compile via `loadClass($binaryName)`.
+     *
+     * Mangle is `str_replace(['\\', '$'], '_', ...)` over the JVM
+     * binary name (with `/` already converted to `\\`). The reverse is
+     * lossy when the binary name contains `_` or `$`: we try `_ → /`
+     * (the package-separator case, which covers ~all standard usage)
+     * and accept the inner-class `Outer$Inner` edge as a known gap.
+     *
+     * Registered in bootstrap.php's one-time init at the bottom of
+     * the file.
+     */
+    /** @var array<string,true>  in-flight autoload guard (recursion-safe) */
+    private static array $autoloadInFlight = [];
+
+    public static function autoloadAotClass(string $className): void
+    {
+        $prefix = 'PHPJava\\Aot\\Generated\\';
+        if (!\str_starts_with($className, $prefix)) {
+            return;
+        }
+        if (isset(self::$autoloadInFlight[$className])) {
+            return;
+        }
+        self::$autoloadInFlight[$className] = true;
+        try {
+            // Single-candidate heuristic: convert `_` back to `/` (the
+            // typical package separator). Verbatim retry covers the
+            // package-less case `OuterClassTestOuterClass` which has
+            // no `_` to convert. Inner-class names with `$` (mangled
+            // to `_`) are a known gap — landing a reverse-map registry
+            // would close it cleanly; defer until that work surfaces.
+            $mangled = \substr($className, \strlen($prefix));
+            // Single-candidate heuristic: `_ → /`. Covers the typical
+            // package-separator case (most common) and the package-less
+            // case (no `_` in the name, replace is a no-op so we get
+            // the verbatim mangled name back).
+            //
+            // Inner classes (Outer$Inner mangled to Outer_Inner) and
+            // the JAR cross-class case are better solved at compile
+            // time by IR Lowerer emitting an explicit loadClass call
+            // ahead of each `new` — see Lowerer.lowerExpr's `New_` path.
+            // The lossy fallback `_ → $` was tried but exploded the
+            // JAR-resolver scan time on suites with many cross-refs.
+            $bin = \str_replace('_', '/', $mangled);
+            try {
+                self::loadClass($bin);
+            } catch (\Throwable $e) {
+                // Class isn't resolvable via ClassResolver — let PHP
+                // raise its standard "Class not found".
+            }
+        } finally {
+            unset(self::$autoloadInFlight[$className]);
+        }
+    }
+
     // ── internals ─────────────────────────────────────────────────
 
     private static function evalAotSource(string $php): void
