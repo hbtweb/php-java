@@ -4,7 +4,7 @@ namespace PHPJava\Core\JVM\Field;
 
 use PHPJava\Core\JVM\ClassInvokerInterface;
 
-class JavaDynamicField implements FieldInterface
+class JavaInstanceField implements FieldInterface
 {
     use FieldGettable;
     use FieldSettable;

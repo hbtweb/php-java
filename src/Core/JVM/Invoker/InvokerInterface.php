@@ -14,7 +14,7 @@ interface InvokerInterface
 
     public function call(string $name, ...$arguments);
 
-    public function isDynamic(): bool;
+    public function isInstanceMethod(): bool;
 
     /**
      * @return PHPJava\Kernel\Structures\MethodInfo[]

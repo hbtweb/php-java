@@ -11,7 +11,7 @@ trait FieldSettable
         // read path. Static fields and pre-construct dynamic writes
         // still update the internal $fields map only.
         if (\method_exists($this->javaClassInvoker, 'getAotInstance')
-            && $this instanceof \PHPJava\Core\JVM\Field\JavaDynamicField) {
+            && $this instanceof \PHPJava\Core\JVM\Field\JavaInstanceField) {
             $aot = $this->javaClassInvoker->getAotInstance();
             if ($aot !== null) {
                 $aot->{$name} = $value;

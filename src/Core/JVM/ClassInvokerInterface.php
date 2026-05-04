@@ -3,9 +3,9 @@ declare(strict_types=1);
 namespace PHPJava\Core\JVM;
 
 use PHPJava\Core\JavaClassInterface;
-use PHPJava\Core\JVM\Field\JavaDynamicField;
+use PHPJava\Core\JVM\Field\JavaInstanceField;
 use PHPJava\Core\JVM\Field\JavaStaticField;
-use PHPJava\Core\JVM\Field\PHPDynamicField;
+use PHPJava\Core\JVM\Field\PHPInstanceField;
 use PHPJava\Core\JVM\Field\PHPStaticField;
 use PHPJava\Kernel\Provider\ProviderInterface;
 
@@ -18,7 +18,7 @@ interface ClassInvokerInterface
     public function construct(...$arguments): ClassInvokerInterface;
 
     /**
-     * @return AccessorInterface|JavaDynamicField|PHPDynamicField
+     * @return AccessorInterface|JavaInstanceField|PHPInstanceField
      */
     public function getDynamic(): AccessorInterface;
 

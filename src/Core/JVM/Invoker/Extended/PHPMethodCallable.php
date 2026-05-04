@@ -38,13 +38,13 @@ trait PHPMethodCallable
             'Call method: ' . $name . $suffix
         );
 
-        if ($this->isDynamic() && MethodNameResolver::isConstructorMethod($name)) {
+        if ($this->isInstanceMethod() && MethodNameResolver::isConstructorMethod($name)) {
             $this->javaClassInvoker->construct(...$arguments);
             return $this->javaClassInvoker->getJavaClass();
         }
 
         $classObject = $this->javaClassInvoker->getClassObject();
-        if ($this->isDynamic() && $classObject === null) {
+        if ($this->isInstanceMethod() && $classObject === null) {
             throw new RuntimeException(
                 'Failed to call the method because the given JavaClass does not have ClassObject.'
             );
@@ -52,7 +52,7 @@ trait PHPMethodCallable
 
         $executed = $method
             ->invokeArgs(
-                $this->isDynamic()
+                $this->isInstanceMethod()
                     ? $classObject
                     : null,
                 $arguments

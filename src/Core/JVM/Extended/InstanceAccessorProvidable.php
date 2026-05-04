@@ -4,7 +4,7 @@ namespace PHPJava\Core\JVM\Extended;
 
 use PHPJava\Core\JVM\AccessorInterface;
 
-trait DynamicAccessorProvidable
+trait InstanceAccessorProvidable
 {
     /**
      * @var AccessorInterface

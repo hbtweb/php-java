@@ -21,7 +21,7 @@ trait JavaMethodFindable
      */
     protected function findMethod(string $name, ...$arguments): MethodInfo
     {
-        $superClassMethods = $this->isDynamic()
+        $superClassMethods = $this->isInstanceMethod()
             ? SuperClassResolver::resolveDynamicMethods($name, $this->javaClassInvoker->getJavaClass())
             : SuperClassResolver::resolveStaticMethods($name, $this->javaClassInvoker->getJavaClass());
 

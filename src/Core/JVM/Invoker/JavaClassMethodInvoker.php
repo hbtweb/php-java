@@ -51,7 +51,7 @@ class JavaClassMethodInvoker implements InvokerInterface
         );
     }
 
-    public function isDynamic(): bool
+    public function isInstanceMethod(): bool
     {
         return false;
     }

@@ -6,7 +6,7 @@ use PHPJava\Core\JVM\ClassInvokerInterface;
 use PHPJava\Core\JVM\PHPClassInvoker;
 use PHPJava\Packages\java\lang\NoSuchFieldException;
 
-class PHPDynamicField implements FieldInterface
+class PHPInstanceField implements FieldInterface
 {
     use FieldListable;
 

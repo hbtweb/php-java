@@ -22,7 +22,7 @@ trait FieldGettable
         // instance. Static fields and pre-construct dynamic reads still
         // use the internal $fields map.
         if (\method_exists($this->javaClassInvoker, 'getAotInstance')
-            && $this instanceof \PHPJava\Core\JVM\Field\JavaDynamicField) {
+            && $this instanceof \PHPJava\Core\JVM\Field\JavaInstanceField) {
             $aot = $this->javaClassInvoker->getAotInstance();
             if ($aot !== null && \property_exists($aot, $name)) {
                 return $aot->{$name};

@@ -92,7 +92,7 @@ trait JavaMethodCallable
         // dispatch — no env gate. Compile failures and exceptions
         // inside AOT'd code propagate. Method-not-found falls through
         // to the interpreter loop below.
-        if (!$this->isDynamic()) {
+        if (!$this->isInstanceMethod()) {
             $classPath = $this->javaClassInvoker
                 ->getJavaClass()
                 ->getClassName();
@@ -111,7 +111,7 @@ trait JavaMethodCallable
         // through PHP-native dispatch on that instance. The receiver
         // shape is `\PHPJava\Aot\Generated\<X>` and method names match
         // the JVM mangled form (<init>→__construct, $→_S_, etc.).
-        if ($this->isDynamic()) {
+        if ($this->isInstanceMethod()) {
             $aotInstance = $this->javaClassInvoker->getAotInstance();
             if ($aotInstance !== null) {
                 $rawArgs = [];
@@ -217,7 +217,7 @@ trait JavaMethodCallable
 
         $reader = new BinaryReader($handle);
 
-        if ($this->isDynamic()) {
+        if ($this->isInstanceMethod()) {
             array_unshift(
                 $arguments,
                 $this->javaClassInvoker->getJavaClass()

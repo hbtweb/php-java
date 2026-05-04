@@ -5,9 +5,9 @@ namespace PHPJava\Core\JVM;
 use PHPJava\Core\JavaClass;
 use PHPJava\Core\JavaClassInterface;
 use PHPJava\Core\JavaSimpleClass;
-use PHPJava\Core\JVM\Field\PHPDynamicField;
+use PHPJava\Core\JVM\Field\PHPInstanceField;
 use PHPJava\Core\JVM\Field\PHPStaticField;
-use PHPJava\Core\JVM\Invoker\PHPClassDynamicMethodInvoker;
+use PHPJava\Core\JVM\Invoker\PHPClassInstanceMethodInvoker;
 use PHPJava\Core\JVM\Invoker\PHPClassStaticMethodInvoker;
 use PHPJava\Packages\java\lang\Object_;
 
@@ -15,7 +15,7 @@ class PHPClassInvoker implements ClassInvokerInterface
 {
     use Extended\ProviderProvidable;
     use Extended\JavaClassProvidable;
-    use Extended\DynamicAccessorProvidable;
+    use Extended\InstanceAccessorProvidable;
     use Extended\StaticAccessorProvidable;
 
     /**
@@ -94,8 +94,8 @@ class PHPClassInvoker implements ClassInvokerInterface
 
         $this->dynamicAccessor = new Accessor(
             $this,
-            PHPClassDynamicMethodInvoker::class,
-            PHPDynamicField::class,
+            PHPClassInstanceMethodInvoker::class,
+            PHPInstanceField::class,
             $this->dynamicMethods,
             $this->dynamicFields,
             $this->options
@@ -115,8 +115,8 @@ class PHPClassInvoker implements ClassInvokerInterface
     {
         $this->dynamicAccessor = new Accessor(
             $this,
-            PHPClassDynamicMethodInvoker::class,
-            PHPDynamicField::class,
+            PHPClassInstanceMethodInvoker::class,
+            PHPInstanceField::class,
             $this->dynamicMethods,
             $this->dynamicFields,
             $this->options

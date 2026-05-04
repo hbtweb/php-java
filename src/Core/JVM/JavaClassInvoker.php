@@ -4,9 +4,9 @@ namespace PHPJava\Core\JVM;
 
 use PHPJava\Aot\Loader as AotLoader;
 use PHPJava\Core\JavaClassInterface;
-use PHPJava\Core\JVM\Field\JavaDynamicField;
+use PHPJava\Core\JVM\Field\JavaInstanceField;
 use PHPJava\Core\JVM\Field\JavaStaticField;
-use PHPJava\Core\JVM\Invoker\JavaClassDynamicMethodInvoker;
+use PHPJava\Core\JVM\Invoker\JavaClassInstanceMethodInvoker;
 use PHPJava\Core\JVM\Invoker\JavaClassStaticMethodInvoker;
 use PHPJava\Kernel\Filters\Normalizer;
 use PHPJava\Kernel\Maps\FieldAccessFlag;
@@ -18,7 +18,7 @@ class JavaClassInvoker implements ClassInvokerInterface
 {
     use Extended\ProviderProvidable;
     use Extended\JavaClassProvidable;
-    use Extended\DynamicAccessorProvidable;
+    use Extended\InstanceAccessorProvidable;
     use Extended\StaticAccessorProvidable;
 
     /**
@@ -103,8 +103,8 @@ class JavaClassInvoker implements ClassInvokerInterface
 
         $this->dynamicAccessor = new Accessor(
             $this,
-            JavaClassDynamicMethodInvoker::class,
-            JavaDynamicField::class,
+            JavaClassInstanceMethodInvoker::class,
+            JavaInstanceField::class,
             $this->dynamicMethods,
             Normalizer::normalizeFields(
                 $this->dynamicFields,
@@ -130,11 +130,11 @@ class JavaClassInvoker implements ClassInvokerInterface
     {
         // Reset interp-side dynamicAccessor (existing behaviour: each
         // construct() yields a fresh instance with default field state
-        // on the JavaDynamicField map).
+        // on the JavaInstanceField map).
         $this->dynamicAccessor = new Accessor(
             $this,
-            JavaClassDynamicMethodInvoker::class,
-            JavaDynamicField::class,
+            JavaClassInstanceMethodInvoker::class,
+            JavaInstanceField::class,
             $this->dynamicMethods,
             Normalizer::normalizeFields(
                 $this->dynamicFields,
