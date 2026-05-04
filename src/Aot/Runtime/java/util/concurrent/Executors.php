@@ -65,4 +65,14 @@ final class Executors
             return $result;
         };
     }
+
+    public static function newScheduledThreadPool(int $corePoolSize): ScheduledExecutorService
+    {
+        return new ScheduledThreadPoolExecutor($corePoolSize);
+    }
+
+    public static function newSingleThreadScheduledExecutor(): ScheduledExecutorService
+    {
+        return new ScheduledThreadPoolExecutor(1);
+    }
 }

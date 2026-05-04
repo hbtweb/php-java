@@ -19,6 +19,7 @@ namespace PHPJava\Aot\Runtime\Async;
  *   - async($fn)                spawn task on a pooled fiber
  *   - await($id)                suspend until target Future settles
  *   - sleep($ms)                yield to event loop, wake after delay
+ *   - scheduleAfter($ms, $fn)   spawn fiber that fires $fn after delay
  *   - interrupt($fiberId)       set interrupt flag; wakes parked
  *   - run()                     drive the event loop until empty
  *   - cancel($id)               mark Future cancelled, wake waiters
@@ -189,6 +190,22 @@ final class VirtualThreadExecutor
         if (self::$futures[$id][0] !== self::STATE_PENDING) return false;
         self::settleInternal($id, self::STATE_CANCELLED, null);
         return true;
+    }
+
+    /**
+     * Schedule a callback to fire after $delayMs milliseconds. Implemented
+     * as an async fiber that sleeps then fires the callback. Returns the
+     * Future id, which can be passed to cancel() to abort.
+     *
+     * For periodic / fixed-rate schedules, use ScheduledExecutorService
+     * which builds on this primitive.
+     */
+    public static function scheduleAfter(int $delayMs, callable $fn): int
+    {
+        return self::async(static function () use ($delayMs, $fn) {
+            self::sleep($delayMs);
+            return $fn();
+        });
     }
 
     public static function isPending(int $id): bool   { return self::$futures[$id][0] === self::STATE_PENDING; }
