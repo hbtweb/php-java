@@ -32,6 +32,7 @@ declare(strict_types=1);
  */
 
 require_once __DIR__ . '/../../vendor/autoload.php';
+require_once __DIR__ . '/../../src/Aot/Runtime/bootstrap.php';
 
 use PHPJava\IO\Standard\Output;
 
@@ -59,12 +60,21 @@ function runOracle(string $classFqn, string $methodName, array $args): string
 
     \ob_start();
     try {
-        $rc = \PHPJava\Aot\Compiler::class;
-        // Route through Loader::callStatic — same dispatch path as
-        // AOT-emitted code uses for cross-class invokestatic. Caller's
-        // args are PHP-native per CONTRACTS.md §1.
-        $bin = \str_replace('.', '/', $classFqn);
-        $return = \PHPJava\Aot\Loader::callStatic($bin, $methodName, ...$args);
+        // Two dispatch paths:
+        //   1. JDK shim — class lives at \PHPJava\Aot\Runtime\<...>
+        //      (see Builder::classFqn). Invoke the static method
+        //      directly; no bytecode to compile.
+        //   2. AOT-compiled bytecode — route through Loader::callStatic
+        //      which compiles from .class on first call. Same dispatch
+        //      path AOT-emitted code uses for cross-class invokestatic.
+        // Caller args are PHP-native per CONTRACTS.md §1.
+        $runtimeFqn = '\\PHPJava\\Aot\\Runtime\\' . \str_replace('.', '\\', $classFqn);
+        if (\class_exists($runtimeFqn) && \method_exists($runtimeFqn, $methodName)) {
+            $return = $runtimeFqn::$methodName(...$args);
+        } else {
+            $bin = \str_replace('.', '/', $classFqn);
+            $return = \PHPJava\Aot\Loader::callStatic($bin, $methodName, ...$args);
+        }
         $stdout = \ob_get_clean();
         // Normalise the heapspace-captured Java println output into
         // the same stream as raw PHP echo.
@@ -95,7 +105,14 @@ function runOracle(string $classFqn, string $methodName, array $args): string
         ];
     }
 
-    return \json_encode($result, \JSON_UNESCAPED_SLASHES);
+    // JSON_PRESERVE_ZERO_FRACTION keeps 1.0 as "1.0" (not "1") so the
+    // Clojure-side parser sees a Double and the comparator matches the
+    // JDK Double return path. Without this, integer-valued floats from
+    // floor/ceil/sqrt/pow/signum collapse to JSON int and diverge.
+    return \json_encode(
+        $result,
+        \JSON_UNESCAPED_SLASHES | \JSON_PRESERVE_ZERO_FRACTION
+    );
 }
 
 /**

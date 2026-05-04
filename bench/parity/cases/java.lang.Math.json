@@ -1,0 +1,83 @@
+{
+  "class": "java.lang.Math",
+  "_note": [
+    "First bb-allowlist parity battery. Exercises the surface in",
+    "src/Aot/Runtime/java/lang/Math.php — abs/min/max/sqrt/pow/",
+    "floor/ceil/round/addExact/subtractExact/multiplyExact/",
+    "negateExact/floorDiv/floorMod/signum.",
+    "",
+    "JSON integer literals decode to Long; reflection picks the",
+    "long-typed overload. JSON float literals decode to Double;",
+    "reflection picks the double-typed overload. The MVP case",
+    "battery sticks to overloads where this matches the bb-fill",
+    "shim's polymorphic dispatch. Int/long boundary cases that",
+    "differ between Java overloads (Integer.MIN_VALUE etc.) get",
+    "added when descriptor-mangled methods land."
+  ],
+  "cases": [
+    {"method": "abs", "args": [-42]},
+    {"method": "abs", "args": [0]},
+    {"method": "abs", "args": [42]},
+    {"method": "abs", "args": [-9223372036854775808]},
+    {"method": "abs", "args": [-42.5]},
+    {"method": "abs", "args": [0.0]},
+
+    {"method": "min", "args": [3, 5]},
+    {"method": "min", "args": [-3, -5]},
+    {"method": "min", "args": [3.0, 5.0]},
+    {"method": "min", "args": [-3.5, 5.0]},
+
+    {"method": "max", "args": [3, 5]},
+    {"method": "max", "args": [-3, -5]},
+    {"method": "max", "args": [3.0, 5.0]},
+    {"method": "max", "args": [-3.5, 5.0]},
+
+    {"method": "sqrt", "args": [4.0]},
+    {"method": "sqrt", "args": [0.0]},
+    {"method": "sqrt", "args": [2.0], "tolerance": 1e-12},
+    {"method": "sqrt", "args": [-1.0]},
+
+    {"method": "pow", "args": [2.0, 10.0]},
+    {"method": "pow", "args": [0.0, 0.0]},
+    {"method": "pow", "args": [10.0, 0.5], "tolerance": 1e-10},
+    {"method": "pow", "args": [2.0, 0.5], "tolerance": 1e-12},
+
+    {"method": "floor", "args": [1.7]},
+    {"method": "floor", "args": [-1.7]},
+    {"method": "floor", "args": [0.0]},
+
+    {"method": "ceil", "args": [1.2]},
+    {"method": "ceil", "args": [-1.7]},
+    {"method": "ceil", "args": [3.0]},
+
+    {"method": "round", "args": [0.5]},
+    {"method": "round", "args": [-0.5]},
+    {"method": "round", "args": [2.5]},
+    {"method": "round", "args": [-2.5]},
+    {"method": "round", "args": [1.49]},
+    {"method": "round", "args": [1.51]},
+
+    {"method": "addExact", "args": [1000, 2000]},
+    {"method": "addExact", "args": [9223372036854775807, 1]},
+    {"method": "subtractExact", "args": [-9223372036854775808, 1]},
+    {"method": "multiplyExact", "args": [9223372036854775807, 2]},
+    {"method": "negateExact", "args": [-9223372036854775808]},
+    {"method": "incrementExact", "args": [9223372036854775807]},
+    {"method": "decrementExact", "args": [-9223372036854775808]},
+
+    {"method": "floorDiv", "args": [7, 3]},
+    {"method": "floorDiv", "args": [-7, 3]},
+    {"method": "floorDiv", "args": [7, -3]},
+    {"method": "floorDiv", "args": [-7, -3]},
+    {"method": "floorDiv", "args": [10, 5]},
+
+    {"method": "floorMod", "args": [7, 3]},
+    {"method": "floorMod", "args": [-7, 3]},
+    {"method": "floorMod", "args": [7, -3]},
+    {"method": "floorMod", "args": [-7, -3]},
+
+    {"method": "signum", "args": [3.0]},
+    {"method": "signum", "args": [-3.0]},
+    {"method": "signum", "args": [0.0]}
+  ]
+}

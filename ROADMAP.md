@@ -492,21 +492,56 @@ prerequisite.
 
 **v1 critical path (sequential):**
 
-1. **Path D′ behavioural oracle harness** (~1 week, *partial*).
-   PHP-side runner **DONE** at `bench/parity/oracle-runner.php` —
-   captures (return, exception, stdout, stderr) for one PHPJava AOT
-   invocation, serialises to JSON per the contract in
-   `bench/parity/README.md`. Smoke-tested against the audit-T1
-   long-overflow fixture. **REMAINING**: oracle driver (~750 LOC)
-   that drives a real HotSpot JVM in parallel via FFM transport
-   (the pattern established in `bench/baseline.clj`), runs the
-   comparator, emits per-class parity reports. Internal PHPJava
-   tooling.
+1. **Path D′ behavioural oracle harness** — **MVP SHIPPED 2026-05-05**.
+   - PHP-side runner at `bench/parity/oracle-runner.php` — captures
+     (return, exception, stdout, stderr) for one PHPJava AOT
+     invocation, serialises to JSON per the contract in
+     `bench/parity/README.md`. Routes JDK shims through the AOT
+     runtime namespace directly; bytecode-compiled classes through
+     `Loader::callStatic` — both paths from one runOracle entry.
+   - Clojure-side driver at `bench/parity/oracle_driver.clj`
+     (~270 LOC). Loads case-spec JSON, reflects over the real HotSpot
+     class, subprocesses into the PHP runner, runs per-axis
+     comparator (kind/return/exception.class/stdout), emits per-case
+     PASS/FAIL with axis-level diffs and a summary line. Subprocess
+     transport (not FFM) is the MVP — FFM is the perf optimisation
+     for the long-tail 12k-case battery and lands when wall-time
+     warrants. Run: `clj -Sdeps '{:paths ["bench/parity"] :deps {org.clojure/data.json {:mvn/version "2.5.0"}}}' -M -m oracle-driver --case <case-file>`.
+   - First case battery at `bench/parity/cases/java.lang.Math.json`
+     (53 cases). Validated: **53/53 match against OpenJDK 25** —
+     rank-1 evidence the harness detects equivalence and divergence
+     (caught the JSON int/float type-collapse bug in iteration 1,
+     fixed via `JSON_PRESERVE_ZERO_FRACTION`).
+
+   **REMAINING (post-MVP)**:
+   - FFM transport — when subprocess wall-time on the full bb-fill
+     battery (~12k cases × ~100ms = ~20min) becomes the bottleneck.
+     Pattern is in `bench/baseline.clj`; the swap is mechanical.
+   - Descriptor-mangled overload disambiguation — for cases where
+     int vs long semantics diverge (Integer.MIN_VALUE etc.). MVP
+     case batteries stick to overloads where polymorphic PHP
+     dispatch matches Java; descriptor mangling lands when a
+     bb-allowlist class needs it.
+   - CI bridge — surface parity divergence as PHPUnit failure.
 2. **bb-allowlist non-stub fill** (~80 most-used babashka classes,
    2–4 months) — work each class against the oracle. The actual v1
    gate. ~110 of the ~130 stub-only T2 classes are already Path C
    stubs (`tools/gen-aot-stubs.php` + `src/Aot/Runtime/java/**`); this
    step replaces the stub bodies with real implementations.
+
+   **Progress (2026-05-05): 1/80 shipped + parity-validated.**
+   - `java.lang.Math` — `src/Aot/Runtime/java/lang/Math.php`. Surface:
+     abs/min/max (polymorphic int+long+float+double), sqrt/pow/floor/
+     ceil, round (Java half-up semantics, not PHP half-away-from-zero),
+     addExact/subtractExact/multiplyExact/negateExact/incrementExact/
+     decrementExact (long overflow → ArithmeticException), floorDiv/
+     floorMod (Java floor-toward-negative-infinity, not PHP truncate),
+     signum, PI, E. Trig/log/exp/random/cbrt/copySign/IEEEremainder
+     deferred — no bb-allowlist hits exercise them yet. 53/53 parity
+     vs HotSpot. Bonus: dropped 12 errors from the broader Packages
+     test suite (38E → 26E baseline) — AOT-default path through
+     legacy `JavaLangMathTest` now resolves Math.abs/min/max via the
+     new shim instead of erroring on missing class.
 
 **Independent capability work (parallelizable with the critical path):**
 
