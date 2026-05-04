@@ -46,6 +46,111 @@ class IndexOutOfBoundsException extends \OutOfBoundsException {}
 class NumberFormatException extends \InvalidArgumentException {}
 class UnsupportedOperationException extends \BadMethodCallException {}
 
+/**
+ * Raw-scalar adapter for `java.lang.String`. AOT-emitted code receives
+ * a String as a raw PHP string (CONTRACTS.md §1, post-#12 wrapper-removal).
+ * Instance methods are exposed as static functions taking the receiver
+ * as the first argument; the IR Builder emits `String::method($s, ...)`
+ * instead of `$s->method(...)` when the bytecode dispatches against
+ * `java/lang/String`. Class name `String_` (trailing underscore) per
+ * existing bootstrap convention; the IR Builder maps `java/lang/String`
+ * to this FQN explicitly.
+ *
+ * Methods cover the most common JDK String surface — extend as fixtures
+ * surface need. Char return (`charAt`) follows JVM-spec: returns `int`
+ * (the UTF-16 code unit), not a `Char_` wrapper or single-byte string.
+ */
+class String_
+{
+    public static function charAt(string $s, int $i): int
+    {
+        if ($i < 0 || $i >= \strlen($s)) {
+            throw new IndexOutOfBoundsException("String index out of range: {$i}");
+        }
+        return \ord($s[$i]);
+    }
+
+    public static function length(string $s): int { return \strlen($s); }
+
+    public static function isEmpty(string $s): int { return $s === '' ? 1 : 0; }
+
+    public static function equals(string $s, $other): int
+    {
+        return ($s === $other) ? 1 : 0;
+    }
+
+    public static function hashCode(string $s): int
+    {
+        // Java String.hashCode: s[0]*31^(n-1) + s[1]*31^(n-2) + ...
+        // Result is a 32-bit signed int; mask + sign-extend for parity.
+        $h = 0;
+        for ($i = 0, $n = \strlen($s); $i < $n; $i++) {
+            $h = (($h * 31) + \ord($s[$i])) & 0xFFFFFFFF;
+        }
+        return ($h & 0x80000000) ? $h - 0x100000000 : $h;
+    }
+
+    public static function toString(string $s): string { return $s; }
+
+    public static function indexOf(string $s, $needle, int $fromIndex = 0): int
+    {
+        if (\is_int($needle)) $needle = \chr($needle);
+        $p = \strpos($s, (string) $needle, \max(0, $fromIndex));
+        return $p === false ? -1 : $p;
+    }
+
+    public static function lastIndexOf(string $s, $needle): int
+    {
+        if (\is_int($needle)) $needle = \chr($needle);
+        $p = \strrpos($s, (string) $needle);
+        return $p === false ? -1 : $p;
+    }
+
+    public static function substring(string $s, int $beginIndex, ?int $endIndex = null): string
+    {
+        return $endIndex === null
+            ? \substr($s, $beginIndex)
+            : \substr($s, $beginIndex, $endIndex - $beginIndex);
+    }
+
+    public static function trim(string $s): string { return \trim($s); }
+    public static function strip(string $s): string { return \trim($s); }
+
+    public static function startsWith(string $s, string $prefix): int
+    {
+        return \str_starts_with($s, $prefix) ? 1 : 0;
+    }
+
+    public static function endsWith(string $s, string $suffix): int
+    {
+        return \str_ends_with($s, $suffix) ? 1 : 0;
+    }
+
+    public static function contains(string $s, string $sub): int
+    {
+        return \str_contains($s, $sub) ? 1 : 0;
+    }
+
+    public static function replace(string $s, $target, $repl): string
+    {
+        if (\is_int($target)) $target = \chr($target);
+        if (\is_int($repl))   $repl   = \chr($repl);
+        return \str_replace((string) $target, (string) $repl, $s);
+    }
+
+    public static function toLowerCase(string $s): string { return \strtolower($s); }
+    public static function toUpperCase(string $s): string { return \strtoupper($s); }
+    public static function concat(string $s, string $t): string { return $s . $t; }
+
+    public static function valueOf($v): string
+    {
+        if ($v === null) return 'null';
+        if ($v === true) return 'true';
+        if ($v === false) return 'false';
+        return (string) $v;
+    }
+}
+
 namespace PHPJava\Aot\Runtime\java\io;
 
 /**

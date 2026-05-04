@@ -586,7 +586,18 @@ final class Builder
             case 0xC6: $this->emitIfPop('===', new \PHPJava\Aot\Ir\NullLit(), $bytes, $start); return;
             case 0xC7: $this->emitIfPop('!==', new \PHPJava\Aot\Ir\NullLit(), $bytes, $start); return;
             // ── stack ops ─────────────────────────────────────────
-            case 0x57: array_pop($this->abstractStack); return; // pop
+            // pop discards the top value but its side effects matter —
+            // bytecode like `String.charAt(-1); /* discard result */`
+            // pops the int return after the call ran. If the popped Expr
+            // is impure (StaticCall, InstanceCall, New_, …), materialise
+            // it as an ExprStmt before discarding so the side effect
+            // (e.g. IndexOutOfBoundsException) still happens.
+            case 0x57:
+                $top = array_pop($this->abstractStack);
+                if ($top instanceof Expr && !$top->isPure()) {
+                    $this->currentBb->stmts[] = new ExprStmt($top);
+                }
+                return;
             case 0x00: return; // nop (already above)
             // ── INVOKEDYNAMIC ──────────────────────────────────────
             case 0xBA:
@@ -721,13 +732,26 @@ final class Builder
             // INSTANCEOF: pop ref, push intval(\is_a(ref, '\\FQN', true)).
             // intval wrap so subsequent IFEQ === IntLit(0) comparison is
             // type-correct (PHP false === 0 is false).
+            //
+            // Raw-scalar adapter classes (String, CharSequence — any
+            // class whose AOT runtime form is a PHP scalar) need an
+            // is_string() check rather than an is_a() lookup against a
+            // class that may not exist as a PHP type. Object is treated
+            // as a universal "non-null" check since every JVM ref +
+            // raw scalar is a java.lang.Object except null.
             case 0xC1:
                 $idx = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
                 $cls = $this->constantPool[$idx] ?? null;
-                $clsFqn = ($cls instanceof ClassInfo)
-                    ? $this->classFqn($this->utf8At($cls->getClassIndex()))
-                    : '\\stdClass';
+                $clsBin = ($cls instanceof ClassInfo) ? $this->utf8At($cls->getClassIndex()) : '';
                 $ref = $this->pop();
+                $check = self::scalarInstanceOfCheck($clsBin, $ref);
+                if ($check !== null) {
+                    $this->push(new \PHPJava\Aot\Ir\StaticCall('\\intval', '', [$check]));
+                    return;
+                }
+                $clsFqn = ($cls instanceof ClassInfo)
+                    ? $this->classFqn($clsBin)
+                    : '\\stdClass';
                 $this->push(new \PHPJava\Aot\Ir\StaticCall(
                     '\\intval', '',
                     [new \PHPJava\Aot\Ir\StaticCall(
@@ -1118,12 +1142,66 @@ final class Builder
             return;
         }
 
+        // Raw-scalar adapter: classes whose AOT runtime representation
+        // is a PHP scalar (String → string) can't take instance-method
+        // dispatch (`$s->charAt(0)` on a string is a fatal error). The
+        // bootstrap.php `String_` class exposes the common methods as
+        // statics with the receiver as first arg; emit a StaticCall.
+        $adapterFqn = self::staticAdapterFqn($cls);
+        if ($adapterFqn !== null) {
+            $allArgs = $args;
+            \array_unshift($allArgs, $receiver);
+            $call = new StaticCall($adapterFqn, $this->mangleMethod($methodName), $allArgs);
+            if ($ret === 'V') {
+                $this->currentBb->stmts[] = new ExprStmt($call);
+            } else {
+                $this->push($call);
+            }
+            return;
+        }
+
         $call = new InstanceCall($receiver, $this->mangleMethod($methodName), $args);
         if ($ret === 'V') {
             $this->currentBb->stmts[] = new ExprStmt($call);
         } else {
             $this->push($call);
         }
+    }
+
+    /**
+     * JDK classes whose AOT runtime form is a PHP scalar — instance
+     * dispatch is rewritten to a static call against the adapter class
+     * with the receiver as first argument. Extend as raw-scalar adapter
+     * shims land in `Aot/Runtime/bootstrap.php`.
+     */
+    private static function staticAdapterFqn(string $clsBin): ?string
+    {
+        return match ($clsBin) {
+            'java/lang/String' => '\\PHPJava\\Aot\\Runtime\\java\\lang\\String_',
+            default            => null,
+        };
+    }
+
+    /**
+     * `instanceof` short-circuit for classes whose runtime form is a
+     * PHP scalar or a universal predicate. Returns the IR Expr that
+     * yields the appropriate boolean, or null if the standard
+     * `is_a($ref, $fqn, true)` path should be used.
+     *
+     * - `String` / `CharSequence`: `is_string($ref)` (also handles null
+     *   correctly — is_string(null) is false).
+     * - `Object`: `$ref !== null` (every JVM ref + raw scalar is an
+     *   Object except null per JVM spec).
+     */
+    private static function scalarInstanceOfCheck(string $clsBin, Expr $ref): ?Expr
+    {
+        return match ($clsBin) {
+            'java/lang/String', 'java/lang/CharSequence'
+                => new StaticCall('\\is_string', '', [$ref]),
+            'java/lang/Object'
+                => new BinOp('!==', $ref, new \PHPJava\Aot\Ir\NullLit()),
+            default => null,
+        };
     }
 
     /**
