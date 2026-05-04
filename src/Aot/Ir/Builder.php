@@ -553,6 +553,11 @@ final class Builder
             case 0xB2: // getstatic
                 $idx = ($bytes[$this->pc] << 8) | $bytes[$this->pc + 1]; $this->pc += 2;
                 [$cls, $field, ] = $this->resolveFieldRef($idx);
+                $folded = self::lowerWrapperStaticField($cls, $field);
+                if ($folded !== null) {
+                    $this->push($folded);
+                    return;
+                }
                 $this->push(new \PHPJava\Aot\Ir\StaticFieldRead($this->classFqn($cls), $field));
                 return;
             case 0xB3: // putstatic
@@ -1086,6 +1091,16 @@ final class Builder
         ksort($args);
         $args = array_values($args);
 
+        $folded = self::lowerWrapperStaticCall($clsName, $methodName, $argTypes, $args);
+        if ($folded !== null) {
+            if ($ret === 'V') {
+                $this->currentBb->stmts[] = new ExprStmt($folded);
+            } else {
+                $this->push($folded);
+            }
+            return;
+        }
+
         $fqn = $this->classFqn($clsName);
         $bin = $this->generatedBinaryName($clsName);
         $call = new StaticCall($fqn, $this->mangleMethod($methodName), $args, $bin);
@@ -1143,6 +1158,22 @@ final class Builder
             return;
         }
 
+        // BOXING.md lowering: wrapper-class instance methods on raw
+        // scalars. Per CONTRACTS.md §1, primitive wrapper instances
+        // never exist at runtime — the receiver IS the value. So
+        // i.intValue() is identity, i.equals(j) is ===, etc. Inline
+        // the lowering at IR build time so the AOT-emitted code is
+        // pure scalar ops with no dispatch.
+        $folded = self::lowerWrapperInstanceCall($cls, $methodName, $receiver, $args);
+        if ($folded !== null) {
+            if ($ret === 'V') {
+                $this->currentBb->stmts[] = new ExprStmt($folded);
+            } else {
+                $this->push($folded);
+            }
+            return;
+        }
+
         // Raw-scalar adapter: classes whose AOT runtime representation
         // is a PHP scalar (String → string) can't take instance-method
         // dispatch (`$s->charAt(0)` on a string is a fatal error). The
@@ -1181,6 +1212,206 @@ final class Builder
             'java/lang/String' => '\\PHPJava\\Aot\\Runtime\\java\\lang\\String_',
             default            => null,
         };
+    }
+
+    /**
+     * Per BOXING.md, primitive-wrapper public-static fields (MAX_VALUE,
+     * MIN_VALUE, SIZE, BYTES, POSITIVE_INFINITY, NEGATIVE_INFINITY) are
+     * compile-time constants. Fold to literal IR nodes so the AOT-emitted
+     * code never reaches the wrapper shim.
+     *
+     * Returns null for non-wrapper or unknown fields → caller emits the
+     * standard StaticFieldRead.
+     */
+    private static function lowerWrapperStaticField(string $cls, string $field): ?Expr
+    {
+        return match ("{$cls}.{$field}") {
+            'java/lang/Integer.MAX_VALUE'   => new IntLit(2147483647),
+            'java/lang/Integer.MIN_VALUE'   => new IntLit(-2147483648),
+            'java/lang/Integer.SIZE'        => new IntLit(32),
+            'java/lang/Integer.BYTES'       => new IntLit(4),
+
+            'java/lang/Long.MAX_VALUE'      => new IntLit(\PHP_INT_MAX),
+            'java/lang/Long.MIN_VALUE'      => new IntLit(\PHP_INT_MIN),
+            'java/lang/Long.SIZE'           => new IntLit(64),
+            'java/lang/Long.BYTES'          => new IntLit(8),
+
+            'java/lang/Short.MAX_VALUE'     => new IntLit(32767),
+            'java/lang/Short.MIN_VALUE'     => new IntLit(-32768),
+            'java/lang/Short.SIZE'          => new IntLit(16),
+            'java/lang/Short.BYTES'         => new IntLit(2),
+
+            'java/lang/Byte.MAX_VALUE'      => new IntLit(127),
+            'java/lang/Byte.MIN_VALUE'      => new IntLit(-128),
+            'java/lang/Byte.SIZE'           => new IntLit(8),
+            'java/lang/Byte.BYTES'          => new IntLit(1),
+
+            'java/lang/Character.MAX_VALUE' => new IntLit(0xFFFF),
+            'java/lang/Character.MIN_VALUE' => new IntLit(0),
+            'java/lang/Character.SIZE'      => new IntLit(16),
+            'java/lang/Character.BYTES'     => new IntLit(2),
+
+            'java/lang/Float.MAX_VALUE'         => new FloatLit(3.4028235e38),
+            'java/lang/Float.MIN_VALUE'         => new FloatLit(1.4e-45),
+            'java/lang/Float.POSITIVE_INFINITY' => new FloatLit(\INF),
+            'java/lang/Float.NEGATIVE_INFINITY' => new FloatLit(-\INF),
+            'java/lang/Float.NaN'               => new FloatLit(\NAN),
+
+            'java/lang/Double.MAX_VALUE'         => new FloatLit(\PHP_FLOAT_MAX),
+            'java/lang/Double.MIN_VALUE'         => new FloatLit(\PHP_FLOAT_MIN),
+            'java/lang/Double.POSITIVE_INFINITY' => new FloatLit(\INF),
+            'java/lang/Double.NEGATIVE_INFINITY' => new FloatLit(-\INF),
+            'java/lang/Double.NaN'               => new FloatLit(\NAN),
+
+            default => null,
+        };
+    }
+
+    /**
+     * Per BOXING.md §"Mapping JVM contract to PHP semantics", primitive-
+     * wrapper static methods reduce to identity, basic operators, or
+     * single shim calls. Inline at IR build time.
+     *
+     * - Wrapper.valueOf(primitive)   → identity  (no boxing)
+     * - Wrapper.compare(a, b)        → a <=> b
+     * - Wrapper.max(a, b) / min      → ternary  (avoid \max/\min cost)
+     * - Wrapper.toString(primitive)  → (string) primitive
+     * - Number.intValue/etc statics  → cast
+     *
+     * Wrapper.parseInt(String) is left as-is (still routes through the
+     * shim — the shim does the validation and throws NumberFormatException
+     * to match JDK; inlining (int)$s would silently accept "abc" → 0).
+     */
+    private static function lowerWrapperStaticCall(
+        string $cls,
+        string $method,
+        array $argTypes,
+        array $args
+    ): ?Expr {
+        if (!self::isPrimitiveWrapperClass($cls)) return null;
+        $argc = \count($args);
+
+        // valueOf(primitive) → identity. valueOf(String) is parseInt for
+        // int/long/etc. and is left to the shim.
+        if ($method === 'valueOf' && $argc === 1
+            && isset($argTypes[0])
+            && self::isJvmPrimitiveDescriptor($argTypes[0])) {
+            return $args[0];
+        }
+
+        // compare(a, b) → spaceship. JVM semantics: returns int sign
+        // (-1/0/1 in spec; PHP <=> returns -1/0/1 too).
+        if ($method === 'compare' && $argc === 2) {
+            return new BinOp('<=>', $args[0], $args[1]);
+        }
+
+        // toString(primitive) → (string)x. The 1-arg int form for
+        // Integer/Long is the common case; the 2-arg radix form falls
+        // through to the shim.
+        if ($method === 'toString' && $argc === 1) {
+            return new StaticCall('\\strval', '', [$args[0]]);
+        }
+
+        // Number.intValue / longValue / etc. as statics — Java doesn't
+        // expose these as statics on Number, but Integer.intValue exists.
+        // Cast to the appropriate PHP scalar type.
+        if ($argc === 1) {
+            $cast = match ($method) {
+                'intValue', 'shortValue', 'byteValue' => '\\intval',
+                'longValue'                            => '\\intval',
+                'doubleValue', 'floatValue'           => '\\floatval',
+                'booleanValue'                         => '\\boolval',
+                default                                => null,
+            };
+            if ($cast !== null) {
+                return new StaticCall($cast, '', [$args[0]]);
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Per BOXING.md, wrapper instance methods on raw-scalar receivers
+     * inline to identity, ===, basic ops. The receiver is the value.
+     *
+     * - i.intValue() / .longValue() / etc. → identity (or numeric cast)
+     * - i.equals(j)                        → $i === $j ? 1 : 0
+     * - i.hashCode()                       → identity (Integer.hashCode IS the int)
+     * - i.toString()                       → (string)$i
+     * - i.compareTo(j)                     → $i <=> $j
+     */
+    private static function lowerWrapperInstanceCall(
+        string $cls,
+        string $method,
+        Expr $receiver,
+        array $args
+    ): ?Expr {
+        if (!self::isPrimitiveWrapperClass($cls)) return null;
+        $argc = \count($args);
+
+        // Identity unboxing — i.intValue(), l.longValue(), etc.
+        if ($argc === 0) {
+            switch ($method) {
+                case 'intValue':
+                case 'shortValue':
+                case 'byteValue':
+                case 'longValue':
+                    return $cls === 'java/lang/Double' || $cls === 'java/lang/Float'
+                        ? new StaticCall('\\intval', '', [$receiver])
+                        : $receiver;
+                case 'doubleValue':
+                case 'floatValue':
+                    return $cls === 'java/lang/Double' || $cls === 'java/lang/Float'
+                        ? $receiver
+                        : new StaticCall('\\floatval', '', [$receiver]);
+                case 'booleanValue':
+                    return $receiver;
+                case 'hashCode':
+                    // Integer.hashCode IS the int value per JVMS. For other
+                    // wrappers, fall through to the shim — Long.hashCode
+                    // mixes high/low halves; Double/Float bit-fiddle.
+                    return $cls === 'java/lang/Integer' ? $receiver : null;
+                case 'toString':
+                    return new StaticCall('\\strval', '', [$receiver]);
+            }
+        }
+
+        if ($argc === 1) {
+            // i.equals(j) → ($i === $j ? 1 : 0). JVM semantics: returns
+            // boolean (Z), which is int 0/1 on the operand stack.
+            if ($method === 'equals') {
+                return new BinOp('===', $receiver, $args[0]);
+            }
+            // i.compareTo(j) → $i <=> $j (returns -1/0/1).
+            if ($method === 'compareTo') {
+                return new BinOp('<=>', $receiver, $args[0]);
+            }
+        }
+
+        return null;
+    }
+
+    private static function isPrimitiveWrapperClass(string $cls): bool
+    {
+        return match ($cls) {
+            'java/lang/Integer',
+            'java/lang/Long',
+            'java/lang/Short',
+            'java/lang/Byte',
+            'java/lang/Character',
+            'java/lang/Float',
+            'java/lang/Double',
+            'java/lang/Boolean',
+            'java/lang/Number' => true,
+            default            => false,
+        };
+    }
+
+    private static function isJvmPrimitiveDescriptor(string $d): bool
+    {
+        return $d === 'I' || $d === 'J' || $d === 'D' || $d === 'F'
+            || $d === 'S' || $d === 'B' || $d === 'C' || $d === 'Z';
     }
 
     /**

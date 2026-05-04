@@ -249,7 +249,13 @@ final class Lowerer
             if ($e->value === \PHP_INT_MIN) return '(\\PHP_INT_MIN)';
             return (string)$e->value;
         }
-        if ($e instanceof FloatLit) return is_finite($e->value) ? (string)$e->value : 'NAN';
+        if ($e instanceof FloatLit) {
+            $v = $e->value;
+            if (\is_nan($v)) return 'NAN';
+            if ($v === \INF)  return 'INF';
+            if ($v === -\INF) return '-INF';
+            return (string) $v;
+        }
         if ($e instanceof StringLit) return var_export($e->value, true);
         if ($e instanceof NullLit) return 'null';
         if ($e instanceof ArrayLit) {
