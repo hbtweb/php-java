@@ -823,6 +823,15 @@ broadly.
   earlier "bb-fill OR unified-frontend" framing was a false dichotomy
   — they're orthogonal substrates that don't compete for author time.
 
+  **Profile result 2026-05-05** at `bench/shim-chain-profiler.php`:
+  the current shim layer (1887 indexed methods) is overwhelmingly
+  flat — only 1 method at depth ≥3 (`Objects::hash → Objects::hashCode
+  → String_::hashCode`), 15 at depth 2, 99.2% at depth 1. M1's win is
+  theoretical for this codebase until compositional bb-fill classes
+  (HashMap.put walking hash+equals+bucket; Stream operations;
+  Comparator dispatch) ship. Re-run the profiler after each batch of
+  fills; revisit the spike decision when depth ≥3 crosses 20%.
+
 ## Cadence
 
 - Each tier produces measured evidence before the next is started.
