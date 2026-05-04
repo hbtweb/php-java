@@ -323,9 +323,15 @@ The Swoole equivalent requires building a Future type out of channels.
    | `CF::supplyAsync(s)->get()`  JIT off |   575 ns/op |    21 ns/op | 554 ns |
    | `CF::supplyAsync(s)->join()` JIT off |   587 ns/op |    21 ns/op | 565 ns |
    | `CF::runAsync(r)->get()`     JIT off |   990 ns/op |    21 ns/op | 969 ns |
+   | no-escape `$L=sa($s); $L->get()` off |   684 ns/op |    23 ns/op | 661 ns |
    | `CF::supplyAsync(s)->get()`  JIT on  |   379 ns/op |    12 ns/op | 368 ns |
    | `CF::supplyAsync(s)->join()` JIT on  |   370 ns/op |    12 ns/op | 358 ns |
    | `CF::runAsync(r)->get()`     JIT on  |   813 ns/op |    12 ns/op | 802 ns |
+   | no-escape `$L=sa($s); $L->get()` on  |   545 ns/op |    12 ns/op | 534 ns |
+
+   Slot-indirection cost (specialised no-escape vs inline collapse):
+   ≤2 ns/op JIT off, 0 ns/op JIT on — the extra `$L = $s` write +
+   read is below measurement noise.
 
    `runAsync` saves more because its supplier is wrapped in an extra
    closure (line 82 of `CompletableFuture.php`) that the specialised
@@ -334,13 +340,36 @@ The Swoole equivalent requires building a Future type out of channels.
    underestimated the saving here — the production CF wrapper adds
    ~50–100 ns on top of the bare async+await floor.
 
+   Lowered-shape verification (rank 3): inline collapse emits
+   `($L[N])()`; no-escape collapse emits `$L[N] = $supplier;
+   ($L[N])();` (single supplier-store + later invocation). Confirmed
+   by `testLowererEmitsInvokeCallable` and
+   `testLowererEmitsNoEscapeCollapse` in
+   `tests/Cases/AsyncSpecialiserPassTest.php`.
+
    Future extensions (not blocking this checkpoint):
-   - Single-use no-escape detection: collapse `var cf = supplyAsync(s);
+   - ~~Single-use no-escape detection: collapse `var cf = supplyAsync(s);
      cf.get();` when `cf` is only read by the .get and never escapes
-     to other call sites (allOf, thenApply, etc.). Needs a use-count
-     pass over LocalRead.
-   - ExecutorService.submit(s).get() collapse — same shape, different
-     class FQN (any ExecutorService impl).
+     to other call sites (allOf, thenApply, etc.).~~ DONE — landed in
+     AsyncSpecialiserPass::applyNoEscapeCollapse. Method-wide single-
+     consuming-use analysis: rewrites `StoreLocal(slot, supplyAsync($s))`
+     to `StoreLocal(slot, $s)` and the matching `InstanceCall(LocalRead(slot),
+     'get'|'join', [])` to `InvokeCallable(LocalRead(slot), [])`. Sound
+     because the supplier expression evaluates at the StoreLocal site
+     unchanged, and the supplier *invocation* still happens at the
+     `.get()` site (exception ordering preserved). Conservatively
+     skipped: multi-`.get()` on same slot (Future caches; rewrite
+     would re-invoke), escape into another call's args, slot rebind.
+     Cross-basic-block patterns supported. 5 new test cases:
+     no-escape-single-use-collapses, no-escape-runAsync-join-terminator,
+     multiple-gets-skipped, escape-as-call-arg-skipped, rebind-skipped,
+     cross-block-collapses. Saving same as inline collapse (419-879 ns
+     JIT on; 728-1148 ns JIT off — see table above).
+   - ExecutorService.submit(s).get() collapse — deferred. Soundness
+     issue: ThreadPoolExecutor.submit checks `$this->shutdown` and
+     throws IllegalStateException; collapsing skips that check. Needs
+     either escape analysis to prove the executor instance is fresh
+     and never-shutdown, or a guarded emit form. Out of scope for v1.
    - Thread.start().join() collapse for void runnables — needs the
      IR builder to emit the new+start+join sequence as a peephole-
      friendly shape, not split across BBs.

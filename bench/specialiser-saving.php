@@ -90,22 +90,45 @@ $ieRaw = bench('InlineExecutor::async + await — no CF', function () {
     }
 });
 
+/* ─── workload F: no-escape unspecialised — `$L = CF::supplyAsync($s); $L->get();` ── */
+$noEscRaw = bench('no-escape unspecialised: $L = CF::sa($s); $L->get()', function () {
+    InlineExecutor::reset();
+    $s = static fn() => 42;
+    for ($i = 0; $i < N; $i++) {
+        $L = CompletableFuture::supplyAsync($s);
+        $v = $L->get();
+    }
+});
+
+/* ─── workload G: no-escape specialised — `$L = $s; ($L)();` (what the pass emits) ── */
+$noEscSpec = bench('no-escape specialised:    $L = $s; ($L)()', function () {
+    $s = static fn() => 42;
+    for ($i = 0; $i < N; $i++) {
+        $L = $s;
+        $v = ($L)();
+    }
+});
+
 $jit = \ini_get('opcache.jit') ?: 'off';
 echo 'PHP ' . \PHP_VERSION . ' | iters=' . N . ' | reps=' . REPS . ' | jit=' . $jit . "\n";
 echo \str_repeat('─', 78) . "\n";
-foreach ([$direct, $ieRaw, $cfGet, $cfJoin, $cfRun] as $r) {
-    \printf("  %-44s  median %7.0f ns/op  (min %7.0f)\n",
+foreach ([$direct, $ieRaw, $cfGet, $cfJoin, $cfRun, $noEscRaw, $noEscSpec] as $r) {
+    \printf("  %-50s  median %7.0f ns/op  (min %7.0f)\n",
         $r['label'], $r['median'], $r['min']);
 }
 echo \str_repeat('─', 78) . "\n";
 
-$savingGet  = $cfGet['median']  - $direct['median'];
-$savingJoin = $cfJoin['median'] - $direct['median'];
-$savingRun  = $cfRun['median']  - $direct['median'];
-$ieFloor    = $ieRaw['median']  - $direct['median'];
+$savingGet     = $cfGet['median']     - $direct['median'];
+$savingJoin    = $cfJoin['median']    - $direct['median'];
+$savingRun     = $cfRun['median']     - $direct['median'];
+$ieFloor       = $ieRaw['median']     - $direct['median'];
+$savingNoEsc   = $noEscRaw['median']  - $noEscSpec['median'];
+$slotIndirect  = $noEscSpec['median'] - $direct['median'];
 
-\printf("specialiser saving — supplyAsync()->get():  %6.0f ns/op\n", $savingGet);
-\printf("specialiser saving — supplyAsync()->join(): %6.0f ns/op\n", $savingJoin);
-\printf("specialiser saving — runAsync()->get():     %6.0f ns/op\n", $savingRun);
-\printf("InlineExecutor floor (CF wrapper excluded): %6.0f ns/op\n", $ieFloor);
+\printf("inline collapse saving — supplyAsync()->get():  %6.0f ns/op\n", $savingGet);
+\printf("inline collapse saving — supplyAsync()->join(): %6.0f ns/op\n", $savingJoin);
+\printf("inline collapse saving — runAsync()->get():     %6.0f ns/op\n", $savingRun);
+\printf("no-escape collapse saving (\$L = sa(\$s); \$L->get()): %6.0f ns/op\n", $savingNoEsc);
+\printf("slot-indirection cost (specialised vs direct):  %6.0f ns/op\n", $slotIndirect);
+\printf("InlineExecutor floor (CF wrapper excluded):     %6.0f ns/op\n", $ieFloor);
 echo \str_repeat('─', 78) . "\n";
