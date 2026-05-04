@@ -89,6 +89,30 @@ final class Objects
         );
     }
 
+    /**
+     * Java: Arrays.hashCode(Object[]). Polynomial 31-rolling hash over
+     * the elements' .hashCode() values. Empty array → 1; null array →
+     * 0 (Java null check). Each element: null → 0, else → its hashCode
+     * via the type-dispatched Objects.hashCode above.
+     *
+     * Bytecode-side: `Objects.hash(a, b, c)` is sugar for
+     * `Objects.hash(new Object[]{a, b, c})`. AOT-emitted code passes a
+     * single PHP array — same shape javac compiles to. The varargs
+     * desugaring happens at compile time, not runtime.
+     */
+    public static function hash($values): int
+    {
+        if ($values === null) return 0;
+        $result = 1;
+        foreach ($values as $v) {
+            $eltHash = ($v === null) ? 0 : self::hashCode($v);
+            $result = (int) ((31 * $result + $eltHash) & 0xFFFFFFFF);
+            // Narrow back to signed int32.
+            if ($result >= 0x80000000) $result -= 0x100000000;
+        }
+        return $result;
+    }
+
     public static function toString($a, ?string $defaultValue = null): string
     {
         if ($a === null) return $defaultValue ?? 'null';

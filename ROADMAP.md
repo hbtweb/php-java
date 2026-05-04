@@ -556,15 +556,20 @@ prerequisite.
      contract that PHP int IS Java long, bool→1231/1237; Double and
      Object hashCode deferred), toString (with optional default),
      requireNonNull (throws NPE). hash(Object...) variadic deferred —
-     driver-side Object[] dispatch needed. compare/Comparator,
+     **44/44 parity vs HotSpot** (35 + 9 hash() varargs cases added
+     after driver gained Object[] dispatch). compare/Comparator,
      deepEquals, requireNonNullElse, checkIndex/checkFromToIndex/
-     checkFromIndexSize all deferred. **35/35 parity vs HotSpot.**
+     checkFromIndexSize still deferred.
 
    Driver capability gained — `find-method` does name+arity+
    assignable-types lookup with primitive ↔ wrapper unboxing and
    widening, picks the most-specific overload by specificity score.
    Replaces the strict `getMethod(typed-args)` lookup that couldn't
-   resolve `Objects.isNull(Object)` from a String arg.
+   resolve `Objects.isNull(Object)` from a String arg. Also: vector
+   args dispatch as `Object[]` (Java vararg `Object...`), with
+   `box-arg` recursively converting Clojure vectors into Java
+   `Object[]` for `Method.invoke` — required by `Objects.hash`
+   and likely future `Arrays.*` methods.
 
    IR routing fix landed alongside (Builder.php classFqn): JDK
    classes whose simple name collides with a PHP-8 reserved type
@@ -572,8 +577,28 @@ prerequisite.
    case-insensitively reserved) route to the underscore-suffixed
    shim shape (`String_`, `Object_`, `Float_`, `Void_`). Closes the
    `Class "PHPJava\Aot\Runtime\java\lang\String" not found` AOT
-   dispatch errors. testHashCode et al now hit the next blocker
-   (T4 String_ instance-construction fill — separate task).
+   dispatch errors. Underscore-shim files now exist (Object_, Float_,
+   Void_ in `src/Aot/Runtime/java/lang/`); String_ was already there.
+
+   IR Builder peephole for `new String(...)` lowering — per
+   BOXING.md doctrine, `new String()` and `new String(String)` lower
+   to the literal directly (no allocation, no shim instance state
+   needed). Other constructor forms (byte[], char[]) still flow
+   through `New_` and surface a clear failure when reached, marking
+   the next fixture-driven extension. **Closed 2 suite errors**:
+   `JavaUtilObjectsTest::testHashCode` and
+   `JavaLangStringTest::testHashCode` (both call `Objects.hashCode(
+   new String(...))` / equivalent). Suite: **24E** (was 26E).
+
+   Remaining 4 string/system errors all depend on
+   `System.identityHashCode` to assert per-instance string identity
+   (testIntern / testNotInterned / testNotInternedAfterLiteral /
+   testIdentityHashCode). The PHPJava AOT contract intentionally
+   diverges here — PHP string IS Java String value-wise, no
+   per-instance identity for primitives. Implementing
+   `identityHashCode` would close `testIntern` (same-value → same
+   hash) but not `testNotInterned` (which asserts inequality of
+   same-value strings). Contract-divergence call deferred.
 
 **Independent capability work (parallelizable with the critical path):**
 

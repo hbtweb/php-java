@@ -45,6 +45,16 @@
     {"method": "requireNonNull", "args": ["abc"]},
     {"method": "requireNonNull", "args": [42]},
     {"method": "requireNonNull", "args": [null]},
-    {"method": "requireNonNull", "args": [null, "must not be null"]}
+    {"method": "requireNonNull", "args": [null, "must not be null"]},
+
+    {"method": "hash", "args": [[]]},
+    {"method": "hash", "args": [[null]]},
+    {"method": "hash", "args": [["a"]]},
+    {"method": "hash", "args": [["a", "b"]]},
+    {"method": "hash", "args": [["a", "b", "c"]]},
+    {"method": "hash", "args": [[42, 43]]},
+    {"method": "hash", "args": [[true, false]]},
+    {"method": "hash", "args": [[null, "x", null]]},
+    {"method": "hash", "args": [["hello, world"]]}
   ]
 }

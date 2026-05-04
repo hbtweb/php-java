@@ -1346,6 +1346,28 @@ final class Builder
                 && $other->classFqn === $receiver->classFqn) {
                 array_pop($this->abstractStack);
             }
+
+            // BOXING.md lowering for `new String(...)`: per CONTRACTS.md §1
+            // String is a raw PHP string at AOT runtime. Constructors that
+            // copy a String (the common `new String(String)` form and the
+            // no-arg form) lower to the literal — no allocation, no shim
+            // instance state required. byte[]/char[] forms still need
+            // String_ instance support; deferred until a fixture surfaces.
+            if ($cls === 'java/lang/String') {
+                if (empty($args)) {
+                    $this->push(new StringLit(''));
+                    return;
+                }
+                if (count($args) === 1 && ($argTypes[0] ?? null) === 'Ljava/lang/String;') {
+                    $this->push($args[0]);
+                    return;
+                }
+                // Other constructor forms — fall through to New_, which
+                // will fail at PHP eval time pointing at the missing
+                // String_ instance support. That's the right surface for
+                // a future fixture to drive completion.
+            }
+
             $this->push(new New_($receiver->classFqn, $args, $this->generatedBinaryName($cls)));
             return;
         }

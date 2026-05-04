@@ -30,11 +30,16 @@
 
 ;; ─── invocation: the real JDK ────────────────────────────────────────────────
 
+(def ^:private object-array-class (class (object-array [])))
+
 (defn- arg-class
-  "The runtime Class of a decoded JSON arg, for overload resolution."
+  "The runtime Class of a decoded JSON arg, for overload resolution.
+   JSON arrays decode as Clojure vectors and dispatch to Object[] —
+   matches Java vararg `Object...` declarations after array bundling."
   [v]
   (cond
     (nil? v)              Object        ; null → Object so resolution treats arg as compatible with any reference param
+    (vector? v)           object-array-class
     (instance? Boolean v) Boolean
     (instance? Long v)    Long
     (instance? Integer v) Integer
@@ -42,6 +47,16 @@
     (instance? Float v)   Float
     (string? v)           String
     :else                 Object))
+
+(defn- box-arg
+  "Convert a Clojure-decoded JSON value to the Java reference its
+   reflection invoke needs. Vectors → Object[]; recursive so nested
+   arrays box. Scalars pass through (Long, Double, Boolean, String,
+   nil are already Java references)."
+  [v]
+  (if (vector? v)
+    (into-array Object (map box-arg v))
+    v))
 
 (defn- param-accepts?
   "Whether a parameter Class<?> can accept an arg whose runtime class
@@ -150,7 +165,7 @@
       (try
         (let [cls       (Class/forName class-fqn)
               ^Method m (find-method cls method-name args)
-              boxed     (object-array args)
+              boxed     (object-array (map box-arg args))
               result    (.invoke m nil boxed)]
           {"kind"   "ok"
            "return" (normalise-return result)
