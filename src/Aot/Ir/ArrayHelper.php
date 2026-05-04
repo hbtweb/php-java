@@ -26,18 +26,33 @@ final class ArrayHelper
         return (object)['v' => \array_fill(0, $size, null)];
     }
 
-    public static function len(\stdClass $arr): int
+    /**
+     * Polymorphic over array shape: accepts both raw PHP arrays (the
+     * IR Builder's escape-analysis-friendly default for newarray /
+     * anewarray / multianewarray, per `bootstrap.php`'s
+     * `jvm_multianewarray`) and `(object){v=>...}` wrappers (the
+     * legacy string-path emitter shape, plus `newPrimArray`/`newRefArray`
+     * outputs above).
+     *
+     * Polymorphism here is a one-time runtime branch; the resulting
+     * trace is shape-stable per call site, so JIT specialises cleanly.
+     */
+    public static function len($arr): int
     {
-        return \count($arr->v);
+        return \is_array($arr) ? \count($arr) : \count($arr->v);
     }
 
-    public static function get(\stdClass $arr, int $i): mixed
+    public static function get($arr, int $i): mixed
     {
-        return $arr->v[$i];
+        return \is_array($arr) ? $arr[$i] : $arr->v[$i];
     }
 
-    public static function set(\stdClass $arr, int $i, mixed $v): void
+    public static function set(&$arr, int $i, mixed $v): void
     {
-        $arr->v[$i] = $v;
+        if (\is_array($arr)) {
+            $arr[$i] = $v;
+        } else {
+            $arr->v[$i] = $v;
+        }
     }
 }

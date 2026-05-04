@@ -349,13 +349,17 @@ final class Builder
                 $this->emitStoreSlot($idx);
                 return;
             // ── type conversions ──────────────────────────────────
-            case 0x85: case 0x86: case 0x87: case 0x88: // i2l, i2f, i2d, l2i
+            // Split by destination type, not by source. PHP int and float
+            // are separate native types; tests using `assertSame` (strict
+            // ===) distinguish 1234 from 1234.0. The JVM ints/floats need
+            // explicit PHP int/float at the boundary.
+            case 0x85: case 0x88:                       // i2l, l2i
             case 0x8B: case 0x8E: case 0x8C: case 0x8F: // f2i, d2i, f2l, d2l
-                // PHP int (no-op for i2l/l2i; for f2i/d2i/f2l/d2l, cast)
                 $top = $this->pop();
                 $this->push(new \PHPJava\Aot\Ir\StaticCall('\\intval', '', [$top]));
                 return;
-            case 0x89: case 0x8A: // l2f, l2d
+            case 0x86: case 0x87:                       // i2f, i2d
+            case 0x89: case 0x8A:                       // l2f, l2d
                 $top = $this->pop();
                 $this->push(new \PHPJava\Aot\Ir\StaticCall('\\floatval', '', [$top]));
                 return;

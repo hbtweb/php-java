@@ -48,24 +48,33 @@ class UnsupportedOperationException extends \BadMethodCallException {}
 
 namespace PHPJava\Aot\Runtime\java\io;
 
+/**
+ * AOT-side PrintStream. Routes through `\PHPJava\IO\Standard\Output::write`
+ * (the same mechanism the interpreter uses) so test fixtures calling
+ * `Output::getHeapspace()` capture AOT-emitted output identically.
+ *
+ * The constructor's `$stream` arg is kept for parity with the JDK
+ * shape (PrintStream takes an OutputStream); it's currently ignored
+ * because Output::write handles destination via PHPJava's GlobalOptions
+ * (`output.handler` / `output.heapspace`). Per-stream routing can be
+ * added when a fixture surfaces the need (stderr-vs-stdout assertions
+ * aren't currently exercised separately).
+ */
 class PrintStream
 {
-    /** @var resource */
-    private $stream;
-
     public function __construct($stream)
     {
-        $this->stream = $stream;
+        // Preserved for shape-compat; routing is global via Output::write.
     }
 
     public function println($x = null): void
     {
-        \fwrite($this->stream, ((string)$x) . "\n");
+        \PHPJava\IO\Standard\Output::write(((string) $x) . "\n");
     }
 
     public function print($x = null): void
     {
-        \fwrite($this->stream, (string)$x);
+        \PHPJava\IO\Standard\Output::write((string) $x);
     }
 }
 
@@ -114,10 +123,19 @@ function jvm_typeswitch($selector, array $labels): int
 
 /**
  * Allocate a multi-dimensional array per JVM MULTIANEWARRAY (0xC5).
- * Inner dimensions filled with 0 for primitive elements (the AOT
- * doesn't currently distinguish primitive vs reference for this op);
- * for reference arrays the caller would need null inner-fill — extend
- * if a fixture surfaces that requirement.
+ *
+ * Returns nested raw PHP arrays (no stdClass wrappers). This matches
+ * the IR Builder's escape-analysis emit for newarray/anewarray — both
+ * single- and multi-dim arrays are raw PHP arrays, accessed directly
+ * via `$L[N][i]` for LocalRead-sourced cases. For arrays sourced from
+ * elsewhere (fields, method returns, multi-step access patterns), the
+ * fallback `Aot/Ir/ArrayHelper::get/set/len` accepts both stdClass and
+ * array shapes (the wrapper exists for legacy `(object){v=>...}` paths).
+ *
+ * Innermost dim filled with 0 (primitive default). For ref arrays the
+ * caller may want null fill — extend when a fixture surfaces that
+ * requirement; the Java assignments (`a[i][j] = ref`) overwrite the
+ * fill before any read, so primitive 0 fill is observably correct.
  */
 function jvm_multianewarray(int ...$dims): array
 {

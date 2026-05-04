@@ -198,7 +198,13 @@ final class Lowerer
         if ($e instanceof LocalRead) return "\$L[{$e->slot}]";
         if ($e instanceof ParamRead) return "\$__a{$e->idx}";
         if ($e instanceof BinOp) {
-            return $this->lowerExpr($e->left) . " {$e->op} " . $this->lowerExpr($e->right);
+            // Always parenthesise. Without explicit parens, nested BinOps
+            // emit precedence-ambiguous PHP — e.g. lcmp+ifne lowers to
+            // `$L[0] <=> $L[2] !== 0`, which is a parse error because
+            // `<=>` is non-associative when chained against `!==`.
+            // Redundant parens are harmless; they do not affect JIT
+            // trace specialisation.
+            return '(' . $this->lowerExpr($e->left) . " {$e->op} " . $this->lowerExpr($e->right) . ')';
         }
         if ($e instanceof UnaryOp) {
             return $e->op . $this->lowerExpr($e->operand);
