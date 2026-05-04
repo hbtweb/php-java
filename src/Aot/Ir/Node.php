@@ -306,6 +306,14 @@ final class Method {
         public readonly int $maxLocals,
         /** @var BasicBlock[] keyed by entry PC */
         public array $blocks = [],
+        /**
+         * Param-index set requiring PHP `&` reference passing — mirrors
+         * cljp's by-ref auto-detect (CLJP-COMPILER.md §"By-reference
+         * auto-detect"). Without `&`, a method that mutates an array
+         * param via aastore/iastore/etc. forks from the caller's array
+         * (PHP COW), silently breaking JVM-aligned reference semantics.
+         */
+        public array $byrefParamIndices = [],
     ) {}
 }
 

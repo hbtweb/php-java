@@ -300,6 +300,10 @@ final class Builder
         $thisSlot1 = $isStatic ? 0 : 1;
         $maxLocals = max($argc + $thisSlot1, $maxSlot + 1, $this->nextSyntheticSlot);
 
+        $byrefParamIndices = self::detectByrefParams(
+            $this->blocks, $argTypes, $isStatic
+        );
+
         return new Method(
             name: $this->mangleMethod($methodName),
             descriptor: $descriptor,
@@ -307,7 +311,45 @@ final class Builder
             params: $params,
             maxLocals: $maxLocals,
             blocks: $this->blocks,
+            byrefParamIndices: $byrefParamIndices,
         );
+    }
+
+    /**
+     * Auto-detect parameters needing PHP `&` reference passing — mirrors
+     * cljp's by-ref auto-detect (CLJP-COMPILER.md §"By-reference
+     * auto-detect"). Direct case: any `aastore`/`iastore`/etc. (lowered
+     * as `StoreArrayElement`) targeting a slot that maps back to a
+     * parameter means that parameter is mutated in place. Without `&`,
+     * PHP value-typed-array COW silently forks the caller's array.
+     *
+     * Indirect cases (chain through user fns, ^:ref annotations) deferred
+     * — direct-aset alone is enough for the immediate failing surface
+     * (in-place sorts, swap helpers).
+     */
+    private static function detectByrefParams(array $blocks, array $argTypes, bool $isStatic): array
+    {
+        $mutatedSlots = [];
+        foreach ($blocks as $bb) {
+            foreach ($bb->stmts as $stmt) {
+                if ($stmt instanceof StoreArrayElement) {
+                    $mutatedSlots[$stmt->slot] = true;
+                }
+            }
+        }
+        if (!$mutatedSlots) return [];
+
+        // Map param index → its starting slot, accounting for J/D
+        // 2-slot widths and the instance-method $this at slot 0.
+        $byref = [];
+        $slot = $isStatic ? 0 : 1;
+        foreach ($argTypes as $idx => $type) {
+            if (isset($mutatedSlots[$slot])) {
+                $byref[] = $idx;
+            }
+            $slot += ($type === 'J' || $type === 'D') ? 2 : 1;
+        }
+        return $byref;
     }
 
     /** Stash for emitOpcode to advance through operand bytes. */

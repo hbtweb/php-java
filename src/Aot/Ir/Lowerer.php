@@ -32,7 +32,16 @@ final class Lowerer
 
     public function lowerMethod(Method $method): string
     {
-        $paramStr = implode(', ', $method->params);
+        // Per cljp's by-ref auto-detect: prepend `&` for parameters that
+        // are mutated in place (e.g. iastore on the param's array). PHP
+        // arrays are value-typed; without `&` the mutation silently
+        // forks from the caller's array.
+        $byref = \array_flip($method->byrefParamIndices);
+        $renderedParams = [];
+        foreach ($method->params as $i => $p) {
+            $renderedParams[] = isset($byref[$i]) ? '&' . $p : $p;
+        }
+        $paramStr = implode(', ', $renderedParams);
         $sig = $method->isStatic
             ? "public static function {$method->name}({$paramStr})"
             : "public function {$method->name}({$paramStr})";
@@ -48,7 +57,14 @@ final class Lowerer
             if (!$method->isStatic && $i === 0) {
                 $initVals[] = '$this';
             } elseif (isset($slotToArg[$i])) {
-                $initVals[] = $method->params[$slotToArg[$i]];
+                // For byref params, alias `$L[slot]` to the original
+                // `&$__aN` rather than value-copy. Without `&`, the
+                // array literal `[$__a0, ...]` value-copies and the
+                // signature's `&` is lost — mutations go to the local
+                // $L[slot] only.
+                $argIdx = $slotToArg[$i];
+                $isByref = isset($byref[$argIdx]);
+                $initVals[] = ($isByref ? '&' : '') . $method->params[$argIdx];
             } else {
                 $initVals[] = '0';
             }
