@@ -90,7 +90,35 @@ class String_
         return \ord($s[$i]);
     }
 
-    public static function length(string $s): int { return \strlen($s); }
+    public static function length(string $s): int
+    {
+        // Java String.length() returns UTF-16 code unit count, not byte
+        // count. PHP strings are byte sequences. Walk the UTF-8 byte
+        // stream, counting one unit per leading byte except for the
+        // 4-byte (standard UTF-8) form which encodes a supplementary
+        // char and counts as 2 units (surrogate pair in UTF-16).
+        //
+        // Java class files store strings in Modified UTF-8 (CESU-8):
+        // supplementary chars are stored as two 3-byte sequences (one
+        // per surrogate). The 3-byte branch handles both BMP chars and
+        // CESU-8 surrogates as 1 unit each — correct because each
+        // CESU-8 surrogate IS one UTF-16 unit.
+        //
+        // Note: charAt/indexOf/substring/hashCode below still use byte
+        // indexing — they need the same UTF-16 awareness to be Java-
+        // correct. Tracked under ROADMAP §Build "String_ fill".
+        $n = \strlen($s);
+        if ($n === 0) return 0;
+        $units = 0;
+        for ($i = 0; $i < $n; ) {
+            $b = \ord($s[$i]);
+            if ($b < 0x80) { $i += 1; $units += 1; }
+            elseif ($b < 0xE0) { $i += 2; $units += 1; }
+            elseif ($b < 0xF0) { $i += 3; $units += 1; }
+            else { $i += 4; $units += 2; }
+        }
+        return $units;
+    }
 
     public static function isEmpty(string $s): int { return $s === '' ? 1 : 0; }
 
