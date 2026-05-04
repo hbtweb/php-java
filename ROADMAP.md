@@ -211,7 +211,7 @@ perf claim at every concurrency call site. See
 **Target: full Java concurrency surface at iadd-class perf.** Three
 emit shapes per call site, picked at AOT compile time:
 
-  - **Tier 0 — inlined direct call.** When may-suspend analysis
+  - **Inlined — direct call.** When may-suspend analysis
     proves the body is non-suspending AND surrounding context
     permits, the entire async/await pair compiles to a direct
     expression. ~9 ns/op (just the closure call) or AOT-iadd-class
@@ -219,11 +219,11 @@ emit shapes per call site, picked at AOT compile time:
     concurrency code (Thread.start + immediate join, AtomicInteger
     increment, ReentrantLock when no contention possible,
     CompletableFuture chains where every link is non-suspending).
-  - **Tier A — non-suspending fast path runtime.** Queue + drain,
+  - **InlineExecutor — non-suspending fast path runtime.** Queue + drain,
     no Fiber. ~150-365 ns/op (PoC v2 demonstrated 365; further
     PATTERNS.md-style tightening can reach ~150). For tasks that
     aren't reducible to inline but still don't suspend.
-  - **Tier B — suspending runtime.** Fiber-backed for tasks that
+  - **VirtualThreadExecutor — suspending runtime.** Fiber-backed for tasks that
     genuinely need cooperative scheduling. ~1 µs/op tuned (raw
     Fiber suspend/resume is the floor; PATTERNS.md tightening
     minimises everything outside that primitive op).
@@ -265,17 +265,17 @@ The Swoole equivalent requires building a Future type out of channels.
    for direct calls to a 30-method suspend-point whitelist; classifies
    methods as may-suspend or definitely-doesn't-suspend.
    `tests/Cases/MaySuspendAnalyzerTest.php` 4/4.
-2. **Tier A runtime** — clean up `bench/amphp-probe/poc-runtime-v2.php`,
-   promote into `src/Aot/Runtime/Async/TierA.php`, add cancellation
+2. **InlineExecutor runtime** — clean up `bench/amphp-probe/poc-runtime-v2.php`,
+   promote into `src/Aot/Runtime/Async/InlineExecutor.php`, add cancellation
    tokens, error propagation, minimal queue-and-drain machinery.
    ~500 LOC.
-3. **Tier B runtime** — Fiber-backed for genuinely-suspending tasks.
+3. **VirtualThreadExecutor runtime** — Fiber-backed for genuinely-suspending tasks.
    PATTERNS.md-style tight emit: pooled fibers, sealed-shape arrays,
    switch-dispatched event loop, no virtual dispatch. ~300 LOC.
 4. **Emit-specialiser** — consumes analyzer verdicts at AOT compile
    sites where async/await semantics apply (`Thread.start.join`,
    `CompletableFuture.supplyAsync.get`, `executor.submit.get`, etc.).
-   Picks Tier 0 / Tier A / Tier B per call site. ~300 LOC.
+   Picks Inlined / InlineExecutor / VirtualThreadExecutor per call site. ~300 LOC.
 5. **JDK shim layer wiring** — `Thread`, `CompletableFuture`,
    `Future`, `ExecutorService`, `BlockingQueue`, `ReentrantLock`,
    `CountDownLatch`, `Semaphore`, atomics. Each shim wraps the
@@ -287,7 +287,7 @@ load-bearing piece and it's already shipped.
 
 The runtime stays purpose-built for the AOT pipeline's perf class.
 No AMPHP dependency. The correctness machinery (cancellation, error
-propagation, composition) becomes ours; at ~1,000 LOC for Tier A+B
+propagation, composition) becomes ours; at ~1,000 LOC for InlineExecutor + VirtualThreadExecutor
 it's in scope. Comparable to existing IR transforms in
 `src/Aot/Ir/InlinePass.php` (~120 LOC) + escape-analysis paths in
 `src/Aot/Ir/Builder.php`. We already build optimisation infra; an

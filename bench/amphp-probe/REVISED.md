@@ -86,12 +86,12 @@ PHP-runtime.
 | Layer | LOC | Cost | vs AOT iadd |
 |---|---|---|---|
 | **Inlined emit** (analyzer + specialiser) | ~550 | **~iadd-class** when fully foldable | 1× — 10× |
-| **Tier A custom runtime** (non-suspending fallback) | ~500 | ~150-365 ns/op (PoC v2 measured) | ~1,000-2,000× |
-| **Tier B custom runtime** (suspending; real Fibers) | ~300 | ~1 µs/op tuned | ~5,000× |
+| **InlineExecutor (non-suspending)** (non-suspending fallback) | ~500 | ~150-365 ns/op (PoC v2 measured) | ~1,000-2,000× |
+| **VirtualThreadExecutor (suspending)** (suspending; real Fibers) | ~300 | ~1 µs/op tuned | ~5,000× |
 | ~~AMPHP~~ | (skipped) | 2,031 ns/op | 10,155× |
 
 Total: ~1,350 LOC of custom code (analyzer ~250 shipped + specialiser
-~300 + Tier A ~500 + Tier B ~300). Comparable to existing IR-transform
+~300 + InlineExecutor ~500 + VirtualThreadExecutor ~300). Comparable to existing IR-transform
 substrate in `src/Aot/`. The correctness machinery AMPHP would
 provide (cancellation, error propagation, composition) becomes ours;
 that's the price of matching the project's perf class on the
@@ -100,23 +100,23 @@ concurrency surface.
 ## What ships
 
 - ✓ **Analyzer** (this session, `src/Aot/Ir/Analysis/MaySuspendAnalyzer.php`).
-- **Tier A runtime** — clean up `bench/amphp-probe/poc-runtime-v2.php`,
-  promote into `src/Aot/Runtime/Async/TierA.php`, add cancellation
+- **InlineExecutor runtime** — clean up `bench/amphp-probe/poc-runtime-v2.php`,
+  promote into `src/Aot/Runtime/Async/InlineExecutor.php`, add cancellation
   + error propagation. ~500 LOC.
-- **Tier B runtime** — Fiber-backed for genuinely-suspending tasks.
+- **VirtualThreadExecutor runtime** — Fiber-backed for genuinely-suspending tasks.
   PATTERNS.md-style tight emit: pooled fibers, sealed-shape arrays,
   switch-dispatched event loop, no virtual dispatch. ~300 LOC.
 - **Emit-specialiser** — consumes analyzer verdicts at AOT compile
-  sites; emits inlined direct call (Tier 0 — full fold), Tier A call,
-  or Tier B call per the analyzer's verdict. ~300 LOC.
+  sites; emits inlined direct call (Inlined — full fold), InlineExecutor call,
+  or VirtualThreadExecutor call per the analyzer's verdict. ~300 LOC.
 - **JDK shim layer wiring** (`Thread`, `CompletableFuture`, `Future`,
   `ExecutorService`, `BlockingQueue`, `ReentrantLock`, atomics) —
-  these shims wrap the Tier A/B runtime. ~800 LOC.
+  these shims wrap the InlineExecutor / VirtualThreadExecutor runtime. ~800 LOC.
 
 Total: ~1,900 LOC, ~10 days focused work to deliver a T3 surface
 that hits AOT-class performance on the inlinable hot path
 (via the emit-specialiser folding the construct away) AND tight
-overhead on the genuinely-async path (Tier A/B sized to the project's
+overhead on the genuinely-async path (InlineExecutor / VirtualThreadExecutor sized to the project's
 perf class).
 
 ## What this means for ROADMAP
@@ -124,10 +124,10 @@ perf class).
 T3's canonical path:
 
   1. ✓ **Analyzer** (shipped this session)
-  2. **Tier A + Tier B custom runtime**
-  3. **JDK shim wiring against Tier A/B** (the actual j.u.concurrent
+  2. **InlineExecutor + VirtualThreadExecutor**
+  3. **JDK shim wiring against InlineExecutor / VirtualThreadExecutor** (the actual j.u.concurrent
      surface; what `bb-allowlist non-stub fill` will exercise)
-  4. **Emit-specialiser** (consumes analyzer; picks Tier 0 / A / B
+  4. **Emit-specialiser** (consumes analyzer; picks Inlined / InlineExecutor / VirtualThreadExecutor
      per call site)
 
 Swoole stays in the picture as the alternative backend for Tier-2
@@ -137,12 +137,12 @@ entirely.
 ## Resequencing the immediate next steps
 
 The "B-analyzer first, then 3, then B-emit-specialiser" sequence
-from `COMPARISON.md` survives — but **3 means "Tier A + Tier B custom
+from `COMPARISON.md` survives — but **3 means "InlineExecutor + VirtualThreadExecutor custom
 runtime", not "AMPHP shim wiring."** The substrate decision flips;
 the order of work doesn't.
 
 Practical implication: less wiring code (no AMPHP API surface to
-adapt), more runtime code (the custom Tier A + Tier B). Net LOC is
+adapt), more runtime code (the custom InlineExecutor + VirtualThreadExecutor). Net LOC is
 similar; perf class is fundamentally different.
 
 ## Acknowledgement

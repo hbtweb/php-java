@@ -75,7 +75,7 @@ Total: **~1,600 LOC**. Days-of-work, mechanical, well-scoped.
 - The 39× speedup for inlinable patterns — that requires B's emit-
   specialiser. Without it, even the trivial `submit(fn).get()`
   case pays the full AMPHP cost.
-- The Tier A path from POC-RESULTS.md (the PoC's 5–9× speedup over
+- The InlineExecutor path from POC-RESULTS.md (the PoC's 5–9× speedup over
   AMPHP via Fiber-skip) — that's a parallel optimisation that could
   be applied INSIDE 3's shim implementations, but it's a separate
   build choice (use AMPHP-direct vs ship a custom Tier-A runtime).

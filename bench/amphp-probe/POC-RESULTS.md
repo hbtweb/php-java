@@ -41,7 +41,7 @@ shape — skipping Fibers entirely for non-suspending tasks.
 AMPHP allocates `Fiber` + `Suspension` + `Future` on every `async()`
 regardless of whether the task body actually suspends. For pure-compute
 bodies (`fn() => 42`), the Fiber stack page is unused — pure overhead.
-The PoC's "Tier A" path recognises non-suspending tasks and runs them
+The PoC's InlineExecutor path recognises non-suspending tasks and runs them
 as queued callbacks. No fiber, no suspension, no allocation beyond
 the Future tuple.
 
@@ -56,7 +56,7 @@ the Future tuple.
        │                        Fiber terminates
        └── return Future
 
-   PoC Tier A (non-suspending fn):
+   PoC InlineExecutor (non-suspending fn):
        async($fn)
        ├── futures[id] = [PENDING, null, -1]
        ├── queue[] = wrap-and-settle closure
@@ -68,7 +68,7 @@ the Future tuple.
 
 For tasks that DO suspend (call `await()` themselves), the PoC needs
 real Fibers and the cost converges to AMPHP-equivalent overhead. The
-speedup shrinks toward the 1.5–2× originally predicted. The Tier A
+speedup shrinks toward the 1.5–2× originally predicted. The InlineExecutor
 fast path is the win when it applies.
 
 ## What this means for the strategic frame
@@ -85,9 +85,9 @@ AOT compiler **can**:
 1. Static analysis on the `async()` body: does it ever call `await()`,
    `BlockingQueue.take()`, `Thread.sleep()`, `socket.read()`,
    `Object.wait()`, or any other suspend point?
-2. If no → emit Tier A (queue+drain, ~0.5 µs/call) or, when fully
-   foldable, Tier 0 (inlined direct call, ~iadd-class).
-3. If yes → emit Tier B (Fiber-backed runtime, ~1 µs/op tuned —
+2. If no → emit InlineExecutor (queue+drain, ~0.5 µs/call) or, when fully
+   foldable, Inlined (direct call, ~iadd-class).
+3. If yes → emit VirtualThreadExecutor (Fiber-backed runtime, ~1 µs/op tuned —
    raw Fiber suspend/resume is the floor; PATTERNS.md tightening
    minimises everything around it).
 
@@ -103,7 +103,7 @@ because they don't have an IR.
 - The PoC omits the entire Cancellation token system. Java has
   `Thread.interrupt()` which is the moral equivalent; the full mapping
   needs a check-on-suspend-resume protocol that adds overhead. Probably
-  ~10–20% on the Tier B path; Tier A unaffected (no fiber to interrupt).
+  ~10–20% on the VirtualThreadExecutor path; InlineExecutor unaffected (no fiber to interrupt).
 - The PoC's `await()` inside a fiber path is correct but unbenched.
   The 0.5 µs number is the queue-only path. Fiber-suspending await
   measurements are a follow-up.
@@ -127,13 +127,13 @@ Skip AMPHP. The canonical path is PHPJava-internal:
 | Layer | LOC | Cost |
 |---|---|---|
 | Inlined emit (analyzer + specialiser) | ~550 | ~iadd-class when fully foldable |
-| Tier A custom runtime | ~500 | ~150–365 ns/op |
-| Tier B custom runtime | ~300 | ~1 µs/op tuned |
+| InlineExecutor (non-suspending) | ~500 | ~150–365 ns/op |
+| VirtualThreadExecutor (suspending) | ~300 | ~1 µs/op tuned |
 
 Total ~1,350 LOC custom code. PHPJava-owned, profileable, sized to
 the project's perf class. The correctness machinery (cancellation,
 error propagation, composition) becomes ours; ~1,000 LOC for
-Tier A+B is in scope, comparable to the existing IR transforms in
+InlineExecutor + VirtualThreadExecutor is in scope, comparable to the existing IR transforms in
 `src/Aot/Ir/`.
 
 ## Reproducibility

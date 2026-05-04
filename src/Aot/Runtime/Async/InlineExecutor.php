@@ -3,7 +3,7 @@ declare(strict_types=1);
 namespace PHPJava\Aot\Runtime\Async;
 
 /**
- * Tier A async runtime — non-suspending fast path.
+ * Inline async runtime — non-suspending fast path.
  *
  * Sized to the AOT pipeline's perf class. PoC v2 measurement (rank 1,
  * `bench/amphp-probe/bench-v2.php`): ~365 ns/op for async+await
@@ -20,32 +20,32 @@ namespace PHPJava\Aot\Runtime\Async;
  *   perf class as the rest of the AOT pipeline. Doesn't enter this
  *   runtime at all.
  *
- *   Tier A (this module) — non-suspending fallback. For tasks that
+ *   InlineExecutor (this module) — non-suspending fallback. For tasks that
  *   the analyzer can't reduce to inline but still don't suspend
  *   (cross-method calls into user code that the compiler can't yet
  *   classify, etc.). Queue + drain. No Fiber.
  *
- *   Tier B (sibling, TierB.php) — Fiber-backed runtime for tasks that
+ *   VirtualThreadExecutor (sibling) — Fiber-backed runtime for tasks that
  *   genuinely suspend. ~1 µs/op; raw Fiber suspend/resume is the
  *   floor.
  *
- * Tier A is single-threaded by design (PHP itself is single-threaded
+ * InlineExecutor is single-threaded by design (PHP itself is single-threaded
  * within a fiber/coroutine context). When a task body actually needs
- * to suspend, the call should route to Tier B instead — the
- * may-suspend analyzer makes the choice at compile time. Tier A
+ * to suspend, the call should route to VirtualThreadExecutor instead — the
+ * may-suspend analyzer makes the choice at compile time. InlineExecutor
  * doesn't need cancellation in the inter-thread sense (no other
  * thread to cancel from); Future-level cancellation pre-empts pending
  * tasks from running.
  *
  * What's intentionally absent compared to AMPHP:
- *   - I/O integration. Tier A never blocks on I/O; tasks that do I/O
- *     should be Tier B (so the I/O can be awaited via the event loop).
- *     For Tier A's domain (pure-compute non-suspending callbacks),
+ *   - I/O integration. InlineExecutor never blocks on I/O; tasks that do I/O
+ *     should be VirtualThreadExecutor (so the I/O can be awaited via the event loop).
+ *     For InlineExecutor's domain (pure-compute non-suspending callbacks),
  *     blocking I/O would be a programming error the compiler should
  *     catch via the may-suspend analysis.
  *   - Composition timeout. Java's Future.get(timeout) requires the
  *     event loop to wake; if your composition needs timeout, you're
- *     in Tier B's domain.
+ *     in VirtualThreadExecutor's domain.
  *
  * Public API:
  *   async($fn)             → int  Future id
@@ -59,7 +59,7 @@ namespace PHPJava\Aot\Runtime\Async;
  *   anyOf(...$ids)         → int  new Future id
  *   reset()                → void  clear state (test helper)
  */
-final class TierA
+final class InlineExecutor
 {
     public const STATE_PENDING    = 0;
     public const STATE_FULFILLED  = 1;
@@ -113,7 +113,7 @@ final class TierA
             $h = self::$qhead;
             if ($h >= self::$qsp) {
                 throw new \LogicException(
-                    "TierA::await: queue empty but Future {$id} still pending. "
+                    "InlineExecutor::await: queue empty but Future {$id} still pending. "
                     . "Likely cause: thenApply/allOf chain depends on a Future "
                     . "that was never spawned, OR a cycle in the dependency graph."
                 );
@@ -369,9 +369,3 @@ final class TierA
     }
 }
 
-/**
- * Java's CancellationException — thrown by await() when the awaited
- * Future was cancelled. Mirrors j.u.c.CancellationException, which
- * extends IllegalStateException → RuntimeException.
- */
-final class CancellationException extends \RuntimeException {}
