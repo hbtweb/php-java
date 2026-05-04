@@ -243,7 +243,9 @@ capabilities, both as separate builders/lowerers off the existing IR:
   Clojure-via-JVM-bytecode). Their compiled `.class` files run
   through the existing `Aot/Ir/Builder.php` path; should "just work"
   modulo Tier 2 shim coverage and per-language `invokedynamic`
-  handlers via `IndyRegistry`.
+  handlers via `IndyRegistry`. Subject to the same license posture
+  per-input-language: only redistribute outputs of bytecode the
+  caller has rights to transform.
 
 Decision frame: every language-pair conversation is "what builder
 or lowerer do we add to the IR?", not "what runtime do we add?".
@@ -254,6 +256,42 @@ This **strengthens** the case for cutting `Compiler/Lang/Assembler/`,
 `Builder/`, `Emulator/` now. Reviving them locks us into their non-IR
 architecture; cutting them clears the path for the IR-based
 bidirectional pipeline when the use case surfaces.
+
+### License posture for the JDK surface
+
+**Important correction (2026-05-04):** an earlier draft of this doc
+suggested AOT-compiling OpenJDK bytecode through our pipeline as a
+bulk-port mechanism. **That is not legally safe** for redistribution.
+
+OpenJDK is GPLv2 + Classpath Exception. The CPE permits *linking*
+without GPL infection but does **not** permit *transformation* and
+redistribution under a different license. Bytecode → PHP is a
+structural translation; copyright follows program structure, not
+syntax. The output of running OpenJDK `.class` files through our AOT
+pipeline is a derivative work, GPL-encumbered.
+
+**The five legally-safe paths for the JDK surface:**
+
+| Path | Approach | Legality |
+|---|---|---|
+| A | Hand-written thin PHP shims (delegate to PHP primitives) | clean |
+| B | Wrap PHP extensions (PCRE, hash, zlib, openssl, mbstring, …) | clean — wrapping PHP extensions, not OpenJDK |
+| C | Auto-generate stubs from JDK class-file *signatures* (no implementation copy) | clean — API signatures aren't copyrightable |
+| **D′** | Behavioral oracle — run JDK as a reference, capture I/O traces, reimplement PHP from observed behavior | clean — JDK as test oracle, not source |
+| E | Clean-room implementation against JLS/Javadoc spec; OpenJDK source as reference *only* with care | clean if the implementer hasn't read OpenJDK source for the specific class being implemented |
+
+**The path D not on this list (AOT-compile OpenJDK bytecode → ship as
+MIT) creates a derivative work and would force GPLv2 on the entire
+distribution.** Internal experimentation is fine; redistribution is
+not.
+
+**Working plan:** combine A + B + C + D′ + E. The oracle harness
+(D′) is the leverage move — it gives rank-1 behavior tests for
+every class we reimplement, without copyright contamination. PHPJava's
+existing FFM-based JVM-side parity test infrastructure is the
+foundation; extending it to per-method-level I/O capture across the
+233-class T2 surface is ~1 week of harness work and unblocks the
+verifiable reimplementation of every class thereafter.
 
 ### `src/IO/Standard/` (50 lines, 1 file)
 

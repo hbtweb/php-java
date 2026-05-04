@@ -207,6 +207,16 @@ final class Compiler
         $this->lambdaClasses = [];
         $this->lambdaCounter = 0;
         $this->inlinableMethods = [];
+
+        // Inner-class resolution gap (`Outer$Inner` mangled to
+        // `Outer_Inner` is reverse-ambiguous against a real
+        // `Outer_Inner` class). Eager-load was attempted here but
+        // caused JAR-resolver hangs on suites with multiple registered
+        // classpath roots. Future fix: thread the binary name through
+        // `New_` / `StaticCall` IR nodes and emit `Loader::loadClass($bin)`
+        // inline in the Lowerer — known binary name, no autoloader
+        // heuristic needed. Tracked as JarTest::testEnclosingMethodInJar,
+        // EnclosingMethodTest, InnerClassTest.
         // Fresh IR Builder/Lowerer per compileClass — keeps the lambda
         // counter and BootstrapMethods cache scoped to this class.
         $this->irBuilder = null;
