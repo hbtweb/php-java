@@ -273,6 +273,7 @@ final class Lowerer
             return (string) $v;
         }
         if ($e instanceof StringLit) return var_export($e->value, true);
+        if ($e instanceof BoolLit) return $e->value ? 'true' : 'false';
         if ($e instanceof NullLit) return 'null';
         if ($e instanceof ArrayLit) {
             return '[' . implode(', ', array_map(

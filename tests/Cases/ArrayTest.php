@@ -69,16 +69,16 @@ class ArrayTest extends Base
 
     public function testCreateBooleanArray()
     {
-        // CONTRACTS.md §1: boolean = PHP bool. AOT can't yet distinguish
-        // boolean[] from byte[] at the bastore opcode (both use 0x54),
-        // so boolean array elements stay int 0/1 until element-type
-        // tracking lands. Asserting on the int form for now.
+        // CONTRACTS.md §1: boolean = PHP bool. The IR Builder now
+        // tracks newarray T_BOOLEAN slots and narrows bastore writes
+        // to bool, distinguishing boolean[] from byte[] (both share
+        // the bastore opcode).
         $actual = $this->call('createBooleanArray');
 
         $this->assertCount(3, $actual);
-        $this->assertSame(1, $actual[0]);
-        $this->assertSame(0, $actual[1]);
-        $this->assertSame(1, $actual[2]);
+        $this->assertSame(true,  $actual[0]);
+        $this->assertSame(false, $actual[1]);
+        $this->assertSame(true,  $actual[2]);
     }
 
     public function testCreateCharArray()

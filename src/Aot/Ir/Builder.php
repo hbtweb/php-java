@@ -91,6 +91,24 @@ final class Builder
     private int $nextSyntheticSlot = 0;
 
     /**
+     * Slots known to hold a boolean[] array. JVM bastore (0x54) is
+     * shared between byte[] and boolean[]; without per-slot type
+     * tracking, the IR Builder can't tell which one the target is.
+     * Populated at `newarray T_BOOLEAN` (atype=4); consumed at
+     * bastore/baload to apply the Z-shape narrow/widen per
+     * CONTRACTS.md §1 (boolean = PHP bool).
+     *
+     * Tracking only synthetic slots (allocated by materialiseToLocal
+     * at newarray time) is sufficient for the dup-then-bastore
+     * pattern javac emits for array initialisers. Astore propagation
+     * to user slots would extend coverage but isn't needed for the
+     * current failing surface.
+     *
+     * @var array<int, true>
+     */
+    private array $booleanArraySlots = [];
+
+    /**
      * Synthetic lambda classes generated this build session. Caller
      * (Module assembler) reads via getLambdaClasses() after each
      * buildMethod call and attaches to the Module.
@@ -151,6 +169,11 @@ final class Builder
         $this->branchTargets = [];
         $this->exceptionsByStart = [];
         $this->exceptionHandlerPcs = [];
+        // Per-method state. Without this reset, a slot marked as
+        // boolean[] in createBooleanArray() would still be marked when
+        // createByteArray() reuses the same synthetic slot number,
+        // mis-narrowing byte writes to bool.
+        $this->booleanArraySlots = [];
         $this->bbEntrySlots = [];
 
         // Cache BootstrapMethods once per JCC (idempotent across method calls).
@@ -515,8 +538,14 @@ final class Builder
             // raw-array cases dynamically. Most hot loops use
             // local-array patterns so the fast path applies.
             case 0xBC: // newarray (atype byte, length on stack)
-                $this->pc++; // skip atype
+                $atype = $bytes[$this->pc++];
                 $size = $this->pop();
+                // T_BOOLEAN (4): default value is false (per JVMS §2.3.4),
+                // not int 0, to match CONTRACTS.md §1's boolean = PHP bool.
+                // Other primitive arrays start at int 0 / float 0.0 — PHP's
+                // 0 covers both at the array-fill level (PHP coerces on
+                // first write).
+                $defaultVal = $atype === 4 ? new \PHPJava\Aot\Ir\BoolLit(false) : new IntLit(0);
                 // Materialise the allocation into a synthetic local so the
                 // typical javac shape `newarray; dup; iconst i; iconst v;
                 // bastore; dup; ...` mutates ONE array instead of one fresh
@@ -525,9 +554,13 @@ final class Builder
                 // execution time, *astore mutates a temporary that's
                 // immediately discarded, and the final putstatic/putfield
                 // stores yet another fresh-zeroed array.
-                $this->push($this->materialiseToLocal(new \PHPJava\Aot\Ir\StaticCall(
-                    '\\array_fill', '', [new IntLit(0), $size, new IntLit(0)]
-                )));
+                $local = $this->materialiseToLocal(new \PHPJava\Aot\Ir\StaticCall(
+                    '\\array_fill', '', [new IntLit(0), $size, $defaultVal]
+                ));
+                if ($atype === 4) {
+                    $this->booleanArraySlots[$local->slot] = true;
+                }
+                $this->push($local);
                 return;
             case 0xBD: // anewarray
                 $this->pc += 2;
@@ -548,9 +581,16 @@ final class Builder
             case 0x32: case 0x33: case 0x34: case 0x35:
                 $i = $this->pop();
                 $a = $this->pop();
-                // Char arrays (caload, 0x34) store contract-shape 1-char
-                // strings per CONTRACTS.md §1; widen to JVM-stack int.
-                $elemDesc = $op === 0x34 ? 'C' : '';
+                // Element-type widening for contract-shape arrays:
+                // - caload (0x34): char[] holds 1-char UTF-8 strings → int.
+                // - baload (0x33): SHARED with byte[]; only widen when the
+                //   source slot is known to hold boolean[] (newarray T_BOOLEAN).
+                $elemDesc = '';
+                if ($op === 0x34) {
+                    $elemDesc = 'C';
+                } elseif ($op === 0x33 && $a instanceof LocalRead && isset($this->booleanArraySlots[$a->slot])) {
+                    $elemDesc = 'Z';
+                }
                 if ($a instanceof LocalRead) {
                     $read = new \PHPJava\Aot\Ir\ArrayElementRead($a->slot, $i);
                 } else {
@@ -566,9 +606,13 @@ final class Builder
                 $v = $this->pop();
                 $i = $this->pop();
                 $a = $this->pop();
-                // Char arrays (castore, 0x55): incoming int → narrow to
-                // 1-char UTF-8 string for storage.
-                $elemDesc = $op === 0x55 ? 'C' : '';
+                // Symmetric narrowing for contract-shape array storage.
+                $elemDesc = '';
+                if ($op === 0x55) {
+                    $elemDesc = 'C';
+                } elseif ($op === 0x54 && $a instanceof LocalRead && isset($this->booleanArraySlots[$a->slot])) {
+                    $elemDesc = 'Z';
+                }
                 $v = self::narrowForFieldStorage($elemDesc, $v);
                 if ($a instanceof LocalRead) {
                     $this->currentBb->stmts[] = new \PHPJava\Aot\Ir\StoreArrayElement(

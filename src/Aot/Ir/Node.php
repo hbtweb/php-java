@@ -38,6 +38,9 @@ final class FloatLit extends Expr {
 final class StringLit extends Expr {
     public function __construct(public readonly string $value) {}
 }
+final class BoolLit extends Expr {
+    public function __construct(public readonly bool $value) {}
+}
 final class NullLit extends Expr {}
 
 /**

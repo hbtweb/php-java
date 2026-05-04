@@ -45,11 +45,16 @@ class BoundaryValueTypeForBooleanTest extends Base
 
     public function testStaticArrayBooleans()
     {
+        // Per CONTRACTS.md §1: boolean = PHP bool. Asserting raw bool
+        // (not '(string)' coercion which would be '1'/''); the AOT
+        // path stores boolean[] elements as PHP bool via the IR
+        // Builder's Z-narrow at bastore + the boolean-array slot
+        // tracker.
         $array = $this->getStaticField('s_a_b');
         $this->assertCount(2, $array);
 
-        $this->assertEquals('true', (string) $array[0]);
-        $this->assertEquals('false', (string) $array[1]);
+        $this->assertSame(true,  $array[0]);
+        $this->assertSame(false, $array[1]);
     }
 
     public function testDynamicArrayBooleans()
@@ -57,8 +62,8 @@ class BoundaryValueTypeForBooleanTest extends Base
         $array = $this->getDynamicField('d_a_b');
         $this->assertCount(2, $array);
 
-        $this->assertEquals('true', (string) $array[0]);
-        $this->assertEquals('false', (string) $array[1]);
+        $this->assertSame(true,  $array[0]);
+        $this->assertSame(false, $array[1]);
     }
 
     public function testStaticMultiDimensionArrayBooleans()
@@ -68,11 +73,11 @@ class BoundaryValueTypeForBooleanTest extends Base
         $this->assertCount(2, $array[0]);
         $this->assertCount(2, $array[1]);
 
-        $this->assertEquals('true', (string) $array[0][0]);
-        $this->assertEquals('false', (string) $array[0][1]);
+        $this->assertSame(true,  $array[0][0]);
+        $this->assertSame(false, $array[0][1]);
 
-        $this->assertEquals('false', (string) $array[1][0]);
-        $this->assertEquals('true', (string) $array[1][1]);
+        $this->assertSame(false, $array[1][0]);
+        $this->assertSame(true,  $array[1][1]);
     }
 
     public function testDynamicMultiDimensionArrayBooleans()
@@ -82,10 +87,10 @@ class BoundaryValueTypeForBooleanTest extends Base
         $this->assertCount(2, $array[0]);
         $this->assertCount(2, $array[1]);
 
-        $this->assertEquals('true', (string) $array[0][0]);
-        $this->assertEquals('false', (string) $array[0][1]);
+        $this->assertSame(true,  $array[0][0]);
+        $this->assertSame(false, $array[0][1]);
 
-        $this->assertEquals('false', (string) $array[1][0]);
-        $this->assertEquals('true', (string) $array[1][1]);
+        $this->assertSame(false, $array[1][0]);
+        $this->assertSame(true,  $array[1][1]);
     }
 }
