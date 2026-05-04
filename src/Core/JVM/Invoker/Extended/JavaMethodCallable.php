@@ -68,6 +68,11 @@ trait JavaMethodCallable
         if ($argument instanceof \PHPJava\Kernel\Types\Boolean_) {
             return (string) $argument->getValue() === \PHPJava\Kernel\Types\Boolean_::TRUE;
         }
+        if ($argument instanceof \PHPJava\Kernel\Types\Double_) {
+            // Double_ stores as string (BigDecimal-backed). Contract:
+            // double = PHP float.
+            return (float) $argument->getValue();
+        }
         if (\method_exists($argument, 'getValue')) {
             return $argument->getValue();
         }
