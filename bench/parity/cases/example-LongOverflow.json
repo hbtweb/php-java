@@ -1,0 +1,37 @@
+{
+  "_doc": "Example case battery for the parity harness. Validates the oracle-runner.php scaffold produces output the (not-yet-built) Clojure-side comparator can consume. Real bb-allowlist case batteries will live alongside this — one JSON per JDK class.",
+  "class": "LongOverflowTest",
+  "fixture_path": "tests/Cases/caches/LongOverflowTest.class",
+  "cases": [
+    {
+      "method": "maxPlusOne",
+      "args": [],
+      "expect": { "kind": "ok", "return": -9223372036854775808 }
+    },
+    {
+      "method": "minMinusOne",
+      "args": [],
+      "expect": { "kind": "ok", "return": 9223372036854775807 }
+    },
+    {
+      "method": "mulOverflow",
+      "args": [],
+      "expect": { "kind": "ok", "return": 0 }
+    },
+    {
+      "method": "negMin",
+      "args": [],
+      "expect": { "kind": "ok", "return": -9223372036854775808 }
+    },
+    {
+      "method": "divMinByMinusOne",
+      "args": [],
+      "expect": { "kind": "ok", "return": -9223372036854775808 }
+    },
+    {
+      "method": "remMinByMinusOne",
+      "args": [],
+      "expect": { "kind": "ok", "return": 0 }
+    }
+  ]
+}
