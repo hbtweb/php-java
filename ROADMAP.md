@@ -250,46 +250,49 @@ prerequisite.
 **Independent capability work (parallelizable with the critical path):**
 
 3. **AOT instance dispatch (Phase B receiver-shape unification)** —
-   `src/Core/JVM/Invoker/Extended/JavaMethodCallable.php:114–138`
-   instance path still routes through the interpreter; only static
-   dispatch reaches AOT. ~2–3 days. Unblocks every test that calls
-   instance methods through AOT.
-4. **ObjectMethods record-shape emit** — indy detection done at
-   `src/Aot/Ir/Builder.php:1656–1670`, but record-class shape
-   (`extends \PHPJava\Aot\Runtime\java\lang\Record` + component
-   accessors) not emitted (`Builder.php:1926` comment marks the gap).
-   Hours.
-5. **T1 class-file gaps** (Java 11+ load-time):
-   - `CONSTANT_Dynamic` (tag 17) parsing — 1–2 days. No entry in
-     `src/Kernel/Maps/ConstantPoolTag.php`.
-   - `CONSTANT_Module`/`Package` (tags 19, 20) — 1 day. Declared in
-     tag map; throw on read at `src/Core/JVM/ConstantPool.php:104–106`.
-   - `NestHost`/`Record`/`PermittedSubclasses`/`Module`/
-     `ModulePackages`/`ModuleMainClass` attribute parsers — ~1 week
-     total. Only `NestMembersAttribute.php` exists.
-6. **Sequenced collections (Java 21)** — `SequencedCollection`/
-   `SequencedSet`/`SequencedMap` interfaces + `LinkedHashMap`/
-   `LinkedHashSet` retrofit. ~4 days. Currently absent.
-7. **Unsafe shim** — pure-PHP, lock-based CAS. ~500 LOC. Required
-   for `ConcurrentHashMap` (touched by Clojure boot per
+   **DONE structurally**. Instance dispatch routes through aotInstance
+   when bound (`src/Core/JVM/JavaClassInvoker.php:152–172` sets up the
+   AOT-Generated PHP instance during `->construct()`;
+   `JavaMethodCallable.php:114–138` dispatches through it).
+   AOT-emitted code uses PHP-native instance dispatch directly on
+   `\PHPJava\Aot\Generated\<X>` instances — no further wiring needed.
+4. **ObjectMethods record-shape emit** — load-time **DONE** via
+   `RecordAttribute` parser + `LOAD_ATTRIBUTES` whitelist.
+   Runtime record-class shape (`extends \PHPJava\Aot\Runtime\java\lang\Record`
+   + auto-generated equals/hashCode/toString via ObjectMethods indy)
+   still pending — folds into the broader bb-allowlist fill.
+5. **T1 class-file gaps** (Java 11+ load-time): **DONE**
+   - `CONSTANT_Dynamic` (tag 17) — `src/Kernel/Structures/DynamicInfo.php`
+   - `CONSTANT_Module`/`Package` (tags 19, 20) — `ModuleInfo.php` + `PackageInfo.php`
+   - `NestHost`/`Record`/`PermittedSubclasses` attribute parsers shipped
+   - All wired in `src/Core/JVM/ConstantPool.php` + `Runtime::LOAD_ATTRIBUTES`
+   - `tests/Cases/RecordLoadTest.php` validates load + component access
+6. **Sequenced collections (Java 21)** — interfaces **DONE** at
+   `src/Packages/java/util/SequencedCollection.php` (+ `Set`/`Map`).
+   `LinkedHashMap`/`LinkedHashSet` retrofit folds into bb-fill.
+7. **Unsafe shim** — pure-PHP, lock-based CAS. ~500 LOC. **NOT STARTED**.
+   Required for `ConcurrentHashMap` (touched by Clojure boot per
    `docs/CLOJURE-BOOT-ANALYSIS.md`).
-8. **Lazy CP resolution in parser** (`src/Core/JVM/ConstantPool.php:42–59`)
-   — closes 22% top-level real-library probe-fail rate per
-   `bench/probe-real-library.md`.
+8. **Lazy CP resolution in parser** — **already in place**. The 22%
+   probe-fail rate was closed by `JavaCompiledClass.php:180`'s lazy
+   super-class load (per `bench/probe-real-library.md`); the audit's
+   pointer to `ConstantPool.php:42–59` was a misdiagnosis (CP entries
+   store indices only, no eager class loads at exec time).
 
 ### Refinement — perf and reliability tightening (1–2 weeks total)
 
 Doesn't gate v1 but tightens substrate before bb-fill exercises it
 broadly.
 
-1. **P6 peephole — pop-into-temp + push-expr collapse** at
-   `src/Aot/Compiler.php:1629–1632` punted. Closes ~2× remaining gap
-   on inlined call sites per
-   [PATTERNS.md "Cross-method inlining"](docs/PATTERNS.md).
-2. **Compiler cache observability** — hit/miss metrics on
-   `$compileClassCache` / `$compileBytesCache` (`src/Aot/Compiler.php:84–200`)
-   for daemon production visibility. Cap is 1000 entries; daemons
-   loading more thrash silently.
+1. **P6 peephole — pop-into-temp + push-expr collapse** — **OBSOLETE**.
+   The PATTERNS.md observation predated the IR-level `InlinePass`
+   (`src/Aot/Ir/InlinePass.php`); the current emit doesn't have the
+   leftover residue. Verified against `bench/aot-out/BenchInvoke.php` —
+   inlined call sites collapse cleanly to bare expressions.
+2. **Compiler cache observability** — **DONE**.
+   `Compiler::cacheStats()` / `resetCacheStats()` returns per-cache
+   hits/misses/evictions/size for daemon scrape interval. Test:
+   `tests/Cases/AotCacheStatsTest.php`.
 3. **Method overload — fuller arg-shape matching** — current dispatcher
    falls through to `NoSuchMethodException` on shape ambiguity. Refine
    when a real overload set surfaces a mismatch.
@@ -299,26 +302,28 @@ broadly.
    chained user fns (`src/Aot/Ir/Builder.php:356–366` defer comment).
    Direct-aset alone covers current tests.
 6. **AOT class-emit shape doc companion** in
-   [LAYERS.md](docs/LAYERS.md) (partly inline already).
+   [LAYERS.md](docs/LAYERS.md) — already inline at LAYERS §"AOT
+   class-emit shape (2026-05-04)". Marking done.
 
-### Cleanup — pure subtraction (~21.6 kloc deletable)
+### Cleanup — pure subtraction (~12.5 kloc deletable remaining)
 
-Each phase produces a green suite before the next; C, D, E are
+Each phase produces a green suite before the next; D and E are
 independent and parallelizable per [LAYERS.md §"Order of cuts"](docs/LAYERS.md).
 
 1. **Phase C** — `Dynamic→Instance` rename per LAYERS.md:65–72.
-   Cosmetic, mechanical. Days.
+   **DONE**. Six classes/traits/methods renamed across 18 files;
+   suite at exact baseline post-rename.
 2. **Phase D** — interpreter delete (~10 kloc): `src/Kernel/Mnemonics/`,
    `JavaMethodCallable` interpreter half, `src/Kernel/Types/` remainder,
    `src/Kernel/Filters/Normalizer.php`, `src/Kernel/Frames/`,
    `src/Kernel/Variables/`, `src/Kernel/Provider/`, `OperationCache`,
    `MnemonicResolver`, `tests/Cases/OutputDebugTraceTest.php`. Single
-   PR, single revert.
+   PR, single revert. Risky enough to defer to a focused session.
 3. **Phase E** — legacy stack delete (~12.5 kloc):
    `src/Compiler/Lang/Assembler/`, `src/Compiler/Builder/`,
    `src/Compiler/Emulator/`, `src/Compiler/Compiler.php`,
    `tests/Cases/Compiler/*`. Independent of D.
-4. **Doc consolidation** (this update — done): ROADMAP is canonical
+4. **Doc consolidation** — **DONE**. ROADMAP is canonical
    "what's open + priority"; HANDOVER session-only; STATUS measured
    rank-1 only; GAP-JDK version coverage map; MODEL strategic framing
    only.
