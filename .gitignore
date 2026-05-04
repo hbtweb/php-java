@@ -8,5 +8,6 @@ composer.lock
 tests/Cases/caches/
 !tests/Cases/caches/.gitkeep
 !tests/Cases/caches/compiler/.gitkeep
-tools
+tools/*
+!tools/gen-aot-stubs.php
 cghooks.lock
