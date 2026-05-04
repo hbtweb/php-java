@@ -237,6 +237,34 @@ The Swoole equivalent requires building a Future type out of channels.
    when explicitly required. AMPHP path falls back to
    `amphp/parallel` actor pattern for the same use case.
 
+**Higher-leverage variant — two-tier runtime + IR may-suspend analysis**
+
+`bench/amphp-probe/POC-RESULTS.md` (rank-1, 2026-05-04) demonstrates
+a ~500 LOC two-tier async runtime that is **3–5× faster than AMPHP**
+on non-suspending tasks (pure-compute `Thread.start(runnable)`). The
+mechanism: AMPHP unconditionally allocates `Fiber + Suspension`;
+the PoC recognises non-suspending bodies and runs them as queued
+callbacks (Tier A). For suspending bodies (Tier B) the cost
+converges to AMPHP-equivalent.
+
+This is shape-aware emit, which AMPHP can't do because it ships
+one shape as a runtime library. A compile-time emit (cljp or
+PHPJava's AOT) **can** make the choice via static analysis: scan
+the async body's call graph for suspend points
+(`await`, `BlockingQueue.take`, `Thread.sleep`, `Object.wait`,
+`socket.read`, etc.); if none, emit Tier A; otherwise Tier B.
+
+Strategic implication: **the canonical implementation path is
+cljp-emit + a 2-tier runtime + an IR may-suspend pass**, not a
+hand-written-PHP rewrite. The rule-configurable-compiler frame
+(write Clojure once, recompile per backend, optimisation rules
+travel with the source) makes this tractable at sister-project scale.
+
+For the AMPHP-as-default fallback: ship that first; reopen this
+when cljp's compiler architecture supports the may-suspend analysis
++ dual-emit at async sites. The runtime stays small (~500 LOC); the
+emit's the leverage.
+
 ### Tier 3 — probes (questions, not features)
 
 Each is a question answered by running, not built features.
