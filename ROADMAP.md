@@ -222,12 +222,13 @@ likelihood-of-being-hit-during-bb-fill.
 | T3 | NaN comparison wrong + parser bug returning INF for NaN CP entries | **DONE** | jvm_fcmpl/jvm_fcmpg/jvm_float_equals helpers; DoubleInfo/FloatInfo pack/unpack-based decode; `tests/Cases/NaNComparisonTest.php` 5/5 |
 | T4 | `String.length` byte vs UTF-16 unit | **DONE (partial)** | byte-walk UTF-16 unit count; `tests/Cases/StringUtf16LengthTest.php` 5/5. `charAt`/`indexOf`/`substring`/`hashCode` still byte-indexed — folds into ROADMAP §Build "String_ fill". |
 | T5 | `iinc` opcode no 32-bit mask + wide-iinc parsing | **DONE** | Lowerer 32-bit wrap on IincLocal; Builder wide-iinc (0xC4 0x84) parse; `tests/Cases/IincOverflowTest.php` 4/4 |
-| T6 | Char surrogate-pair semantics | **DEFERRED** to ROADMAP §Build "String_ fill" — char design (1-char UTF-8 string per CONTRACTS.md §1) needs broader rework to support surrogate pairs alongside `String.charAt`. Out of audit scope for an isolated fix. |
+| T6 | Char surrogate-pair semantics | **DONE** | `String_::charAt` walks UTF-8/CESU-8/4-byte forms; returns int code unit (0xD800–0xDFFF for supplementary char halves); `tests/Cases/CharSurrogateTest.php` 7/7 |
 | T7 | Nested/overlapping try-catch silently uncaught | **DONE (warning only)** | `Compiler.php:826` triggers `E_USER_WARNING` at AOT-compile time when ranges nest. Underlying nested-protection emit is still fall-through; lift to ROADMAP §Refinement when a real fixture needs the protection. |
 
-All seven landed (T6 deferred consciously). Total: 25 new tests passing
-across 5 test files, 0 baseline regressions, 1 bonus parser fix
-(NaN/INF/special-value decoding via IEEE754 round-trip).
+All seven landed. Total: 32 new tests passing across 6 test files,
+0 baseline regressions, 1 bonus parser fix (NaN/INF/special-value
+decoding via IEEE754 round-trip), 1 bonus opcode fill (wide-iinc
+parsing in Builder).
 
 ### Build — capability extension (~6–8 weeks for v1)
 

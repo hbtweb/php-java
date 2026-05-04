@@ -82,12 +82,62 @@ class String_
 {
     public static function charAt(string $s, int $i): int
     {
-        if ($i < 0 || $i >= \strlen($s)) {
-            // JDK throws StringIndexOutOfBoundsException, which extends
-            // IndexOutOfBoundsException — both `catch` patterns work.
+        if ($i < 0) {
             throw new StringIndexOutOfBoundsException("String index out of range: {$i}");
         }
-        return \ord($s[$i]);
+        // Java String.charAt(i) returns the UTF-16 code unit at index i.
+        // PHP strings are byte sequences; we walk the UTF-8 stream and
+        // return the int code unit value at the i-th UTF-16 position.
+        //
+        // Three encodings to handle (all in one pass):
+        //   1-byte UTF-8 (ASCII)        → 1 code unit (ASCII codepoint)
+        //   2-byte UTF-8 (U+0080..07FF) → 1 code unit (BMP codepoint)
+        //   3-byte UTF-8 (U+0800..FFFF) → 1 code unit (BMP codepoint OR
+        //                                  CESU-8-encoded surrogate from
+        //                                  a Java class file)
+        //   4-byte UTF-8 (U+10000+)     → 2 code units (surrogate pair)
+        //
+        // For the 4-byte form, we synthesise the high+low surrogate
+        // values from the codepoint per the UTF-16 surrogate algorithm
+        // (codepoint - 0x10000, split into top 10 bits | 0xD800 and low
+        // 10 bits | 0xDC00).
+        $n = \strlen($s);
+        $unit = 0;
+        $byte = 0;
+        while ($byte < $n) {
+            $b = \ord($s[$byte]);
+            if ($b < 0x80) {
+                if ($unit === $i) return $b;
+                $byte += 1; $unit += 1;
+            } elseif ($b < 0xE0) {
+                if ($unit === $i) {
+                    $b2 = \ord($s[$byte + 1]);
+                    return (($b & 0x1F) << 6) | ($b2 & 0x3F);
+                }
+                $byte += 2; $unit += 1;
+            } elseif ($b < 0xF0) {
+                if ($unit === $i) {
+                    $b2 = \ord($s[$byte + 1]);
+                    $b3 = \ord($s[$byte + 2]);
+                    return (($b & 0x0F) << 12) | (($b2 & 0x3F) << 6) | ($b3 & 0x3F);
+                }
+                $byte += 3; $unit += 1;
+            } else {
+                if ($unit === $i || $unit + 1 === $i) {
+                    $b2 = \ord($s[$byte + 1]);
+                    $b3 = \ord($s[$byte + 2]);
+                    $b4 = \ord($s[$byte + 3]);
+                    $cp = (($b & 0x07) << 18) | (($b2 & 0x3F) << 12)
+                        | (($b3 & 0x3F) << 6) | ($b4 & 0x3F);
+                    $cp -= 0x10000;
+                    return $unit === $i
+                        ? 0xD800 | ($cp >> 10)
+                        : 0xDC00 | ($cp & 0x3FF);
+                }
+                $byte += 4; $unit += 2;
+            }
+        }
+        throw new StringIndexOutOfBoundsException("String index out of range: {$i}");
     }
 
     public static function length(string $s): int
