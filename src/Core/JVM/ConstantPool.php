@@ -9,6 +9,7 @@ use PHPJava\Exceptions\RuntimeException;
 use PHPJava\Kernel\Maps\ConstantPoolTag;
 use PHPJava\Kernel\Structures\ClassInfo;
 use PHPJava\Kernel\Structures\DoubleInfo;
+use PHPJava\Kernel\Structures\DynamicInfo;
 use PHPJava\Kernel\Structures\FieldrefInfo;
 use PHPJava\Kernel\Structures\FloatInfo;
 use PHPJava\Kernel\Structures\FreezableInterface;
@@ -97,13 +98,16 @@ class ConstantPool implements \ArrayAccess, \Countable, \IteratorAggregate
                 return new InterfaceMethodrefInfo($this->reader);
             case ConstantPoolTag::CONSTANT_InvokeDynamic:
                 return new InvokeDynamicInfo($this->reader);
+            case ConstantPoolTag::CONSTANT_Dynamic:
+                return new DynamicInfo($this->reader);
             case ConstantPoolTag::CONSTANT_MethodHandle:
                 return new MethodHandleInfo($this->reader);
             case ConstantPoolTag::CONSTANT_MethodType:
                 return new MethodTypeInfo($this->reader);
             case ConstantPoolTag::CONSTANT_Module:
+                return new \PHPJava\Kernel\Structures\ModuleInfo($this->reader);
             case ConstantPoolTag::CONSTANT_Package:
-                throw new ReadEntryException('Entry tag ' . sprintf('0x%04X', $entryTag) . ' is not implemented.');
+                return new \PHPJava\Kernel\Structures\PackageInfo($this->reader);
         }
         throw new ReadEntryException('Entry tag ' . sprintf('0x%04X', $entryTag) . ' is not defined.');
     }

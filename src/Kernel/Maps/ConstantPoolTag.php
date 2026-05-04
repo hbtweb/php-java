@@ -18,6 +18,7 @@ class ConstantPoolTag extends Map
 
     const CONSTANT_MethodHandle = 0x000F;
     const CONSTANT_MethodType = 0x0010;
+    const CONSTANT_Dynamic = 0x0011;       // JEP 309 (Java 11)
     const CONSTANT_InvokeDynamic = 0x0012;
     const CONSTANT_Module = 0x0013;
     const CONSTANT_Package = 0x0014;

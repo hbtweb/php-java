@@ -12,6 +12,12 @@ class Base extends TestCase
     protected $fixtures = [];
     protected static $initiatedJavaClasses = [];
 
+    /**
+     * Override per subclass when a fixture needs a higher --release
+     * than 11 (records: 16+, sealed: 17+, virtual threads: 21+).
+     */
+    protected $javacRelease = '11';
+
     public function setUp(): void
     {
         parent::setUp();
@@ -27,7 +33,8 @@ class Base extends TestCase
             if (isset(static::$initiatedJavaClasses[$fixture])) {
                 continue;
             }
-            exec('javac --release 11 -classpath ' . $pathRoot . ' -encoding UTF8 ' . $pathRoot . str_replace(['../', './'], '', $fixture) . '.java -d ' . __DIR__ . '/caches');
+            $release = $this->javacRelease;
+            exec('javac --release ' . escapeshellarg($release) . ' -classpath ' . $pathRoot . ' -encoding UTF8 ' . $pathRoot . str_replace(['../', './'], '', $fixture) . '.java -d ' . __DIR__ . '/caches');
             static::$initiatedJavaClasses[$fixture] = JavaClass::load(
                 $fixture
             );

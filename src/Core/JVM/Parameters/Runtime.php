@@ -30,6 +30,14 @@ final class Runtime
         'SourceFile',
         'InnerClasses',
         'BootstrapMethods',
+        // Java 11+ — load past the parser. AttributeInfo.php:45 silently
+        // skips anything outside this list; Java 11+ class files require
+        // these attribute parsers to be reachable.
+        'NestHost',
+        'NestMembers',
+        // Java 16+ records, Java 17+ sealed.
+        'Record',
+        'PermittedSubclasses',
     ];
 
     const PHP_PACKAGES_MAPS = [
