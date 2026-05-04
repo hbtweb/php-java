@@ -278,6 +278,26 @@ prerequisite.
    super-class load (per `bench/probe-real-library.md`); the audit's
    pointer to `ConstantPool.php:42–59` was a misdiagnosis (CP entries
    store indices only, no eager class loads at exec time).
+9. **Substitution table for cljp dual-runtime** (sister-project coordination,
+   ~1–2 weeks). When AOT compiling JVM-Clojure JARs, redirect
+   `clojure.lang.*` ClassRef / Methodref resolutions to `cljp.lang.*`
+   at translate time so cljp-native and emulated halves share the
+   same Zend objects. Both halves run on the same Zend heap with the
+   same `zval` representation — no marshalling, just direct method
+   dispatch (per `~/GitHub/ClojurePHP/docs/CLJP-POSITIONING.md`
+   §"Boundary cost is essentially zero"). Implementation: optional
+   substitution map argument to `Compiler::compileBytes`, consulted
+   in `src/Aot/Ir/Builder.php:2169` `classFqn()` and at every
+   `INVOKEVIRTUAL`/`INVOKESPECIAL`/`INVOKESTATIC` resolution.
+   ~150 classes, mostly mechanical. **NOT STARTED** — defer until
+   cljp actually pulls a JAR through.
+10. **`java.lang.foreign.*` shim over Zend FFI** (Path B in LAYERS).
+    Distinct from #9: the substitution table covers cljp ↔ emulated-Java
+    on the *same* Zend heap (no boundary). FFM over Zend FFI covers
+    AOT-compiled Java code calling *real C libraries* outside Zend.
+    Both API surfaces are C-ABI bridges; the mapping is mechanical.
+    **NOT STARTED** — niche per `docs/JVM-PHP-DELTA.md:445`; waits
+    for a workload that exercises `java.lang.foreign.Linker`.
 
 ### Refinement — perf and reliability tightening (1–2 weeks total)
 
