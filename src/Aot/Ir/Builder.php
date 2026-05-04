@@ -471,11 +471,14 @@ final class Builder
             //    sign-extending mask: (v << 32) >> 32. Long (64-bit) =
             //    PHP int, no mask. Float/double = PHP float, no mask.
             case 0x60: $this->emitIntBinOp('+'); return; // iadd
-            case 0x61: case 0x62: case 0x63: $this->emitBinOp('+'); return; // ladd/fadd/dadd
+            case 0x61: $this->emitLongBinFn('jvm_ladd'); return; // ladd (Java-correct wrap)
+            case 0x62: case 0x63: $this->emitBinOp('+'); return; // fadd/dadd
             case 0x64: $this->emitIntBinOp('-'); return; // isub
-            case 0x65: case 0x66: case 0x67: $this->emitBinOp('-'); return; // lsub/fsub/dsub
+            case 0x65: $this->emitLongBinFn('jvm_lsub'); return; // lsub
+            case 0x66: case 0x67: $this->emitBinOp('-'); return; // fsub/dsub
             case 0x68: $this->emitIntBinOp('*'); return; // imul
-            case 0x69: case 0x6A: case 0x6B: $this->emitBinOp('*'); return; // lmul/fmul/dmul
+            case 0x69: $this->emitLongBinFn('jvm_lmul'); return; // lmul
+            case 0x6A: case 0x6B: $this->emitBinOp('*'); return; // fmul/dmul
             // ── iinc ────────────────────────────────────────────────
             case 0x84:
                 $idx = $bytes[$this->pc++];
@@ -735,15 +738,21 @@ final class Builder
                 return;
             // ── more arithmetic / shifts / bitwise ─────────────────
             case 0x6C: $this->emitIntBinOpFn('intdiv'); return;               // idiv (32-bit mask)
-            case 0x6D: $this->emitBinOpFn('intdiv'); return;                  // ldiv
+            case 0x6D: $this->emitLongBinFn('jvm_ldiv'); return;              // ldiv (Long.MIN_VALUE / -1 wrap)
             case 0x6E: case 0x6F: $this->emitBinOp('/'); return;              // fdiv/ddiv
             case 0x70: $this->emitIntBinOp('%'); return;                      // irem (32-bit mask)
-            case 0x71: $this->emitBinOp('%'); return;                         // lrem
+            case 0x71: $this->emitLongBinFn('jvm_lrem'); return;              // lrem (Long.MIN_VALUE % -1 = 0)
             case 0x72: case 0x73: $this->emitBinOpFn('fmod'); return;         // frem/drem
             case 0x74: // ineg — 32-bit mask
                 $this->push($this->maskInt32(new \PHPJava\Aot\Ir\UnaryOp('-', $this->pop())));
                 return;
-            case 0x75: case 0x76: case 0x77: // lneg/fneg/dneg — no mask
+            case 0x75: // lneg — Long.MIN_VALUE wraps to itself
+                $this->push(new \PHPJava\Aot\Ir\StaticCall(
+                    '\\PHPJava\\Aot\\Runtime\\jvm_lneg', '',
+                    [$this->pop()]
+                ));
+                return;
+            case 0x76: case 0x77: // fneg/dneg — no mask
                 $this->push(new \PHPJava\Aot\Ir\UnaryOp('-', $this->pop()));
                 return;
             case 0x7E: case 0x7F: $this->emitBinOp('&'); return;
@@ -969,6 +978,23 @@ final class Builder
         $left = $this->pop();
         $call = new \PHPJava\Aot\Ir\StaticCall("\\{$fn}", '', [$left, $right]);
         $this->push($this->maskInt32($call));
+    }
+
+    /**
+     * Emit a long-arith binary op via a runtime helper that wraps modulo
+     * 2^64 (Java semantics). PHP int is 64-bit on 64-bit hosts but
+     * promotes to float on overflow, losing precision; the helper
+     * detects the overflow and recovers via GMP. See
+     * src/Aot/Runtime/bootstrap.php — jvm_ladd / jvm_lsub / etc.
+     */
+    private function emitLongBinFn(string $fn): void
+    {
+        $right = $this->pop();
+        $left = $this->pop();
+        $this->push(new \PHPJava\Aot\Ir\StaticCall(
+            "\\PHPJava\\Aot\\Runtime\\{$fn}", '',
+            [$left, $right]
+        ));
     }
 
     /** Wrap an Expr with the JVM 32-bit signed-int overflow mask. */

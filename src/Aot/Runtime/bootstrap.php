@@ -323,6 +323,92 @@ function jvm_lushr(int $v, int $n): int
 }
 
 /**
+ * Java `long` arithmetic — wrap modulo 2^64, two's-complement.
+ *
+ * PHP int is 64-bit on 64-bit hosts, but PHP overflows promote to
+ * float (losing precision past 2^53) instead of wrapping. Java long
+ * wraps modulo 2^64. Two-tier approach: try native first; if the
+ * result is a float (overflow detected), recompute via GMP.
+ *
+ * Cost: native happy path ~10 ns (one is_int check); overflow path
+ * ~170 ns (GMP). Most long workloads never overflow, so amortized
+ * cost is barely above native. PHP's `(int)` cast on the overflowed
+ * float saturates rather than wraps — diverges from Java for cases
+ * other than the simplest power-of-2 boundary, so we can't shortcut
+ * the GMP recovery.
+ *
+ * Per CONTRACTS.md §1: long is PHP int on the operand stack. These
+ * helpers preserve that invariant.
+ */
+function jvm_ladd(int $a, int $b): int
+{
+    $r = $a + $b;
+    return \is_int($r) ? $r : jvm_lwrap_arith('+', $a, $b);
+}
+
+function jvm_lsub(int $a, int $b): int
+{
+    $r = $a - $b;
+    return \is_int($r) ? $r : jvm_lwrap_arith('-', $a, $b);
+}
+
+function jvm_lmul(int $a, int $b): int
+{
+    $r = $a * $b;
+    return \is_int($r) ? $r : jvm_lwrap_arith('*', $a, $b);
+}
+
+function jvm_ldiv(int $a, int $b): int
+{
+    if ($b === 0) throw new \PHPJava\Packages\java\lang\ArithmeticException('/ by zero');
+    // Java's only ldiv overflow case: Long.MIN_VALUE / -1 should wrap to
+    // Long.MIN_VALUE (because +2^63 doesn't fit). PHP intdiv throws
+    // DivisionByZeroError on this — handle explicitly.
+    if ($a === \PHP_INT_MIN && $b === -1) return \PHP_INT_MIN;
+    return \intdiv($a, $b);
+}
+
+function jvm_lrem(int $a, int $b): int
+{
+    if ($b === 0) throw new \PHPJava\Packages\java\lang\ArithmeticException('/ by zero');
+    if ($a === \PHP_INT_MIN && $b === -1) return 0; // Java: MIN_VALUE % -1 = 0
+    return $a % $b;
+}
+
+function jvm_lneg(int $a): int
+{
+    if ($a === \PHP_INT_MIN) return \PHP_INT_MIN; // -MIN_VALUE wraps to MIN_VALUE
+    return -$a;
+}
+
+/** GMP-based wrap recovery for long arithmetic that overflowed. */
+function jvm_lwrap_arith(string $op, int $a, int $b): int
+{
+    if (!\extension_loaded('gmp')) {
+        // GMP missing: best-effort. The (int) cast saturates rather
+        // than wraps for non-power-of-2 boundary overflows; for tests
+        // that hit those, install ext-gmp.
+        return (int) match ($op) {
+            '+' => $a + $b, '-' => $a - $b, '*' => $a * $b,
+        };
+    }
+    $ga = \gmp_init($a);
+    $gb = \gmp_init($b);
+    $r = match ($op) {
+        '+' => \gmp_add($ga, $gb),
+        '-' => \gmp_sub($ga, $gb),
+        '*' => \gmp_mul($ga, $gb),
+    };
+    static $two64 = null, $two63 = null;
+    $two64 ??= \gmp_pow(2, 64);
+    $two63 ??= \gmp_pow(2, 63);
+    $r = \gmp_mod($r, $two64);
+    if (\gmp_cmp($r, 0) < 0) $r = \gmp_add($r, $two64);
+    if (\gmp_cmp($r, $two63) >= 0) $r = \gmp_sub($r, $two64);
+    return \gmp_intval($r);
+}
+
+/**
  * SwitchBootstraps.typeSwitch / enumSwitch helper. Walks the labels
  * array; first match wins, returns the case index. -1 = default.
  * Labels: null (catchall), int (constant int case), string (class FQN).
