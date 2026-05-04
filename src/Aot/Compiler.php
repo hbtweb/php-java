@@ -89,15 +89,29 @@ final class Compiler
      */
     private static array $compileClassCache = [];
 
+    /**
+     * Cache hit/miss/eviction counters. Daemon production visibility per
+     * ROADMAP §Refinement #2 — without these, a daemon loading > cacheMaxSize
+     * distinct classes thrashes silently. Read via cacheStats().
+     *
+     * @var array{compileClass:array{hits:int,misses:int,evictions:int},compileBytes:array{hits:int,misses:int,evictions:int}}
+     */
+    private static array $cacheStats = [
+        'compileClass' => ['hits' => 0, 'misses' => 0, 'evictions' => 0],
+        'compileBytes' => ['hits' => 0, 'misses' => 0, 'evictions' => 0],
+    ];
+
     public function compileClass(string $classPath): string
     {
         if (isset(self::$compileClassCache[$classPath])) {
+            self::$cacheStats['compileClass']['hits']++;
             // Promote to most-recent: remove + reinsert.
             $cached = self::$compileClassCache[$classPath];
             unset(self::$compileClassCache[$classPath]);
             self::$compileClassCache[$classPath] = $cached;
             return $cached;
         }
+        self::$cacheStats['compileClass']['misses']++;
         $cls = JavaClass::load($classPath);
         // JavaClass wraps a JavaCompiledClass via `genericClass` (private);
         // reach in via reflection — fine for a spike. The production
@@ -109,7 +123,7 @@ final class Compiler
         $jcc = $prop->getValue($cls);
 
         $out = $this->compileFromGenericClass($jcc, $classPath);
-        self::lruInsert(self::$compileClassCache, $classPath, $out);
+        self::lruInsert(self::$compileClassCache, $classPath, $out, 'compileClass');
         return $out;
     }
 
@@ -153,16 +167,48 @@ final class Compiler
         // class identifier change), so both go into the key.
         $key = \hash('xxh3', $classPath . "\0" . $classBytes);
         if (isset(self::$compileBytesCache[$key])) {
+            self::$cacheStats['compileBytes']['hits']++;
             // Promote to most-recent (LRU).
             $cached = self::$compileBytesCache[$key];
             unset(self::$compileBytesCache[$key]);
             self::$compileBytesCache[$key] = $cached;
             return $cached;
         }
+        self::$cacheStats['compileBytes']['misses']++;
         $jcc = new JavaCompiledClass(new InlineReader($classPath, $classBytes));
         $out = $this->compileFromGenericClass($jcc, $classPath);
-        self::lruInsert(self::$compileBytesCache, $key, $out);
+        self::lruInsert(self::$compileBytesCache, $key, $out, 'compileBytes');
         return $out;
+    }
+
+    /**
+     * Cache observability for daemon production deploys. Returns
+     * per-cache hit/miss/eviction counts plus current size.
+     *
+     * Counters reset only on clearCompileCache(). For a Swoole or
+     * RoadRunner worker, sample at scrape interval to compute hit rate.
+     * Eviction count > 0 means cache is at capacity; raise
+     * `PHPJAVA_AOT_CACHE_MAX` if working set exceeds it.
+     *
+     * @return array{compileClass:array{hits:int,misses:int,evictions:int,size:int},compileBytes:array{hits:int,misses:int,evictions:int,size:int}}
+     */
+    public static function cacheStats(): array
+    {
+        return [
+            'compileClass' => self::$cacheStats['compileClass']
+                + ['size' => \count(self::$compileClassCache)],
+            'compileBytes' => self::$cacheStats['compileBytes']
+                + ['size' => \count(self::$compileBytesCache)],
+        ];
+    }
+
+    /** Reset the hit/miss counters without flushing the caches themselves. */
+    public static function resetCacheStats(): void
+    {
+        self::$cacheStats = [
+            'compileClass' => ['hits' => 0, 'misses' => 0, 'evictions' => 0],
+            'compileBytes' => ['hits' => 0, 'misses' => 0, 'evictions' => 0],
+        ];
     }
 
     /**
@@ -190,12 +236,15 @@ final class Compiler
      *
      * @param array<string,string> $cache mutated by reference
      */
-    private static function lruInsert(array &$cache, string $key, string $value): void
+    private static function lruInsert(array &$cache, string $key, string $value, ?string $statsKey = null): void
     {
         $max = self::cacheMaxSize();
         if (count($cache) >= $max) {
             // array_shift drops the oldest insertion-ordered entry.
             array_shift($cache);
+            if ($statsKey !== null) {
+                self::$cacheStats[$statsKey]['evictions']++;
+            }
         }
         $cache[$key] = $value;
     }
