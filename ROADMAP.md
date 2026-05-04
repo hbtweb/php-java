@@ -215,18 +215,19 @@ implementation bugs in shim code rather than at their actual site.
 JVM-semantic divergences current tests don't exercise. Ranked roughly by
 likelihood-of-being-hit-during-bb-fill.
 
-| # | Gap | Site | Fix |
+| # | Gap | Status | Site / Test |
 |---|---|---|---|
-| T1 | Long overflow unmasked → silent float promotion | `src/Aot/Ir/Builder.php:474,476,478` ladd/lsub/lmul; `:738` ldiv; `:741` lrem | 64-bit overflow guard or GMP fallback. Java long wraps at 64-bit; PHP int promotes to float on overflow. |
-| T2 | Float narrowing missing on FSTORE / putfield(F) / f2d / d2f | `src/Aot/Ir/Builder.php:1556–1577` widenForJvmStack/narrowForFieldStorage; `:459` f2d/d2f | Add F descriptor; pack/unpack via `'f'` at field/array boundary. PHP `float` is binary64; Java `float` is binary32. |
-| T3 | NaN comparison wrong | `src/Aot/Ir/Builder.php:461–463` fcmp[lg]/dcmp[lg] use PHP `<=>` (returns 0 on NaN); `:1515` Float.equals uses `===` (returns false on NaN) | fcmpl returns -1, fcmpg returns +1 if either operand is NaN; `Float.equals(NaN, NaN)` returns true. |
-| T4 | `String.length` byte vs UTF-16 unit | `src/Aot/Runtime/bootstrap.php:93` returns `strlen($s)` | Count UTF-16 code units (not bytes, not codepoints). For BMP-only ASCII the values match; multi-byte UTF-8 diverges. |
-| T5 | `iinc` opcode no 32-bit mask | `src/Aot/Ir/Lowerer.php:209` emits `+= delta;` | Apply 32-bit mask consistent with iadd. Diverges for tight increment loops at 2^31 boundary. |
-| T6 | Char surrogate-pair semantics | `src/Aot/Ir/Builder.php:1559–1576` mb_chr/mb_ord with `'UTF-8'` | Java `char` is a UTF-16 code unit; supplementary chars (U+10000+) are 2 chars in Java but 1 PHP UTF-8 sequence. `String.charAt` semantics diverge for non-BMP. |
-| T7 | Nested/overlapping try-catch silently uncaught | `src/Aot/Compiler.php:802–805,823–825` falls back to no-protection emit with leading comment only | Either implement nested-range support or emit a runtime warning so the silent miss is visible. |
+| T1 | Long overflow unmasked → silent float promotion | **DONE** | jvm_l{add,sub,mul,div,rem,neg} helpers; `tests/Cases/LongOverflowTest.php` 6/6 |
+| T2 | Float narrowing missing on FSTORE / putfield(F) / f2d / d2f / i2f / l2f | **DONE** | jvm_f32 helper; FloatLit emit via var_export; `tests/Cases/FloatNarrowTest.php` 5/5 |
+| T3 | NaN comparison wrong + parser bug returning INF for NaN CP entries | **DONE** | jvm_fcmpl/jvm_fcmpg/jvm_float_equals helpers; DoubleInfo/FloatInfo pack/unpack-based decode; `tests/Cases/NaNComparisonTest.php` 5/5 |
+| T4 | `String.length` byte vs UTF-16 unit | **DONE (partial)** | byte-walk UTF-16 unit count; `tests/Cases/StringUtf16LengthTest.php` 5/5. `charAt`/`indexOf`/`substring`/`hashCode` still byte-indexed — folds into ROADMAP §Build "String_ fill". |
+| T5 | `iinc` opcode no 32-bit mask + wide-iinc parsing | **DONE** | Lowerer 32-bit wrap on IincLocal; Builder wide-iinc (0xC4 0x84) parse; `tests/Cases/IincOverflowTest.php` 4/4 |
+| T6 | Char surrogate-pair semantics | **DEFERRED** to ROADMAP §Build "String_ fill" — char design (1-char UTF-8 string per CONTRACTS.md §1) needs broader rework to support surrogate pairs alongside `String.charAt`. Out of audit scope for an isolated fix. |
+| T7 | Nested/overlapping try-catch silently uncaught | **DONE (warning only)** | `Compiler.php:826` triggers `E_USER_WARNING` at AOT-compile time when ranges nest. Underlying nested-protection emit is still fall-through; lift to ROADMAP §Refinement when a real fixture needs the protection. |
 
-For each: write a fixture exercising the bug, land the fix, confirm
-rank-1 in suite. None blocked.
+All seven landed (T6 deferred consciously). Total: 25 new tests passing
+across 5 test files, 0 baseline regressions, 1 bonus parser fix
+(NaN/INF/special-value decoding via IEEE754 round-trip).
 
 ### Build — capability extension (~6–8 weeks for v1)
 

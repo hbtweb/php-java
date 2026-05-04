@@ -823,6 +823,20 @@ final class Compiler
         $hasNesting = false;
         foreach ($exByStart as $entries) if (count($entries) > 1) { $hasNesting = true; break; }
         foreach ($exByEnd as $entries) if (count($entries) > 1) { $hasNesting = true; break; }
+        // Make the no-protection fallback visible: silent miss caused
+        // real divergence per the 2026-05-04 audit (gap T7). Trigger a
+        // user warning once per compile so test runs and production
+        // logs surface the case where nested try/catch isn't honoured.
+        // Refine when a fixture surfaces actual nested-handler dispatch.
+        if ($hasNesting) {
+            \trigger_error(
+                "PHPJava AOT: {$owner}::{$name}{$descriptor} has nested or "
+                . "overlapping exception ranges; emitting without try/catch "
+                . "protection. Thrown exceptions in this body will propagate "
+                . "uncaught. (audit gap T7 — fix tracked in ROADMAP §Refinement.)",
+                \E_USER_WARNING
+            );
+        }
 
         // First pass: collect branch targets + the highest local-slot
         // index referenced. Slot count drives the $L pre-init below;
