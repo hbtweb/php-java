@@ -128,6 +128,24 @@ final class Loader
         return [true, $aotFqn::$mangled(...$args)];
     }
 
+    /**
+     * AOT instance construction with explicit binary name. Used by IR
+     * Lowerer for `new` of a non-current AOT-emitted class, so the load
+     * uses the exact JVM binary name (`Outer$Inner`) instead of routing
+     * through the autoloader's reverse-mangle heuristic — which is
+     * ambiguous for inner classes.
+     *
+     * Counterpart to `callStatic` for the constructor case.
+     */
+    public static function newInstance(string $classPath, ...$args)
+    {
+        if (!isset(self::$loaded[$classPath])) {
+            self::loadClass($classPath);
+        }
+        $aotFqn = self::aotFqn($classPath);
+        return new $aotFqn(...$args);
+    }
+
     /** Whether a class has been AOT-loaded into the running process. */
     public static function isLoaded(string $classPath): bool
     {

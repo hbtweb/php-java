@@ -94,6 +94,14 @@ final class StaticCall extends Expr {
         public readonly string $classFqn,  // '\PHPJava\Aot\...' or 'self'
         public readonly string $method,
         public readonly array $args,       // Expr[]
+        // JVM binary name (e.g. 'Outer$Inner') when this is a cross-class
+        // AOT-emitted-class invokestatic. Lowerer routes through
+        // Loader::callStatic(binaryName, ...) so the load uses the exact
+        // binary name and bypasses the autoloader's `_ → /` heuristic
+        // (which is reverse-ambiguous for inner classes). Null for
+        // raw-PHP-fn calls (\intval, \count, ...), `self::`, JDK shims,
+        // and the `__uninit` placeholder.
+        public readonly ?string $binaryName = null,
     ) {}
     public function isPure(): bool { return false; }
 }
@@ -121,6 +129,10 @@ final class New_ extends Expr {
     public function __construct(
         public readonly string $classFqn,
         public readonly array $args,       // Expr[]
+        // JVM binary name when this is a cross-class AOT-emitted-class
+        // construction. See StaticCall::$binaryName for the rationale —
+        // Lowerer routes through Loader::newInstance(binaryName, ...).
+        public readonly ?string $binaryName = null,
     ) {}
     public function isPure(): bool { return false; }
 }

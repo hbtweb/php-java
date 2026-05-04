@@ -279,6 +279,16 @@ final class Lowerer
             if ($e->method === '') {
                 return "{$e->classFqn}(" . implode(', ', $args) . ")";
             }
+            // Cross-class AOT-emitted-class invokestatic: route through
+            // Loader::callStatic with the exact JVM binary name. Skips
+            // the autoloader's `_ → /` heuristic, which mis-resolves
+            // inner classes (Outer$Inner → Outer/Inner).
+            if ($e->binaryName !== null) {
+                $binLit = "'" . addcslashes($e->binaryName, "'\\") . "'";
+                $methodLit = "'" . addcslashes($e->method, "'\\") . "'";
+                $argList = $args ? ', ' . implode(', ', $args) : '';
+                return "\\PHPJava\\Aot\\Loader::callStatic({$binLit}, {$methodLit}{$argList})";
+            }
             return "{$e->classFqn}::{$e->method}(" . implode(', ', $args) . ")";
         }
         if ($e instanceof StaticFieldRead) {
@@ -290,6 +300,15 @@ final class Lowerer
         }
         if ($e instanceof New_) {
             $args = array_map(fn($a) => $this->lowerExpr($a), $e->args);
+            // Cross-class AOT-emitted-class construction: route through
+            // Loader::newInstance with the exact JVM binary name. Same
+            // rationale as the StaticCall::$binaryName path — sidesteps
+            // the autoloader's reverse-mangle ambiguity for inner classes.
+            if ($e->binaryName !== null) {
+                $binLit = "'" . addcslashes($e->binaryName, "'\\") . "'";
+                $argList = $args ? ', ' . implode(', ', $args) : '';
+                return "\\PHPJava\\Aot\\Loader::newInstance({$binLit}{$argList})";
+            }
             return "new {$e->classFqn}(" . implode(', ', $args) . ")";
         }
         if ($e instanceof CaughtException) {

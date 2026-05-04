@@ -1087,7 +1087,8 @@ final class Builder
         $args = array_values($args);
 
         $fqn = $this->classFqn($clsName);
-        $call = new StaticCall($fqn, $this->mangleMethod($methodName), $args);
+        $bin = $this->generatedBinaryName($clsName);
+        $call = new StaticCall($fqn, $this->mangleMethod($methodName), $args, $bin);
 
         if ($ret === 'V') {
             $this->currentBb->stmts[] = new ExprStmt($call);
@@ -1125,20 +1126,20 @@ final class Builder
                 && $other->classFqn === $receiver->classFqn) {
                 array_pop($this->abstractStack);
             }
-            $this->push(new New_($receiver->classFqn, $args));
+            $this->push(new New_($receiver->classFqn, $args, $this->generatedBinaryName($cls)));
             return;
         }
 
         // super(...) call inside an instance method — `aload_0;
-        // invokespecial X.<init>()V`. Receiver is `LocalRead(0)` ($this);
-        // target is a JDK base class without an AOT/shim equivalent
-        // PHP constructor. PHP's `parent::__construct()` would suffice
-        // when there's a real superclass, but emitted classes don't
-        // chain. For abstract bases (Object, Record, Number, Enum,
-        // Throwable), emit nothing — semantically a no-op.
+        // invokespecial X.<init>(...)V`, receiver is `$this`. AOT-emitted
+        // classes don't `extends` their JVM superclass, so the super-init
+        // has no PHP target to chain into and is a no-op. The current-
+        // class case is `this(...)` (delegating constructor) — left
+        // alone here (PHP has no ctor overloading, but routing it through
+        // InstanceCall preserves whatever upstream behaviour exists).
         if ($isSpecial && $methodName === '<init>'
             && $receiver instanceof LocalRead && $receiver->slot === 0
-            && self::isAbstractBaseInit($cls)) {
+            && $cls !== $this->currentClassBin) {
             return;
         }
 
@@ -1202,25 +1203,6 @@ final class Builder
                 => new BinOp('!==', $ref, new \PHPJava\Aot\Ir\NullLit()),
             default => null,
         };
-    }
-
-    /**
-     * JDK abstract base classes whose <init> is a no-op for our
-     * purposes — super calls into these from AOT-emitted constructors
-     * elide rather than emit a missing-method runtime error.
-     */
-    private static function isAbstractBaseInit(string $clsBin): bool
-    {
-        return in_array($clsBin, [
-            'java/lang/Object',
-            'java/lang/Record',
-            'java/lang/Number',
-            'java/lang/Enum',
-            'java/lang/Throwable',
-            'java/lang/Exception',
-            'java/lang/RuntimeException',
-            'java/lang/Error',
-        ], true);
     }
 
     /** Emit invokedynamic. Whitelisted bootstraps: StringConcatFactory,
@@ -1739,6 +1721,26 @@ final class Builder
         // AOT-emitted: mirror Compiler::mangle — replace `\` and `$`
         // with `_` so the FQN matches the class-declaration name.
         return '\\PHPJava\\Aot\\Generated\\' . str_replace(['\\', '$'], '_', $php);
+    }
+
+    /**
+     * Returns the JVM binary name when the target is an AOT-emitted
+     * cross-class reference — null for self, JDK, and raw-PHP-fn calls.
+     * The binary name is used by Lowerer to route through Loader's
+     * load+dispatch helpers, sidestepping the autoloader's reverse-
+     * mangle ambiguity for inner classes.
+     */
+    private function generatedBinaryName(string $binaryName): ?string
+    {
+        if ($binaryName === $this->currentClassBin) return null;
+        if (str_starts_with($binaryName, 'java/')
+            || str_starts_with($binaryName, 'javax/')
+            || str_starts_with($binaryName, 'jdk/')
+            || str_starts_with($binaryName, 'sun/')
+            || str_starts_with($binaryName, 'com/sun/')) {
+            return null;
+        }
+        return $binaryName;
     }
 
     private function utf8At(int $idx): string
