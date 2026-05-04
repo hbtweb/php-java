@@ -107,6 +107,21 @@ final class Builder
     private ?string $aotClassFqn = null;
     public function setAotClassFqn(?string $fqn): void { $this->aotClassFqn = $fqn; }
 
+    /**
+     * JVM binary name of the AOT-routed superclass (e.g. 'EnclosingMethodTest'
+     * for `class EnclosingMethodTest$1 extends EnclosingMethodTest`). Set
+     * by the Compiler when the emitted PHP class will carry an `extends`
+     * clause. Drives the super-init peephole: with extends in place,
+     * `aload_0; invokespecial Super.<init>` lowers to `parent::__construct`
+     * rather than the no-op used when the AOT class doesn't extend.
+     *
+     * Null when the class doesn't extend any AOT-emitted class
+     * (extends Object directly, or extends a JDK shim that we
+     * deliberately don't chain into).
+     */
+    private ?string $superClassBin = null;
+    public function setSuperClassBin(?string $bin): void { $this->superClassBin = $bin; }
+
     public function buildMethod(
         JavaCompiledClass $jcc,
         string $methodName,
@@ -1146,15 +1161,23 @@ final class Builder
         }
 
         // super(...) call inside an instance method — `aload_0;
-        // invokespecial X.<init>(...)V`, receiver is `$this`. AOT-emitted
-        // classes don't `extends` their JVM superclass, so the super-init
-        // has no PHP target to chain into and is a no-op. The current-
-        // class case is `this(...)` (delegating constructor) — left
-        // alone here (PHP has no ctor overloading, but routing it through
-        // InstanceCall preserves whatever upstream behaviour exists).
+        // invokespecial X.<init>(...)V`, receiver is `$this`.
+        //
+        // - When the emitted PHP class will `extends` X (Compiler set
+        //   $this->superClassBin === X): emit `parent::__construct(...)`
+        //   so the parent's field-initialisation putfield's run on
+        //   $this. Required for inherited fields to materialise.
+        // - Otherwise (no `extends`, or super is a JDK base we don't
+        //   chain into): no-op. There's no PHP target.
+        // - The current-class case is `this(...)` (delegating
+        //   constructor) — left alone (routes through InstanceCall).
         if ($isSpecial && $methodName === '<init>'
             && $receiver instanceof LocalRead && $receiver->slot === 0
             && $cls !== $this->currentClassBin) {
+            if ($this->superClassBin !== null && $cls === $this->superClassBin) {
+                $call = new StaticCall('parent', '__construct', $args);
+                $this->currentBb->stmts[] = new ExprStmt($call);
+            }
             return;
         }
 

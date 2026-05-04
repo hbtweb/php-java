@@ -363,7 +363,21 @@ final class Compiler
         // this attribute, putfield emits hit PHP 8.2+ deprecation
         // warnings (and PHP 9 errors) on dynamic property creation.
         // Drop once #2-B emits explicit `public $field;` declarations.
-        $main = "<?php\nnamespace PHPJava\\Aot\\Generated;\n\n#[\\AllowDynamicProperties]\nfinal class {$this->mangle($classPath)}\n{\n{$body}\n}\n";
+        // Drop `final`: AOT-emitted classes may be parents of other AOT
+        // classes (anonymous inner classes extend their enclosing class;
+        // explicit subclasses extend their superclass). PHP's `final`
+        // would block that. JIT specialisation doesn't depend on `final`
+        // in PHP, so the loss is purely the language-level seal.
+        //
+        // Emit `extends \PHPJava\Aot\Generated\X` when the JVM superclass
+        // is also an AOT-routed (non-Object, non-JDK) class. The parent
+        // declaration is autoloaded via Loader::autoloadAotClass when
+        // PHP resolves `extends` at class-decl time.
+        $superBin = $this->aotSuperClassBin($jcc);
+        $extends = $superBin !== null
+            ? ' extends \\PHPJava\\Aot\\Generated\\' . $this->mangle($superBin)
+            : '';
+        $main = "<?php\nnamespace PHPJava\\Aot\\Generated;\n\n#[\\AllowDynamicProperties]\nclass {$this->mangle($classPath)}{$extends}\n{\n{$body}\n}\n";
 
         // Append synthetic lambda classes generated during method emit.
         // Each is a self-contained class definition declared in the same
@@ -443,6 +457,31 @@ final class Compiler
         };
     }
 
+    /**
+     * Returns the JVM binary name of the superclass when it should be
+     * emitted as a PHP `extends` target — i.e. when the parent is an
+     * AOT-routed class (not Object, not a JDK shim). Null otherwise.
+     *
+     * JDK supers (java/lang/Throwable etc.) are intentionally not
+     * chained: the AOT runtime shims for exceptions are flat classes
+     * extending the legacy Packages exceptions; threading an AOT-class
+     * extends chain through them would couple the AOT shape to the
+     * legacy hierarchy and isn't required for the failing test surface.
+     */
+    private function aotSuperClassBin(JavaCompiledClass $jcc): ?string
+    {
+        $bin = $jcc->getSuperClassName();
+        if ($bin === null || $bin === 'java/lang/Object') return null;
+        if (\str_starts_with($bin, 'java/')
+            || \str_starts_with($bin, 'javax/')
+            || \str_starts_with($bin, 'jdk/')
+            || \str_starts_with($bin, 'sun/')
+            || \str_starts_with($bin, 'com/sun/')) {
+            return null;
+        }
+        return $bin;
+    }
+
     private function tryBuildIrMethod(
         JavaCompiledClass $jcc, string $classPath, string $methodName,
         string $descriptor, string $bytecode, array $exceptionTables,
@@ -453,6 +492,9 @@ final class Compiler
                 $this->irBuilder = new \PHPJava\Aot\Ir\Builder();
                 $this->irBuilder->setAotClassFqn(
                     '\\PHPJava\\Aot\\Generated\\' . $this->mangle($classPath)
+                );
+                $this->irBuilder->setSuperClassBin(
+                    $this->aotSuperClassBin($jcc)
                 );
             }
             if (!isset($this->irLowerer)) {

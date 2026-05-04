@@ -363,6 +363,18 @@ class JavaCompiledClass implements JavaGenericClassInterface, JavaClassInterface
         return $this->invoker;
     }
 
+    /**
+     * JVM binary name of the superclass (e.g. 'java/lang/Object',
+     * 'EnclosingMethodTest'). Available without requiring the super
+     * class to be on the classpath, since the name comes from this
+     * class's constant pool. Returns null only for `Object` itself
+     * (no superclass).
+     */
+    public function getSuperClassName(): ?string
+    {
+        return $this->superClassName;
+    }
+
     public function getSuperClass()
     {
         // Lazy retry: if the eager load deferred (super-class not on
