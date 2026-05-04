@@ -237,10 +237,16 @@ prerequisite.
 
 **v1 critical path (sequential):**
 
-1. **Path D′ behavioural oracle harness** (~1 week, *not started*) —
-   extend FFM-based JVM-side parity infra to per-method I/O capture.
-   Foundation for clean-room bb-fill per GPL+CPE constraint
-   ([LAYERS.md §License posture](docs/LAYERS.md)).
+1. **Path D′ behavioural oracle harness** (~1 week, *partial*).
+   PHP-side runner **DONE** at `bench/parity/oracle-runner.php` —
+   captures (return, exception, stdout, stderr) for one PHPJava AOT
+   invocation, serialises to JSON per the contract in
+   `bench/parity/README.md`. Smoke-tested against the audit-T1
+   long-overflow fixture. **REMAINING**: Clojure-side oracle driver
+   (~750 LOC) that uses cljp.transport.ffm to invoke against real
+   HotSpot in parallel, runs the comparator, emits per-class parity
+   reports. Sister-project coordination work; bench/baseline.clj's
+   FFM transport is the substrate.
 2. **bb-allowlist non-stub fill** (~80 most-used babashka classes,
    2–4 months) — work each class against the oracle. The actual v1
    gate. ~110 of the ~130 stub-only T2 classes are already Path C
@@ -270,27 +276,32 @@ prerequisite.
 6. **Sequenced collections (Java 21)** — interfaces **DONE** at
    `src/Packages/java/util/SequencedCollection.php` (+ `Set`/`Map`).
    `LinkedHashMap`/`LinkedHashSet` retrofit folds into bb-fill.
-7. **Unsafe shim** — pure-PHP, lock-based CAS. ~500 LOC. **NOT STARTED**.
-   Required for `ConcurrentHashMap` (touched by Clojure boot per
-   `docs/CLOJURE-BOOT-ANALYSIS.md`).
+7. **Unsafe shim** — minimum viable **DONE** at
+   `src/Aot/Runtime/sun/misc/Unsafe.php` + the Java-9+ alias at
+   `src/Aot/Runtime/jdk/internal/misc/Unsafe.php`. CAS family
+   (compareAndSwap{Int,Long,Object}), getAndAdd / getAndSet,
+   offset-mapped get/put, no-op fences. PHP single-threaded so naive
+   read-modify-write CAS produces the same observable behaviour;
+   Swoole-multi-process atomics not yet wired (folds into ROADMAP §Build
+   T3 concurrency adapter). 9 unit tests in
+   `tests/Cases/UnsafeShimTest.php`.
 8. **Lazy CP resolution in parser** — **already in place**. The 22%
    probe-fail rate was closed by `JavaCompiledClass.php:180`'s lazy
    super-class load (per `bench/probe-real-library.md`); the audit's
    pointer to `ConstantPool.php:42–59` was a misdiagnosis (CP entries
    store indices only, no eager class loads at exec time).
-9. **Substitution table for cljp dual-runtime** (sister-project coordination,
-   ~1–2 weeks). When AOT compiling JVM-Clojure JARs, redirect
-   `clojure.lang.*` ClassRef / Methodref resolutions to `cljp.lang.*`
-   at translate time so cljp-native and emulated halves share the
-   same Zend objects. Both halves run on the same Zend heap with the
-   same `zval` representation — no marshalling, just direct method
-   dispatch (per `~/GitHub/ClojurePHP/docs/CLJP-POSITIONING.md`
-   §"Boundary cost is essentially zero"). Implementation: optional
-   substitution map argument to `Compiler::compileBytes`, consulted
-   in `src/Aot/Ir/Builder.php:2169` `classFqn()` and at every
-   `INVOKEVIRTUAL`/`INVOKESPECIAL`/`INVOKESTATIC` resolution.
-   ~150 classes, mostly mechanical. **NOT STARTED** — defer until
-   cljp actually pulls a JAR through.
+9. **Substitution table for cljp dual-runtime** — API hook **DONE**.
+   `Compiler::compileBytes($classPath, $bytes, $substitutionMap = [])`
+   accepts a binary-name → PHP-FQN map; consulted in
+   `src/Aot/Ir/Builder.php`'s `classFqn()` ahead of the JDK / AOT-Generated
+   routing (substituted classes bypass the default
+   `\PHPJava\Aot\Runtime\<...>` shape entirely). Cache key includes a
+   hash of the map so substituted and non-substituted compiles don't
+   collide. Test: `tests/Cases/AotSubstitutionMapTest.php`.
+   **REMAINING**: the actual ~150-class
+   `clojure.lang.* → cljp.lang.*` mapping table is sister-project
+   work — built in cljp, passed at compile time to php-java. Defer
+   until cljp pulls a JAR through.
 10. **`java.lang.foreign.*` shim over Zend FFI** (Path B in LAYERS).
     Distinct from #9: the substitution table covers cljp ↔ emulated-Java
     on the *same* Zend heap (no boundary). FFM over Zend FFI covers
@@ -325,24 +336,30 @@ broadly.
    [LAYERS.md](docs/LAYERS.md) — already inline at LAYERS §"AOT
    class-emit shape (2026-05-04)". Marking done.
 
-### Cleanup — pure subtraction (~12.5 kloc deletable remaining)
-
-Each phase produces a green suite before the next; D and E are
-independent and parallelizable per [LAYERS.md §"Order of cuts"](docs/LAYERS.md).
+### Cleanup — pure subtraction
 
 1. **Phase C** — `Dynamic→Instance` rename per LAYERS.md:65–72.
-   **DONE**. Six classes/traits/methods renamed across 18 files;
-   suite at exact baseline post-rename.
-2. **Phase D** — interpreter delete (~10 kloc): `src/Kernel/Mnemonics/`,
-   `JavaMethodCallable` interpreter half, `src/Kernel/Types/` remainder,
-   `src/Kernel/Filters/Normalizer.php`, `src/Kernel/Frames/`,
-   `src/Kernel/Variables/`, `src/Kernel/Provider/`, `OperationCache`,
-   `MnemonicResolver`, `tests/Cases/OutputDebugTraceTest.php`. Single
-   PR, single revert. Risky enough to defer to a focused session.
-3. **Phase E** — legacy stack delete (~12.5 kloc):
-   `src/Compiler/Lang/Assembler/`, `src/Compiler/Builder/`,
-   `src/Compiler/Emulator/`, `src/Compiler/Compiler.php`,
-   `tests/Cases/Compiler/*`. Independent of D.
+   **DONE**. Six classes/traits/methods renamed across 18 files.
+2. **Phase E** — legacy stack delete. **DONE**. 422 files / 14288
+   lines removed (`src/Compiler/`, `tests/Cases/Compiler/`,
+   `MnemonicResolver`, dead constants in `Runtime.php`). LAYERS.md's
+   "Frames/Variables die with Phase D" claim turned out to be wrong:
+   `src/Kernel/Frames/` (AppendFrame / ChopFrame / etc.) and
+   `src/Kernel/Variables/` (DoubleVariableInfo etc.) are class-file
+   parser scaffolding consumed by `StackMapFrameInfo` /
+   `VerificationTypeInfo` in `src/Kernel/Structures/` — they survive.
+3. **Phase D** — interpreter delete (~10 kloc, **NOT STARTED**).
+   Targets: `src/Kernel/Mnemonics/`, `JavaMethodCallable` interpreter
+   half, `src/Kernel/Types/` remainder, `src/Kernel/Filters/Normalizer.php`,
+   `src/Kernel/Provider/`, `OperationCache`, `OutputDebugTraceTest`.
+   Entangled with kept files: `src/Kernel/Resolvers/TypeResolver.php`
+   imports 8 Kernel/Types/* classes; `src/Packages/java/lang/{String_,Integer}.php`
+   import Char_/Int_; `src/Core/JVM/{JavaClassInvoker,ClassInvokerInterface}.php`
+   import Filters/Normalizer + Provider/ProviderInterface;
+   `JavaMethodCallable` itself is the load-bearing trim. Refactoring
+   each kept file off the boxing-wrapper / DI-provider deps is what
+   makes Phase D bigger than "rm -rf". Defer to a focused session
+   with full revert safety.
 4. **Doc consolidation** — **DONE**. ROADMAP is canonical
    "what's open + priority"; HANDOVER session-only; STATUS measured
    rank-1 only; GAP-JDK version coverage map; MODEL strategic framing
