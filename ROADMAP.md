@@ -174,7 +174,7 @@ Required by every implementation strategy; written once, used by all.
 |---|---|---|
 | T1 — class file format up to Java 21 | `CONSTANT_Dynamic`, `Record`, `PermittedSubclasses`, `NestHost`, `Module` attrs; lambda metafactory + StringConcatFactory | 3–5 weeks |
 | T2 — bb allowlist core (~80 classes) | `String`, `Class`, `Object`, `Throwable`, `Thread`, `java.io.*`, `java.util.regex.Pattern` | 2–4 months |
-| T3 — concurrency adapter | `java.util.concurrent.atomic.*`, `locks.*`, `Thread.ofVirtual` on Fiber/Swoole | 4–6 weeks |
+| T3 — concurrency adapter | `java.util.concurrent.atomic.*`, `locks.*`, `Thread.ofVirtual`. Boot-provider strategy: AMPHP/Revolt (pure-PHP default) ↔ Swoole (when present, for Tier-2 shared-memory). See T3 detail below. | 4–6 weeks |
 | T4 — bb allowlist tail (~300 classes) | `java.util.concurrent.*`, `javax.crypto`, `java.net.http`, etc. | 4–8 months |
 | T5 — extension surfaces | `defineClass(byte[])`, `Instrumentation`, `Unsafe` (FFI when available) | 4–8 weeks |
 
@@ -188,6 +188,54 @@ parity test infrastructure from Tier 0 makes shim-writing mechanical.
 License note: OpenJDK is GPL+CE; PHPJava is MIT. Re-implementing from
 spec rather than transliterating OpenJDK source. bb's allowlist is
 narrow enough that this is tractable.
+
+#### T3 detail — concurrency adapter (AMPHP-primary)
+
+The Java thread/concurrent surface separates cleanly into two axes:
+
+- **API surface** — what `java.util.concurrent.*` / `j.u.c.atomic.*` /
+  `j.u.c.locks.*` classes exist as PHP shims. ~50 classes. Same emit
+  shape regardless of runtime backend.
+- **Runtime binding** — which event loop / mutex / atomics
+  implementation backs the API surface. Strategy-dispatcher picks at
+  boot time, same pattern as cljp's
+  ([`~/GitHub/ClojurePHP/docs/CLJP-CONCURRENCY.md` §"AMPHP/Revolt
+  Mapping"](../../ClojurePHP/docs/CLJP-CONCURRENCY.md)).
+
+**AMPHP/Revolt is the primary target** because it's pure PHP — runs
+on FPM, on PHAR, on shared hosting, anywhere PHP 8.1+ is. Swoole
+remains available for the Tier-2 cross-process shared-memory case
+(`Swoole\Atomic`, `Swoole\Table`) but isn't the default.
+
+| Java | AMPHP/Revolt | Swoole |
+|---|---|---|
+| `Thread.start()` | `Amp\async($fn)` returns `Future` | `\Co::create($fn)` |
+| `Thread.ofVirtual()` (Java 21) | Fiber = virtual thread (built-in) | Coroutine = virtual thread |
+| `Thread.sleep(ms)` | `Amp\delay($s)` | `\Co::sleep($s)` |
+| `synchronized` / `monitorenter` | `Amp\Sync\LocalMutex` | `Swoole\Lock` |
+| `BlockingQueue` | `Amp\Pipeline\Queue` | `\Co\Channel` |
+| `CompletableFuture` | `Amp\Future` (1:1 fit) | channel-based ad-hoc |
+| `ExecutorService` | `amphp/parallel/Worker\WorkerPool` | coroutine pool |
+| `j.u.c.atomic.*` (intra-process) | naive (cooperative) — covered by Unsafe shim | naive |
+| `j.u.c.atomic.*` (cross-process) | `amphp/parallel` actor + counter | `Swoole\Atomic` |
+
+`CompletableFuture` is the cleanest fit on AMPHP — `Amp\Future` has
+the same shape (chain-then-await, success/failure variant tracking).
+The Swoole equivalent requires building a Future type out of channels.
+
+**Implementation order when T3 starts:**
+
+1. AMPHP-first: `Thread`, `Thread.sleep`, `j.u.c.locks.ReentrantLock`,
+   `j.u.c.CompletableFuture`, `j.u.c.BlockingQueue` shims wrapping
+   AMPHP primitives. Composer dep `amphp/amp` + `amphp/sync`.
+2. j.u.c.atomic.* family on the Unsafe shim (already shipped) —
+   single-fiber semantics work for both backends.
+3. Strategy-dispatcher: PHPJava boot provider checks
+   `extension_loaded('swoole')` + env var; selects Swoole or AMPHP
+   primitives. Emit shape unchanged across backends.
+4. Tier-2 shared-memory cases (`Swoole\Atomic`, `Swoole\Table`) only
+   when explicitly required. AMPHP path falls back to
+   `amphp/parallel` actor pattern for the same use case.
 
 ### Tier 3 — probes (questions, not features)
 
