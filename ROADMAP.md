@@ -529,7 +529,7 @@ prerequisite.
    stubs (`tools/gen-aot-stubs.php` + `src/Aot/Runtime/java/**`); this
    step replaces the stub bodies with real implementations.
 
-   **Progress (2026-05-05): 1/80 shipped + parity-validated.**
+   **Progress (2026-05-05): 3/80 shipped + parity-validated.**
    - `java.lang.Math` — `src/Aot/Runtime/java/lang/Math.php`. Surface:
      abs/min/max (polymorphic int+long+float+double), sqrt/pow/floor/
      ceil, round (Java half-up semantics, not PHP half-away-from-zero),
@@ -537,11 +537,43 @@ prerequisite.
      decrementExact (long overflow → ArithmeticException), floorDiv/
      floorMod (Java floor-toward-negative-infinity, not PHP truncate),
      signum, PI, E. Trig/log/exp/random/cbrt/copySign/IEEEremainder
-     deferred — no bb-allowlist hits exercise them yet. 53/53 parity
-     vs HotSpot. Bonus: dropped 12 errors from the broader Packages
+     deferred — no bb-allowlist hits exercise them yet. **53/53 parity
+     vs HotSpot.** Bonus: dropped 12 errors from the broader Packages
      test suite (38E → 26E baseline) — AOT-default path through
      legacy `JavaLangMathTest` now resolves Math.abs/min/max via the
-     new shim instead of erroring on missing class.
+     new shim.
+   - `java.lang.Boolean` — `src/Aot/Runtime/java/lang/Boolean.php`,
+     replacing the Path C stub. Static surface only (instance methods
+     stay NIE — IR Builder is expected to lower wrapped-Boolean ops
+     inline per BOXING.md). parseBoolean (case-insensitive "true"
+     match), valueOf, toString, hashCode (1231/1237 spec-locked
+     constants), compare, logicalAnd/Or/Xor, getBoolean (env-var
+     analog of System.getProperty). **29/29 parity vs HotSpot.**
+   - `java.util.Objects` — `src/Aot/Runtime/java/util/Objects.php`,
+     new file. Surface: isNull/nonNull, equals (primitive ===-fold;
+     Object dispatch deferred), hashCode (null→0, string→
+     String.hashCode polynomial, int→Long.hashCode bit-fold per AOT
+     contract that PHP int IS Java long, bool→1231/1237; Double and
+     Object hashCode deferred), toString (with optional default),
+     requireNonNull (throws NPE). hash(Object...) variadic deferred —
+     driver-side Object[] dispatch needed. compare/Comparator,
+     deepEquals, requireNonNullElse, checkIndex/checkFromToIndex/
+     checkFromIndexSize all deferred. **35/35 parity vs HotSpot.**
+
+   Driver capability gained — `find-method` does name+arity+
+   assignable-types lookup with primitive ↔ wrapper unboxing and
+   widening, picks the most-specific overload by specificity score.
+   Replaces the strict `getMethod(typed-args)` lookup that couldn't
+   resolve `Objects.isNull(Object)` from a String arg.
+
+   IR routing fix landed alongside (Builder.php classFqn): JDK
+   classes whose simple name collides with a PHP-8 reserved type
+   keyword (`String`, `Object`, `Float`, `Void` — all
+   case-insensitively reserved) route to the underscore-suffixed
+   shim shape (`String_`, `Object_`, `Float_`, `Void_`). Closes the
+   `Class "PHPJava\Aot\Runtime\java\lang\String" not found` AOT
+   dispatch errors. testHashCode et al now hit the next blocker
+   (T4 String_ instance-construction fill — separate task).
 
 **Independent capability work (parallelizable with the critical path):**
 

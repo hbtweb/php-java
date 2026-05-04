@@ -1,0 +1,50 @@
+{
+  "class": "java.util.Objects",
+  "_note": [
+    "Third bb-allowlist parity battery. Closes the JavaUtilObjectsTest",
+    "testHashCode failure in tests/Cases/Packages/. Surface stays narrow",
+    "for MVP — hash(Object...) varargs needs the driver's arg-type",
+    "inference to map JSON arrays onto Object[].class; deferred."
+  ],
+  "cases": [
+    {"method": "isNull",  "args": [null]},
+    {"method": "isNull",  "args": ["x"]},
+    {"method": "isNull",  "args": [0]},
+    {"method": "nonNull", "args": [null]},
+    {"method": "nonNull", "args": ["x"]},
+    {"method": "nonNull", "args": [0]},
+    {"method": "nonNull", "args": [false]},
+
+    {"method": "equals", "args": [null, null]},
+    {"method": "equals", "args": [null, "x"]},
+    {"method": "equals", "args": ["x", null]},
+    {"method": "equals", "args": ["x", "x"]},
+    {"method": "equals", "args": ["x", "y"]},
+    {"method": "equals", "args": [42, 42]},
+    {"method": "equals", "args": [42, 43]},
+    {"method": "equals", "args": [true, true]},
+    {"method": "equals", "args": [true, false]},
+
+    {"method": "hashCode", "args": [null]},
+    {"method": "hashCode", "args": ["hello, world"]},
+    {"method": "hashCode", "args": [""]},
+    {"method": "hashCode", "args": ["a"]},
+    {"method": "hashCode", "args": [42]},
+    {"method": "hashCode", "args": [0]},
+    {"method": "hashCode", "args": [-1]},
+    {"method": "hashCode", "args": [true]},
+    {"method": "hashCode", "args": [false]},
+
+    {"method": "toString", "args": [null]},
+    {"method": "toString", "args": ["abc"]},
+    {"method": "toString", "args": [42]},
+    {"method": "toString", "args": [true]},
+    {"method": "toString", "args": [null, "default"]},
+    {"method": "toString", "args": ["abc", "default"]},
+
+    {"method": "requireNonNull", "args": ["abc"]},
+    {"method": "requireNonNull", "args": [42]},
+    {"method": "requireNonNull", "args": [null]},
+    {"method": "requireNonNull", "args": [null, "must not be null"]}
+  ]
+}

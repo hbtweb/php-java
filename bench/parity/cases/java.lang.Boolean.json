@@ -1,0 +1,49 @@
+{
+  "class": "java.lang.Boolean",
+  "_note": [
+    "Second bb-allowlist parity battery. Static surface only —",
+    "instance methods (booleanValue, equals, compareTo) are IR-lowered",
+    "per BOXING.md and never dispatch through the shim at AOT runtime.",
+    "Reflection picks Boolean.parseBoolean(String) for string args,",
+    "Boolean.compare(boolean,boolean) for bool args, etc. — JSON true",
+    "decodes to Boolean which getMethod resolves against boolean.class."
+  ],
+  "cases": [
+    {"method": "parseBoolean", "args": ["true"]},
+    {"method": "parseBoolean", "args": ["TRUE"]},
+    {"method": "parseBoolean", "args": ["TrUe"]},
+    {"method": "parseBoolean", "args": ["false"]},
+    {"method": "parseBoolean", "args": ["yes"]},
+    {"method": "parseBoolean", "args": ["1"]},
+    {"method": "parseBoolean", "args": [""]},
+
+    {"method": "valueOf", "args": [true]},
+    {"method": "valueOf", "args": [false]},
+
+    {"method": "toString", "args": [true]},
+    {"method": "toString", "args": [false]},
+
+    {"method": "hashCode", "args": [true]},
+    {"method": "hashCode", "args": [false]},
+
+    {"method": "compare", "args": [true,  false]},
+    {"method": "compare", "args": [false, true]},
+    {"method": "compare", "args": [true,  true]},
+    {"method": "compare", "args": [false, false]},
+
+    {"method": "logicalAnd", "args": [true,  true]},
+    {"method": "logicalAnd", "args": [true,  false]},
+    {"method": "logicalAnd", "args": [false, true]},
+    {"method": "logicalAnd", "args": [false, false]},
+
+    {"method": "logicalOr",  "args": [true,  true]},
+    {"method": "logicalOr",  "args": [true,  false]},
+    {"method": "logicalOr",  "args": [false, true]},
+    {"method": "logicalOr",  "args": [false, false]},
+
+    {"method": "logicalXor", "args": [true,  true]},
+    {"method": "logicalXor", "args": [true,  false]},
+    {"method": "logicalXor", "args": [false, true]},
+    {"method": "logicalXor", "args": [false, false]}
+  ]
+}

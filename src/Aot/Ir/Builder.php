@@ -2222,7 +2222,20 @@ final class Builder
         if ($isJdk) {
             // JDK shim path: $ is rare in JDK class names; leave as-is
             // and let the shim author choose the concrete shape.
-            return '\\PHPJava\\Aot\\Runtime\\' . $php;
+            //
+            // Exception — PHP 8 reserves a handful of class names
+            // case-insensitively (`string`, `int`, `float`, `bool`,
+            // `void`, `object`, `mixed`, `null`, `never`, `iterable`).
+            // JDK classes whose simple name collides (`String`,
+            // `Object`, `Float`, `Void`) get an underscore-suffixed
+            // shim — match the convention with explicit rewrites.
+            static $reserved = [
+                'java\\lang\\String' => 'java\\lang\\String_',
+                'java\\lang\\Object' => 'java\\lang\\Object_',
+                'java\\lang\\Float'  => 'java\\lang\\Float_',
+                'java\\lang\\Void'   => 'java\\lang\\Void_',
+            ];
+            return '\\PHPJava\\Aot\\Runtime\\' . ($reserved[$php] ?? $php);
         }
         // AOT-emitted: mirror Compiler::mangle — replace `\` and `$`
         // with `_` so the FQN matches the class-declaration name.

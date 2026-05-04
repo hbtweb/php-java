@@ -30,23 +30,85 @@
 
 ;; ─── invocation: the real JDK ────────────────────────────────────────────────
 
-(defn- arg-type
-  "Map a JSON-decoded value to the Class<?> reflection should match.
-   Long is the default for integral JSON because clojure.data.json
-   decodes integers as Long. Double is the default for floats.
-   bb-allowlist Math methods that need Integer/Float specifically
-   add a `descriptor` field per case (deferred — MVP sticks to
-   long/double-equivalent calls)."
+(defn- arg-class
+  "The runtime Class of a decoded JSON arg, for overload resolution."
   [v]
   (cond
-    (instance? Boolean v) Boolean/TYPE
-    (instance? Long v)    Long/TYPE
-    (instance? Integer v) Integer/TYPE
-    (instance? Double v)  Double/TYPE
-    (instance? Float v)   Float/TYPE
+    (nil? v)              Object        ; null → Object so resolution treats arg as compatible with any reference param
+    (instance? Boolean v) Boolean
+    (instance? Long v)    Long
+    (instance? Integer v) Integer
+    (instance? Double v)  Double
+    (instance? Float v)   Float
     (string? v)           String
-    (nil? v)              Object
     :else                 Object))
+
+(defn- param-accepts?
+  "Whether a parameter Class<?> can accept an arg whose runtime class
+   is `arg-cls`. Models JVM overload-resolution: identity, subtype,
+   primitive ↔ wrapper unboxing, primitive widening (byte→short→
+   int→long→float→double; char→int→...). Skip narrowing; reflection
+   would reject the .invoke."
+  [^Class param ^Class arg-cls]
+  (or
+    (.isAssignableFrom param arg-cls)
+    ;; null fits any reference param
+    (and (= arg-cls Object) (not (.isPrimitive param)))
+    ;; unboxing wrapper → primitive
+    (and (= param Boolean/TYPE)   (= arg-cls Boolean))
+    (and (= param Byte/TYPE)      (= arg-cls Byte))
+    (and (= param Short/TYPE)     (= arg-cls Short))
+    (and (= param Integer/TYPE)   (= arg-cls Integer))
+    (and (= param Long/TYPE)      (= arg-cls Long))
+    (and (= param Float/TYPE)     (= arg-cls Float))
+    (and (= param Double/TYPE)    (= arg-cls Double))
+    ;; primitive widening — wrapper-arg widens to a wider primitive
+    (and (= param Short/TYPE)     (#{Byte} arg-cls))
+    (and (= param Integer/TYPE)   (#{Byte Short} arg-cls))
+    (and (= param Long/TYPE)      (#{Byte Short Integer} arg-cls))
+    (and (= param Float/TYPE)     (#{Byte Short Integer Long} arg-cls))
+    (and (= param Double/TYPE)    (#{Byte Short Integer Long Float} arg-cls))))
+
+(defn- specificity
+  "Lower score = more specific match. Used to disambiguate when the
+   same name + arity has multiple compatible overloads. Exact wrapper
+   ↔ primitive match wins over widening; identity wins over subtype."
+  [^java.lang.reflect.Method m arg-classes]
+  (->> (map (fn [^Class p ^Class a]
+              (cond
+                (= p a)                                                0  ; identity (e.g. String → String)
+                (or (and (= p Long/TYPE)    (= a Long))
+                    (and (= p Integer/TYPE) (= a Integer))
+                    (and (= p Double/TYPE)  (= a Double))
+                    (and (= p Float/TYPE)   (= a Float))
+                    (and (= p Boolean/TYPE) (= a Boolean))
+                    (and (= p Byte/TYPE)    (= a Byte))
+                    (and (= p Short/TYPE)   (= a Short)))               1  ; exact unbox
+                (= p Object)                                           50  ; least specific reference
+                (.isPrimitive p)                                       10  ; primitive widening
+                :else                                                   5)) ; subtype
+            (.getParameterTypes m) arg-classes)
+       (apply +)))
+
+(defn- find-method
+  "Scan all public methods of `cls` for one matching `method-name`
+   and arity, where every parameter type accepts the corresponding
+   arg-class. Pick the most specific. Throws NoSuchMethodException
+   if none match."
+  [^Class cls ^String method-name args]
+  (let [arg-classes (mapv arg-class args)
+        candidates  (->> (.getMethods cls)
+                         (filter (fn [^java.lang.reflect.Method m]
+                                   (and (= (.getName m) method-name)
+                                        (= (.getParameterCount m) (count args))
+                                        (every? identity
+                                                (map param-accepts?
+                                                     (.getParameterTypes m)
+                                                     arg-classes))))))]
+    (when (empty? candidates)
+      (throw (NoSuchMethodException.
+              (str (.getName cls) "." method-name "(" (str/join "," (map #(.getName %) arg-classes)) ")"))))
+    (first (sort-by #(specificity % arg-classes) candidates))))
 
 (defn- normalise-return
   "Project a JDK return value into the JSON-stable shape the comparator
@@ -87,8 +149,7 @@
       (System/setErr (PrintStream. baos-err))
       (try
         (let [cls       (Class/forName class-fqn)
-              arg-types (into-array Class (map arg-type args))
-              ^Method m (.getMethod cls method-name arg-types)
+              ^Method m (find-method cls method-name args)
               boxed     (object-array args)
               result    (.invoke m nil boxed)]
           {"kind"   "ok"
