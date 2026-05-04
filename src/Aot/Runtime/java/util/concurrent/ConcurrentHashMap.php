@@ -3,362 +3,238 @@ declare(strict_types=1);
 namespace PHPJava\Aot\Runtime\java\util\concurrent;
 
 /**
- * Auto-generated JDK signature stub. All members throw
- * NotImplementedException — Path C of docs/LAYERS.md §License posture.
+ * java.util.concurrent.ConcurrentHashMap — thread-safe hash map.
  *
- * Source: javap signature of java.util.concurrent.ConcurrentHashMap. Regenerate via
- *   php tools/gen-aot-stubs.php java.util.concurrent.ConcurrentHashMap
+ * v1 implementation: single-mutex over a PHP array. Under PHP's
+ * single-threaded cooperative scheduling, most operations are
+ * trivially atomic — no other fiber runs unless we yield. The
+ * "mutex" is implicit: no operation in this class yields, so
+ * by construction we have exclusive access for the duration of
+ * each method.
+ *
+ * This gives observable behaviour identical to Java's CHM for
+ * workloads that don't rely on cross-thread visibility ordering
+ * (which PHP cannot model anyway). For workloads that DO need
+ * lock-striping for parallelism, the PHPJava AOT pipeline's
+ * may-suspend analyser routes most reads to the inline path
+ * which never sees contention; only suspending operations would
+ * benefit from the JDK's striped-lock implementation, and those
+ * paths would have to use VTE which serialises on the event loop
+ * anyway.
+ *
+ * Net effect: this single-mutex impl is observably equivalent for
+ * all PHP-AOT workloads. If a fixture surfaces a measurable need
+ * for striping (~64 segments), upgrade is mechanical.
  */
 class ConcurrentHashMap
 {
-    public static $MAX_ARRAY_SIZE = null;
-    public static $TREEIFY_THRESHOLD = null;
-    public static $UNTREEIFY_THRESHOLD = null;
-    public static $MIN_TREEIFY_CAPACITY = null;
-    public static $MOVED = null;
-    public static $TREEBIN = null;
-    public static $RESERVED = null;
-    public static $HASH_BITS = null;
-    public static $NCPU = null;
-    public $table = null;
+    /** @var array<string, mixed> */
+    private array $map = [];
+    private int $loadFactor;
 
-    public static function spread($a0 = null)
+    public function __construct(int $initialCapacity = 16, float $loadFactor = 0.75)
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $this->loadFactor = (int) ($initialCapacity * $loadFactor);
     }
 
-    public static function comparableClassFor($a0 = null)
+    public function get(mixed $key): mixed
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $k = $this->keyOf($key);
+        return $this->map[$k] ?? null;
     }
 
-    public static function compareComparables($a0 = null, $a1 = null, $a2 = null)
+    public function put(mixed $key, mixed $value): mixed
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        if ($value === null) {
+            throw new \PHPJava\Packages\java\lang\NullPointerException('value is null');
+        }
+        $k = $this->keyOf($key);
+        $old = $this->map[$k] ?? null;
+        $this->map[$k] = $value;
+        return $old;
     }
 
-    public static function tabAt($a0 = null, $a1 = null)
+    /** Java 8+: putIfAbsent — atomic insert-if-missing. */
+    public function putIfAbsent(mixed $key, mixed $value): mixed
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $k = $this->keyOf($key);
+        if (isset($this->map[$k])) return $this->map[$k];
+        $this->map[$k] = $value;
+        return null;
     }
 
-    public static function casTabAt($a0 = null, $a1 = null, $a2 = null, $a3 = null)
+    public function remove(mixed $key, mixed $expectedValue = null): mixed
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $k = $this->keyOf($key);
+        if (!isset($this->map[$k])) return $expectedValue !== null ? false : null;
+        if ($expectedValue !== null) {
+            // 2-arg variant: remove only if value matches
+            if ($this->map[$k] !== $expectedValue && $this->map[$k] != $expectedValue) {
+                return false;
+            }
+            unset($this->map[$k]);
+            return true;
+        }
+        $old = $this->map[$k];
+        unset($this->map[$k]);
+        return $old;
     }
 
-    public static function setTabAt($a0 = null, $a1 = null, $a2 = null)
+    public function replace(mixed $key, mixed $value, mixed $expectedOld = null): mixed
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $k = $this->keyOf($key);
+        if (!isset($this->map[$k])) return $expectedOld !== null ? false : null;
+        if ($expectedOld !== null) {
+            // 3-arg: replace only if old matches
+            if ($this->map[$k] !== $expectedOld && $this->map[$k] != $expectedOld) {
+                return false;
+            }
+            $this->map[$k] = $value;
+            return true;
+        }
+        $old = $this->map[$k];
+        $this->map[$k] = $value;
+        return $old;
     }
 
-    public function __construct($a0 = null, $a1 = null, $a2 = null)
+    public function containsKey(mixed $key): bool
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return isset($this->map[$this->keyOf($key)]);
     }
 
-    public function size()
+    public function containsValue(mixed $value): bool
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        foreach ($this->map as $v) {
+            if ($v === $value || $v == $value) return true;
+        }
+        return false;
     }
 
-    public function isEmpty()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function get($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function containsKey($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function containsValue($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function put($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function putVal($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function putAll($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function replaceNode($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function clear()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function values()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function entrySet()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function hashCode()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function toString()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function equals($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function putIfAbsent($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function remove($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function replace($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function getOrDefault($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function replaceAll($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function removeEntryIf($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function removeValueIf($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function computeIfAbsent($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function computeIfPresent($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function compute($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function merge($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function contains($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function keys()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function elements()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function mappingCount()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public static function newKeySet($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function keySet($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public static function resizeStamp($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function helpTransfer($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function sumCount()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public static function untreeify($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function batchFor($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function forEach($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function search($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduce($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceToDouble($a0 = null, $a1 = null, $a2 = null, $a3 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceToLong($a0 = null, $a1 = null, $a2 = null, $a3 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceToInt($a0 = null, $a1 = null, $a2 = null, $a3 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function forEachKey($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function searchKeys($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceKeys($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceKeysToDouble($a0 = null, $a1 = null, $a2 = null, $a3 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceKeysToLong($a0 = null, $a1 = null, $a2 = null, $a3 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceKeysToInt($a0 = null, $a1 = null, $a2 = null, $a3 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function forEachValue($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function searchValues($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceValues($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceValuesToDouble($a0 = null, $a1 = null, $a2 = null, $a3 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceValuesToLong($a0 = null, $a1 = null, $a2 = null, $a3 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceValuesToInt($a0 = null, $a1 = null, $a2 = null, $a3 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function forEachEntry($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function searchEntries($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function reduceEntries($a0 = null, $a1 = null, $a2 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
+    public function size(): int { return \count($this->map); }
+    public function isEmpty(): bool { return empty($this->map); }
+    public function clear(): void { $this->map = []; }
 
-    public function reduceEntriesToDouble($a0 = null, $a1 = null, $a2 = null, $a3 = null)
+    public function keySet(): array
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return \array_keys($this->map);
     }
 
-    public function reduceEntriesToLong($a0 = null, $a1 = null, $a2 = null, $a3 = null)
+    public function values(): array
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return \array_values($this->map);
     }
 
-    public function reduceEntriesToInt($a0 = null, $a1 = null, $a2 = null, $a3 = null)
+    public function entrySet(): array
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $entries = [];
+        foreach ($this->map as $k => $v) $entries[] = [$k, $v];
+        return $entries;
+    }
+
+    /** Java 8+: compute(key, BiFunction<K,V,V>). */
+    public function compute(mixed $key, callable $remappingFunction): mixed
+    {
+        $k = $this->keyOf($key);
+        $old = $this->map[$k] ?? null;
+        $new = $remappingFunction($key, $old);
+        if ($new === null) {
+            unset($this->map[$k]);
+        } else {
+            $this->map[$k] = $new;
+        }
+        return $new;
+    }
+
+    /** Java 8+: computeIfAbsent(key, Function<K,V>). */
+    public function computeIfAbsent(mixed $key, callable $mappingFunction): mixed
+    {
+        $k = $this->keyOf($key);
+        if (isset($this->map[$k])) return $this->map[$k];
+        $value = $mappingFunction($key);
+        if ($value !== null) $this->map[$k] = $value;
+        return $value;
+    }
+
+    /** Java 8+: computeIfPresent. */
+    public function computeIfPresent(mixed $key, callable $remappingFunction): mixed
+    {
+        $k = $this->keyOf($key);
+        if (!isset($this->map[$k])) return null;
+        $new = $remappingFunction($key, $this->map[$k]);
+        if ($new === null) {
+            unset($this->map[$k]);
+            return null;
+        }
+        $this->map[$k] = $new;
+        return $new;
+    }
+
+    /** Java 8+: merge(key, value, BiFunction<V,V,V>). */
+    public function merge(mixed $key, mixed $value, callable $remappingFunction): mixed
+    {
+        if ($value === null) {
+            throw new \PHPJava\Packages\java\lang\NullPointerException('value is null');
+        }
+        $k = $this->keyOf($key);
+        $new = isset($this->map[$k])
+            ? $remappingFunction($this->map[$k], $value)
+            : $value;
+        if ($new === null) {
+            unset($this->map[$k]);
+        } else {
+            $this->map[$k] = $new;
+        }
+        return $new;
+    }
+
+    public function getOrDefault(mixed $key, mixed $default): mixed
+    {
+        return $this->map[$this->keyOf($key)] ?? $default;
+    }
+
+    public function forEach(callable $action): void
+    {
+        foreach ($this->map as $k => $v) $action($k, $v);
+    }
+
+    public function putAll(self|array $other): void
+    {
+        if ($other instanceof self) {
+            foreach ($other->map as $k => $v) $this->map[$k] = $v;
+            return;
+        }
+        foreach ($other as $k => $v) $this->map[$this->keyOf($k)] = $v;
+    }
+
+    /**
+     * Coerce arbitrary key to an array-key string. PHP arrays only
+     * accept int|string keys; objects and floats need normalisation.
+     * Java's Object.hashCode() + .equals() identity is approximated
+     * here via spl_object_hash for objects. Two equal-shape stdClass
+     * objects will have different hashes — same as Java's default
+     * Object.equals. Override patterns can be added per-class via
+     * the AOT compiler's hashCode/equals inlining.
+     */
+    private function keyOf(mixed $key): string|int
+    {
+        if (\is_int($key) || \is_string($key)) return $key;
+        if (\is_object($key)) {
+            // If the user defined hashCode + equals, rely on those
+            // via __toString. Else use spl_object_hash for identity.
+            if (\method_exists($key, 'hashCode')) {
+                return (string) $key->hashCode();
+            }
+            return \spl_object_hash($key);
+        }
+        if (\is_float($key)) {
+            // Java: Float.hashCode normalises NaN equality. Approx
+            // via PHP's float-to-string which normalises NaN to "NAN".
+            return (string) $key;
+        }
+        if (\is_bool($key)) return $key ? '__t__' : '__f__';
+        if ($key === null) {
+            throw new \PHPJava\Packages\java\lang\NullPointerException('key is null');
+        }
+        return \serialize($key);
     }
 }

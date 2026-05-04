@@ -3,21 +3,33 @@ declare(strict_types=1);
 namespace PHPJava\Aot\Runtime\java\util\concurrent;
 
 /**
- * Auto-generated JDK signature stub. All members throw
- * NotImplementedException — Path C of docs/LAYERS.md §License posture.
+ * java.util.concurrent.BlockingQueue — Queue with blocking
+ * insertion (put) and removal (take) operations. Implementations:
+ * LinkedBlockingQueue (optional capacity), ArrayBlockingQueue
+ * (fixed capacity), SynchronousQueue (zero-capacity rendezvous),
+ * PriorityBlockingQueue (heap-ordered).
  *
- * Source: javap signature of java.util.concurrent.BlockingQueue. Regenerate via
- *   php tools/gen-aot-stubs.php java.util.concurrent.BlockingQueue
+ * Methods follow Java's four-quadrant convention:
+ *
+ *                  | Throws    | Special   | Blocks    |
+ *   ---------------+-----------+-----------+-----------+
+ *   Insert         | add       | offer     | put       |
+ *   Remove         | remove    | poll      | take      |
+ *   Examine        | element   | peek      | n/a       |
  */
 interface BlockingQueue
 {
-    public function add($a0 = null);
-    public function put($a0 = null);
-    public function offer($a0 = null, $a1 = null, $a2 = null);
-    public function take();
-    public function poll($a0 = null, $a1 = null);
-    public function remainingCapacity();
-    public function remove($a0 = null);
-    public function contains($a0 = null);
-    public function drainTo($a0 = null, $a1 = null);
+    public function add(mixed $element): bool;
+    public function offer(mixed $element): bool;
+    public function put(mixed $element): void;
+    public function take(): mixed;
+    public function poll(): mixed;
+    public function peek(): mixed;
+    public function size(): int;
+    public function isEmpty(): bool;
+    public function remainingCapacity(): int;
+    public function remove(mixed $element = null): bool;
+    public function contains(mixed $element): bool;
+    public function clear(): void;
+    public function drainTo(array &$collection, int $maxElements = \PHP_INT_MAX): int;
 }
