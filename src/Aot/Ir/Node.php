@@ -123,6 +123,24 @@ final class InstanceCall extends Expr {
 }
 
 /**
+ * Direct invocation of a callable expression: `({$callable})({$args})`.
+ * Produced by AsyncSpecialiserPass when collapsing the
+ * `CompletableFuture::supplyAsync(s)->get()` peephole pattern — the
+ * supplier is invoked directly, skipping the executor entirely.
+ *
+ * Distinct from StaticCall (no class name, callable is an Expr) and
+ * InstanceCall (no method name, callable is the entire receiver).
+ * Impure — the callable's body is opaque.
+ */
+final class InvokeCallable extends Expr {
+    public function __construct(
+        public readonly Expr $callable,
+        public readonly array $args,       // Expr[]
+    ) {}
+    public function isPure(): bool { return false; }
+}
+
+/**
  * `new \Class(args...)` — combined alloc+init. Recognised at IR
  * build time from the new+dup+invokespecial<init> bytecode pattern,
  * so we don't need separate UninitObj/dup-materialise machinery.

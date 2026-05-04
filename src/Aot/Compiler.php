@@ -393,6 +393,11 @@ final class Compiler
             // IR-level cross-method inlining (replaces post-emit-text
             // inlineAcrossText for IR-built methods).
             (new \PHPJava\Aot\Ir\InlinePass())->run($module);
+            // Async-emit specialiser: collapse `CompletableFuture::
+            // supplyAsync(s)->get()` and similar immediate-await
+            // peepholes to direct callable invocation, skipping the
+            // executor at hot call sites. ROADMAP §Build T3 step 5.
+            (new \PHPJava\Aot\Ir\AsyncSpecialiserPass())->run($module);
             // Lower each method to its final PHP source.
             foreach ($module->methods as $m) {
                 $emittedMethods[] = $this->irLowerer->lowerMethod($m);

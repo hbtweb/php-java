@@ -331,6 +331,14 @@ final class Lowerer
             $args = array_map(fn($a) => $this->lowerExpr($a), $e->args);
             return $this->lowerExpr($e->receiver) . "->{$e->method}(" . implode(', ', $args) . ")";
         }
+        if ($e instanceof InvokeCallable) {
+            $args = array_map(fn($a) => $this->lowerExpr($a), $e->args);
+            // Parenthesise the callable so PHP's parser accepts the
+            // immediate-invoke shape on any Expr (closures, method
+            // refs from \Closure::fromCallable, lambda objects with
+            // __invoke, etc.). The extra parens are free at runtime.
+            return '(' . $this->lowerExpr($e->callable) . ')(' . implode(', ', $args) . ')';
+        }
         if ($e instanceof New_) {
             $args = array_map(fn($a) => $this->lowerExpr($a), $e->args);
             // Cross-class AOT-emitted-class construction: route through

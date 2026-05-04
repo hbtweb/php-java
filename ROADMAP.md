@@ -280,13 +280,54 @@ The Swoole equivalent requires building a Future type out of channels.
    complete/completeExceptionally), Thread (VTE-backed start/join/
    sleep/yield/interrupt + Java 21 ofVirtual). 20/20 tests in
    `JdkConcurrentShimTest.php`.
-5. **Emit-specialiser** — consumes analyzer verdicts at AOT compile
-   sites where async/await semantics apply (`Thread.start.join`,
-   `CompletableFuture.supplyAsync.get`, `executor.submit.get`, etc.).
-   Picks Inlined / InlineExecutor / VirtualThreadExecutor per call site. ~300 LOC.
-   **NOT STARTED** — required to hit sub-200 ns target on inlinable
-   patterns. Without it, all calls go through InlineExecutor (~365 ns)
-   or VTE (~1 µs).
+5. ✓ **Emit-specialiser (v1)** — `src/Aot/Ir/AsyncSpecialiserPass.php`,
+   ~210 LOC. Hooks after InlinePass in the IR pipeline. Detects the
+   immediate-await peephole `CompletableFuture::supplyAsync(s)->get()`
+   (and `.join()` / `runAsync(r).get()` variants) and rewrites to
+   `InvokeCallable(s, [])` — direct callable invocation, skipping
+   the executor entirely.
+
+   New IR node `InvokeCallable(Expr $callable, Expr[] $args)` lowers
+   to `({callable})({args})` PHP — handles closures, lambdas with
+   `__invoke`, and any callable receiver.
+
+   Soundness under PHP cooperative scheduling: with a single carrier
+   thread the executor offers no parallelism benefit when the result
+   is immediately awaited; `s` runs on the same physical thread
+   either way. If `s` suspends, direct invocation suspends the
+   calling fiber — equivalent to what `cf.get()` would do after
+   settling. Exception propagation identical.
+
+   Coverage in v1:
+   - `CompletableFuture::supplyAsync(s)->get()` ✓
+   - `CompletableFuture::supplyAsync(s)->join()` ✓
+   - `CompletableFuture::runAsync(r)->get()` / `.join()` ✓
+   - Nested patterns under outer InstanceCall args ✓
+   - Conservatively skips: timed `.get(timeout, unit)`, intervening
+     StoreLocal (Future escapes, may need real coordination),
+     non-CompletableFuture call sites.
+
+   Tests: tests/Cases/AsyncSpecialiserPassTest.php — 9 cases:
+   collapses-supplyAsync-get, collapses-runAsync-join, store-local-
+   between-skips, get-on-non-async-skips, supplyAsync-without-await-
+   skips, timed-get-variant-skips, nested-rewrite-collapses-inner,
+   lowerer-emits-correct-PHP, idempotent-on-already-collapsed.
+
+   Future extensions (not blocking this checkpoint):
+   - Single-use no-escape detection: collapse `var cf = supplyAsync(s);
+     cf.get();` when `cf` is only read by the .get and never escapes
+     to other call sites (allOf, thenApply, etc.). Needs a use-count
+     pass over LocalRead.
+   - ExecutorService.submit(s).get() collapse — same shape, different
+     class FQN (any ExecutorService impl).
+   - Thread.start().join() collapse for void runnables — needs the
+     IR builder to emit the new+start+join sequence as a peephole-
+     friendly shape, not split across BBs.
+   - May-suspend analyser integration: today the collapse is
+     unconditional (correct under PHP cooperative scheduling). When
+     Swoole-coroutine deployment lands and supplyAsync DOES enable
+     parallelism, we'd consult the analyser to avoid collapsing
+     genuinely-async patterns.
 6. **State-machine transformation pass** — for sub-200 ns on
    genuinely-suspending tasks. Rewrites Java methods that suspend
    into explicit state machines driven by the event loop without
