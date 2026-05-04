@@ -78,4 +78,25 @@ class JavaStaticField implements FieldInterface
         }
         return $this->fields[$name];
     }
+
+    /**
+     * Mirror of `get` for the write side. Without this, `set` would only
+     * mutate the internal `$fields` map; subsequent `get` calls — which
+     * prefer AOT-class storage when AOT is loaded — would read the
+     * original AOT value and miss the write.
+     */
+    public function set(string $name, $value)
+    {
+        $classPath = $this->javaClassInvoker->getJavaClass()->getClassName();
+        if (Loader::isLoaded($classPath)) {
+            $aotFqn = 'PHPJava\\Aot\\Generated\\'
+                . str_replace(['.', '/', '\\', '$'], '_', $classPath);
+            if (property_exists($aotFqn, $name)
+                && (new \ReflectionProperty($aotFqn, $name))->isStatic()) {
+                $aotFqn::${$name} = $value;
+            }
+        }
+        $this->fields[$name] = $value;
+        return $this;
+    }
 }
