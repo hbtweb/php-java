@@ -93,38 +93,39 @@ final class Loader
     }
 
     /**
-     * Best-effort AOT static dispatch. Returns `[true, $result]` if
-     * the class compiles and the method dispatches; returns
-     * `[false, null]` on any failure (compile error, unsupported
-     * opcode, missing method, runtime exception inside the AOT'd
-     * code). Used by the `JavaClass::load → getInvoker` chain to
-     * route through AOT when `PHPJAVA_AOT_MODE=lazy`, falling back
-     * to the interpreter on failure without surfacing the error.
+     * AOT static dispatch with controlled fall-through. Returns
+     * `[true, $result]` if the class compiles and the named method
+     * exists on the AOT-emitted class. Returns `[false, null]` only
+     * for the case where the method does not exist as a static method
+     * on the compiled class — that's the legitimate fall-through
+     * signal during the Phase A AOT-only flip (instance methods reach
+     * here today, before the Phase B receiver-shape unification, and
+     * fall through to the interpreter dispatch path).
      *
-     * Per `docs/CONTRACTS.md` §3 + §5, this is the lazy-AOT path
-     * wired into the standard classloader entry — production
-     * reachability via `JavaClass::load` instead of requiring a
-     * direct `Loader::callStatic` from the call site.
+     * **Errors propagate.** Compile failure throws (caller sees the
+     * AOT bug). Exceptions thrown by the AOT'd method propagate (legit
+     * Java exception flow, or a real AOT bug — both signal). Per
+     * `docs/LAYERS.md` Phase A: failure is signal, not silent fallback.
+     *
+     * Replaces the prior `PHPJAVA_AOT_MODE=lazy` opt-in path. AOT is
+     * now the default for static dispatch.
      */
     public static function tryCallStatic(string $classPath, string $methodName, array $args): array
     {
         // Once a class has failed AOT compile/eval, never retry. Saves
         // the compile cost and avoids dispatching to a partially-
-        // declared class whose state may be inconsistent.
+        // declared class whose state may be inconsistent. The original
+        // failure already threw at the call site that triggered it.
         if (isset(self::$failed[$classPath])) return [false, null];
-        try {
-            if (!isset(self::$loaded[$classPath])) {
-                self::loadClass($classPath);
-            }
-            $aotFqn  = self::aotFqn($classPath);
-            $mangled = self::mangleMethod($methodName);
-            if (!method_exists($aotFqn, $mangled)) {
-                return [false, null];
-            }
-            return [true, $aotFqn::$mangled(...$args)];
-        } catch (\Throwable $e) {
+        if (!isset(self::$loaded[$classPath])) {
+            self::loadClass($classPath);
+        }
+        $aotFqn  = self::aotFqn($classPath);
+        $mangled = self::mangleMethod($methodName);
+        if (!method_exists($aotFqn, $mangled)) {
             return [false, null];
         }
+        return [true, $aotFqn::$mangled(...$args)];
     }
 
     /** Whether a class has been AOT-loaded into the running process. */

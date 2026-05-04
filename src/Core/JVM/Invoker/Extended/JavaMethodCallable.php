@@ -31,13 +31,6 @@ use PHPJava\Utilities\Formatter;
 
 trait JavaMethodCallable
 {
-    /** Cached env-var read for the AOT routing decision. */
-    private static function aotLazyEnabled(): bool
-    {
-        static $cached = null;
-        return $cached ??= (getenv('PHPJAVA_AOT_MODE') === 'lazy');
-    }
-
     /**
      * @throws IllegalJavaClassException
      * @throws RuntimeException
@@ -47,12 +40,14 @@ trait JavaMethodCallable
      */
     public function call(string $name, ...$arguments)
     {
-        // AOT classloader integration (CONTRACTS.md §3 + §5). When
-        // PHPJAVA_AOT_MODE=lazy is set, attempt to dispatch via the
-        // AOT'd PHP for static methods; fall back to the bytecode
-        // walk on any failure. Static-only for this first cut —
-        // instance methods stay on the interpreter path.
-        if (!$this->isDynamic() && self::aotLazyEnabled()) {
+        // Phase A flip (docs/LAYERS.md): AOT is the default for static
+        // dispatch — no env gate. Compile failures and exceptions
+        // inside AOT'd code propagate. Method-not-found falls through
+        // to the interpreter loop below (legit case during Phase A:
+        // instance methods reach the dynamic invoker today, and there
+        // is no AOT instance-method on the static class to find;
+        // Phase B will unify receiver shape and remove this fall-through).
+        if (!$this->isDynamic()) {
             $classPath = $this->javaClassInvoker
                 ->getJavaClass()
                 ->getClassName();
