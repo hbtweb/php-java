@@ -1704,7 +1704,17 @@ final class Builder
     {
         $entry = $this->constantPool[$idx] ?? null;
         if ($entry instanceof StringInfo) return new StringLit($this->utf8At($entry->getStringIndex()));
-        if ($entry instanceof IntegerInfo) return new IntLit($entry->getBytes());
+        if ($entry instanceof IntegerInfo) {
+            // PHPJava's IntegerInfo::getBytes() returns the 32-bit
+            // value as an unsigned PHP int (e.g. 0x80000000 →
+            // 2147483648, not -2147483648). Sign-extend explicitly:
+            // if the high bit is set, subtract 2^32 to get the
+            // negative form. Without this, `Integer.MIN_VALUE`
+            // round-trips as 2147483648 instead of -2147483648.
+            $v = $entry->getBytes();
+            if ($v >= 0x80000000) $v -= 0x100000000;
+            return new IntLit($v);
+        }
         if ($entry instanceof FloatInfo) return new \PHPJava\Aot\Ir\FloatLit($entry->getBytes());
         if ($entry instanceof LongInfo) return new IntLit($entry->getBytes());
         if ($entry instanceof DoubleInfo) return new \PHPJava\Aot\Ir\FloatLit($entry->getBytes());

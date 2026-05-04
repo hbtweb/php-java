@@ -239,7 +239,16 @@ final class Lowerer
 
     public function lowerExpr(Expr $e): string
     {
-        if ($e instanceof IntLit) return (string)$e->value;
+        if ($e instanceof IntLit) {
+            // PHP parses `-9223372036854775808` as `-(9223372036854775808)`;
+            // the unsigned form overflows PHP_INT_MAX and the literal
+            // becomes a float — `(string)PHP_INT_MIN` works in code
+            // but the emitted *literal* doesn't round-trip. Emit
+            // PHP_INT_MIN as `(PHP_INT_MIN)` to avoid the parser quirk.
+            // PHP_INT_MAX (9223372036854775807) parses fine as int.
+            if ($e->value === \PHP_INT_MIN) return '(\\PHP_INT_MIN)';
+            return (string)$e->value;
+        }
         if ($e instanceof FloatLit) return is_finite($e->value) ? (string)$e->value : 'NAN';
         if ($e instanceof StringLit) return var_export($e->value, true);
         if ($e instanceof NullLit) return 'null';
