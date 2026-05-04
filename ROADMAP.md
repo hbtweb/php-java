@@ -788,6 +788,23 @@ broadly.
   question (when to spend the engineer-weeks), not an either/or
   against bb-fill.
 
+  **No "lift-able subset" constraint as discipline tax.** Fast PHP
+  patterns and readable PHP patterns and lift-able PHP patterns
+  converge on the same code: strict types, direct expressions, pure
+  functions where possible, no magic methods in hot paths, plain
+  if/return flow. Each property pays in three dimensions
+  simultaneously — JIT specialises, humans read clearly, the lifter
+  emits clean IR. The shim authoring guide collapses to "write good
+  PHP." Mesh's `expr.php` is the existence proof: a Pratt parser
+  shipped in production-shape clean PHP that's also exactly the
+  substrate a lifter would emit IR from. Cases that legitimately
+  need dynamic features (ORM/DSL/proxy/`__get`-magic) stay as
+  external PHP, lifting refused, plain Zend dispatch — those paths
+  can't be JIT-friendly anyway, so no perf is lost by not lifting.
+  The compiled/external boundary maps onto fast/flexible cleanly.
+  The lifter becomes a quality gate ("if it doesn't lift, it
+  probably shouldn't be in a hot-path shim"), not a constraint.
+
   **Generalisation that falls out.** Once IR is the canonical
   representation and frontends pluggable, "PHPJava" stops being
   "JVM-bytecode-to-PHP transpiler" and becomes "multi-frontend
