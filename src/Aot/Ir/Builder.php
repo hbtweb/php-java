@@ -122,6 +122,19 @@ final class Builder
     private ?string $superClassBin = null;
     public function setSuperClassBin(?string $bin): void { $this->superClassBin = $bin; }
 
+    /**
+     * Per-class overload index (set by Compiler). When a Java method
+     * name has multiple descriptors in the current class, all overloads
+     * — and self-class invokes targeting that name — get descriptor-
+     * mangled so PHP method-name uniqueness holds. Cross-class invokes
+     * always use the simple-mangled name (target class's dispatcher
+     * routes by arg shape).
+     *
+     * @var array<string, string[]>  simple-mangled name → list of descriptors
+     */
+    private array $overloadIndex = [];
+    public function setOverloadIndex(array $idx): void { $this->overloadIndex = $idx; }
+
     public function buildMethod(
         JavaCompiledClass $jcc,
         string $methodName,
@@ -305,7 +318,7 @@ final class Builder
         );
 
         return new Method(
-            name: $this->mangleMethod($methodName),
+            name: $this->mangleMethodForInvoke($currentClassBin, $methodName, $descriptor),
             descriptor: $descriptor,
             isStatic: $isStatic,
             params: $params,
@@ -1169,7 +1182,7 @@ final class Builder
 
         $fqn = $this->classFqn($clsName);
         $bin = $this->generatedBinaryName($clsName);
-        $call = new StaticCall($fqn, $this->mangleMethod($methodName), $args, $bin);
+        $call = new StaticCall($fqn, $this->mangleMethodForInvoke($clsName, $methodName, $desc), $args, $bin);
 
         if ($ret === 'V') {
             $this->currentBb->stmts[] = new ExprStmt($call);
@@ -1257,7 +1270,7 @@ final class Builder
         if ($adapterFqn !== null) {
             $allArgs = $args;
             \array_unshift($allArgs, $receiver);
-            $call = new StaticCall($adapterFqn, $this->mangleMethod($methodName), $allArgs);
+            $call = new StaticCall($adapterFqn, $this->mangleMethodForInvoke($cls, $methodName, $desc), $allArgs);
             if ($ret === 'V') {
                 $this->currentBb->stmts[] = new ExprStmt($call);
             } else {
@@ -1266,7 +1279,7 @@ final class Builder
             return;
         }
 
-        $call = new InstanceCall($receiver, $this->mangleMethod($methodName), $args);
+        $call = new InstanceCall($receiver, $this->mangleMethodForInvoke($cls, $methodName, $desc), $args);
         if ($ret === 'V') {
             $this->currentBb->stmts[] = new ExprStmt($call);
         } else {
@@ -2117,6 +2130,24 @@ final class Builder
         if ($name === '<init>') return '__construct';
         if ($name === '<clinit>') return '__staticConstruct';
         return str_replace(['$', '<', '>'], ['_S_', '_LT_', '_GT_'], $name);
+    }
+
+    /**
+     * Descriptor-aware mangle for invoke* sites. When the target is
+     * the current class AND the method name is overloaded in the
+     * current class, append a descriptor suffix so we hit the right
+     * PHP method (each overload was emitted with its descriptor
+     * suffix). Cross-class invokes always use the simple mangle —
+     * the target class's dispatcher routes by arg shape.
+     */
+    private function mangleMethodForInvoke(string $clsName, string $name, string $desc): string
+    {
+        $simple = $this->mangleMethod($name);
+        $isCurrent = $clsName === $this->currentClassBin;
+        if (!$isCurrent || !isset($this->overloadIndex[$simple])) {
+            return $simple;
+        }
+        return $simple . '_' . \PHPJava\Aot\Compiler::mangleDescriptorForOverload($desc);
     }
 
     /**

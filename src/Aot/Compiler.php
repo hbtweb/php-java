@@ -241,34 +241,18 @@ final class Compiler
         $methods = $jcc->getDefinedMethods();
 
         // Java method overloading by parameter type — same name, different
-        // descriptor — is legal JVM-side and very common (every class with
-        // multiple constructor signatures, java.lang.String.valueOf, every
-        // builder pattern, etc). PHP doesn't have method overloading; the
-        // current mangleMethod doesn't disambiguate by descriptor, so two
-        // overloads with the same Java name collapse to the same PHP
-        // method name. eval()ing the result fatals with "Cannot redeclare"
-        // — and PHP fatals during eval BYPASS try/catch, so tryCallStatic
-        // can't fall back to interp at runtime.
+        // descriptor — is legal JVM-side and very common. PHP has no
+        // method overloading. Resolution: descriptor-mangle each overload
+        // (`main_aI`, `main_aLjava_lang_String_`) and emit a `main(...)`
+        // dispatcher that picks at runtime by arg-shape inspection. Names
+        // with a single descriptor stay simple-mangled (no dispatcher
+        // overhead).
         //
-        // Detect at compile time and throw a regular exception, which
-        // tryCallStatic does catch. This is the defensive minimum to
-        // make AOT-by-default safe; descriptor-aware mangling is the
-        // proper fix and a follow-up.
-        $methodNamesSeen = [];
-        foreach ($methods as $method) {
-            $mangled = $this->mangleMethod(
-                $this->utf8At($method->getNameIndex())
-            );
-            if (isset($methodNamesSeen[$mangled])) {
-                throw new \RuntimeException(
-                    "AOT cannot compile {$classPath}: method '{$mangled}' "
-                    . "is overloaded; PHP has no method overloading and the "
-                    . "current mangler doesn't disambiguate by descriptor. "
-                    . "Falls back to interp."
-                );
-            }
-            $methodNamesSeen[$mangled] = true;
-        }
+        // The overload index drives both Compiler emit (which methods get
+        // descriptor suffixes; which need a dispatcher) AND IR Builder
+        // (self-class invokes use descriptor-mangled name when the target
+        // is overloaded).
+        $this->overloadIndex = $this->buildOverloadIndex($methods);
 
         // Two-phase: collect IR Methods (or string-emitted method
         // strings if IR fallback) → run IR InlinePass on the Module
@@ -337,6 +321,26 @@ final class Compiler
             foreach ($module->lambdaClasses as $lc) {
                 $this->lambdaClasses[] = $lc;
             }
+        }
+
+        // Emit overload dispatchers — one `<simple>(...$args)` per
+        // overloaded name, picking the right `<simple>_<descMangle>`
+        // overload by arg-count + arg-shape. Drops in alongside the
+        // descriptor-mangled overloads. Names with a single descriptor
+        // emit no dispatcher (no overhead).
+        foreach ($this->overloadIndex as $simpleName => $descriptors) {
+            // Determine static-vs-instance from the FIRST overload —
+            // all overloads of a Java method share the static flag (a
+            // class can't have a static and an instance method with
+            // the same name).
+            $isStatic = false;
+            foreach ($methods as $m) {
+                if ($this->mangleMethod($this->utf8At($m->getNameIndex())) === $simpleName) {
+                    $isStatic = ($m->getAccessFlag() & MethodAccessFlag::ACC_STATIC) !== 0;
+                    break;
+                }
+            }
+            $emittedMethods[] = $this->emitOverloadDispatcher($simpleName, $descriptors, $isStatic);
         }
 
         // Emit field declarations from FieldPool. Without these, putfield
@@ -496,6 +500,7 @@ final class Compiler
                 $this->irBuilder->setSuperClassBin(
                     $this->aotSuperClassBin($jcc)
                 );
+                $this->irBuilder->setOverloadIndex($this->overloadIndex);
             }
             if (!isset($this->irLowerer)) {
                 $this->irLowerer = new \PHPJava\Aot\Ir\Lowerer();
@@ -1860,5 +1865,207 @@ final class Compiler
         // additional chars including `$` (used pervasively in synthetic
         // lambda$run$0-style names). Mangle: $ → _S_, < → _LT_, > → _GT_.
         return str_replace(['$', '<', '>'], ['_S_', '_LT_', '_GT_'], $name);
+    }
+
+    /** name → [desc, desc, ...] for the current class. Set per-compile. */
+    private array $overloadIndex = [];
+
+    /**
+     * Per-class overload index. Group methods by their mangled-simple
+     * name; record the descriptor list. A name with multiple descriptors
+     * is overloaded and triggers descriptor-mangled emission + dispatcher.
+     *
+     * @param array $methods raw method-info array from JCC
+     * @return array<string, string[]>  simple-mangled-name → list of descriptors
+     */
+    private function buildOverloadIndex(array $methods): array
+    {
+        $index = [];
+        foreach ($methods as $method) {
+            $name = $this->utf8At($method->getNameIndex());
+            $desc = $this->utf8At($method->getDescriptorIndex());
+            $simpleMangled = $this->mangleMethod($name);
+            $index[$simpleMangled][] = $desc;
+        }
+        // Drop entries with only one descriptor — those aren't overloaded.
+        return \array_filter($index, fn($descs) => \count($descs) > 1);
+    }
+
+    /**
+     * Mangle a method name for the AOT-emitted PHP, accounting for
+     * overloads in the current class. Names with multiple descriptors
+     * receive a descriptor suffix; non-overloaded names stay simple.
+     *
+     * Static helper so the IR Builder can mirror the same logic via
+     * its own overload index (set by the Compiler).
+     */
+    public static function mangleMethodForOverload(string $name, string $desc, array $overloadIndex): string
+    {
+        $simple = $name === '<init>' ? '__construct'
+            : ($name === '<clinit>' ? '__staticConstruct'
+                : \str_replace(['$', '<', '>'], ['_S_', '_LT_', '_GT_'], $name));
+        if (!isset($overloadIndex[$simple])) {
+            return $simple;
+        }
+        return $simple . '_' . self::mangleDescriptorForOverload($desc);
+    }
+
+    /**
+     * JVM descriptor → PHP-identifier-safe suffix for overload mangling.
+     * Strips `(`, `)` and the return type (Java overloads by params
+     * only); maps `[` → `a`, `/` → `_`, `;` → `_`, `$` → `_`.
+     *
+     * Examples:
+     *   `([Ljava/lang/String;)V`  →  `aLjava_lang_String_`
+     *   `([I)V`                   →  `aI`
+     *   `(IJ)Z`                   →  `IJ`
+     */
+    public static function mangleDescriptorForOverload(string $desc): string
+    {
+        $rparen = \strpos($desc, ')');
+        $params = $rparen !== false ? \substr($desc, 1, $rparen - 1) : $desc;
+        return \str_replace(['[', '/', ';', '$'], ['a', '_', '_', '_'], $params);
+    }
+
+    /**
+     * Generate the dispatcher PHP for an overloaded name. Picks by
+     * arg-count first; ties broken by arg-shape inspection (array vs
+     * scalar; array element type; scalar PHP type).
+     *
+     * @param string $simpleName  e.g. 'main'
+     * @param string[] $descriptors  list of overload descriptors
+     */
+    private function emitOverloadDispatcher(string $simpleName, array $descriptors, bool $isStatic): string
+    {
+        // Group by arg count; build the candidate list for each count.
+        // Each candidate carries its mangled-method-name and arg-type list.
+        $byArgc = [];
+        foreach ($descriptors as $desc) {
+            $argTypes = $this->parseDescriptorArgTypes($desc);
+            $argc = \count($argTypes);
+            $byArgc[$argc][] = [
+                'mangled'  => $simpleName . '_' . self::mangleDescriptorForOverload($desc),
+                'argTypes' => $argTypes,
+                'desc'     => $desc,
+            ];
+        }
+
+        $branches = [];
+        foreach ($byArgc as $argc => $candidates) {
+            if (\count($candidates) === 1) {
+                $branches[] = "        if (\$argc === {$argc}) return "
+                    . ($isStatic ? 'self::' : '$this->')
+                    . "{$candidates[0]['mangled']}(...\$args);";
+                continue;
+            }
+            // Multiple candidates at this arg count — emit a
+            // shape-discriminating chain.
+            $sub = ["        if (\$argc === {$argc}) {"];
+            foreach ($candidates as $c) {
+                $check = $this->buildArgShapeCheck($c['argTypes']);
+                $sub[] = "            if ({$check}) return "
+                    . ($isStatic ? 'self::' : '$this->')
+                    . "{$c['mangled']}(...\$args);";
+            }
+            $sub[] = '        }';
+            $branches[] = \implode("\n", $sub);
+        }
+
+        $sigQual = $isStatic ? 'public static function' : 'public function';
+        $body = \implode("\n", $branches);
+        return "    {$sigQual} {$simpleName}(...\$args)\n"
+            . "    {\n"
+            . "        \$argc = \\count(\$args);\n"
+            . "{$body}\n"
+            . "        throw new \\PHPJava\\Packages\\java\\lang\\NoSuchMethodException("
+            . "'No matching overload for {$simpleName}/' . \$argc);\n"
+            . "    }";
+    }
+
+    /**
+     * Build a PHP boolean expression checking whether $args matches
+     * the given JVM argument types. Conservative — false negatives
+     * are acceptable (the dispatcher will throw NoSuchMethodException
+     * which mirrors JDK reflective behaviour); false positives mean
+     * the wrong overload runs.
+     */
+    private function buildArgShapeCheck(array $argTypes): string
+    {
+        $parts = [];
+        foreach ($argTypes as $i => $t) {
+            $parts[] = $this->argShapePredicate($t, "\$args[{$i}]");
+        }
+        return $parts ? \implode(' && ', $parts) : 'true';
+    }
+
+    private function argShapePredicate(string $type, string $expr): string
+    {
+        // Primitive types
+        switch ($type) {
+            case 'I': case 'J': case 'S': case 'B':
+                return "\\is_int({$expr})";
+            case 'D': case 'F':
+                return "\\is_float({$expr})";
+            case 'Z':
+                return "\\is_bool({$expr})";
+            case 'C':
+                return "(\\is_string({$expr}) && \\mb_strlen({$expr}) === 1)";
+        }
+        // Reference types
+        if (\str_starts_with($type, 'L')) {
+            // Ljava/lang/String; → check is_string. Other refs:
+            // is_object — could refine via instanceof, but that requires
+            // resolving the AOT class; conservative is_object suffices
+            // for most overload disambiguation.
+            if ($type === 'Ljava/lang/String;') return "\\is_string({$expr})";
+            return "\\is_object({$expr})";
+        }
+        if (\str_starts_with($type, '[')) {
+            $elem = \substr($type, 1);
+            // Empty arrays match any element type — only check is_array,
+            // and if non-empty, the first element's predicate.
+            $elemPred = $this->argShapePredicate($elem, "{$expr}[\\array_key_first({$expr})]");
+            return "(\\is_array({$expr}) && (empty({$expr}) || {$elemPred}))";
+        }
+        return 'true';
+    }
+
+    /**
+     * Parse a JVM method descriptor's argument-type list. Returns an
+     * array of single-character primitive descriptors plus L…; / [… ;
+     * reference forms. Mirrors the Builder's parseDescriptor but
+     * exposed at compile-emit-time scope.
+     */
+    private function parseDescriptorArgTypes(string $desc): array
+    {
+        if (!\str_starts_with($desc, '(')) return [];
+        $rparen = \strpos($desc, ')');
+        $params = \substr($desc, 1, $rparen - 1);
+        $types = [];
+        $i = 0;
+        $len = \strlen($params);
+        while ($i < $len) {
+            $c = $params[$i];
+            if ($c === '[') {
+                $start = $i;
+                while ($i < $len && $params[$i] === '[') $i++;
+                if ($i < $len && $params[$i] === 'L') {
+                    while ($i < $len && $params[$i] !== ';') $i++;
+                    $i++;
+                } else {
+                    $i++;
+                }
+                $types[] = \substr($params, $start, $i - $start);
+            } elseif ($c === 'L') {
+                $start = $i;
+                while ($i < $len && $params[$i] !== ';') $i++;
+                $i++;
+                $types[] = \substr($params, $start, $i - $start);
+            } else {
+                $types[] = $c;
+                $i++;
+            }
+        }
+        return $types;
     }
 }
