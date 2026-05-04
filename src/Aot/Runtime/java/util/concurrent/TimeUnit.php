@@ -2,100 +2,92 @@
 declare(strict_types=1);
 namespace PHPJava\Aot\Runtime\java\util\concurrent;
 
+use PHPJava\Aot\Runtime\java\lang\Thread;
+
 /**
- * Auto-generated JDK signature stub. All members throw
- * NotImplementedException — Path C of docs/LAYERS.md §License posture.
+ * java.util.concurrent.TimeUnit — enum representing time-granularity
+ * units. Used by timed-await methods to disambiguate magnitudes.
  *
- * Source: javap signature of java.util.concurrent.TimeUnit. Regenerate via
- *   php tools/gen-aot-stubs.php java.util.concurrent.TimeUnit
+ * Java models this as an enum with seven values; we model as a class
+ * with seven static instances (constants would suffice for value
+ * semantics, but instance methods like toMillis() are part of the
+ * Java contract).
  */
 final class TimeUnit
 {
-    public static $NANOSECONDS = null;
-    public static $MICROSECONDS = null;
-    public static $MILLISECONDS = null;
-    public static $SECONDS = null;
-    public static $MINUTES = null;
-    public static $HOURS = null;
-    public static $DAYS = null;
+    /** Internal scale factor: nanoseconds per unit. */
+    private int $nanosPerUnit;
+    private string $name;
 
-    public static function values()
+    public static TimeUnit $NANOSECONDS;
+    public static TimeUnit $MICROSECONDS;
+    public static TimeUnit $MILLISECONDS;
+    public static TimeUnit $SECONDS;
+    public static TimeUnit $MINUTES;
+    public static TimeUnit $HOURS;
+    public static TimeUnit $DAYS;
+
+    private function __construct(string $name, int $nanosPerUnit)
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $this->name = $name;
+        $this->nanosPerUnit = $nanosPerUnit;
     }
 
-    public static function valueOf($a0 = null)
+    public static function _init(): void
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        self::$NANOSECONDS  = new self('NANOSECONDS',  1);
+        self::$MICROSECONDS = new self('MICROSECONDS', 1_000);
+        self::$MILLISECONDS = new self('MILLISECONDS', 1_000_000);
+        self::$SECONDS      = new self('SECONDS',      1_000_000_000);
+        self::$MINUTES      = new self('MINUTES',      60 * 1_000_000_000);
+        self::$HOURS        = new self('HOURS',        3_600 * 1_000_000_000);
+        self::$DAYS         = new self('DAYS',         86_400 * 1_000_000_000);
     }
 
-    public function __construct($a0 = null)
+    public function name(): string { return $this->name; }
+    public function __toString(): string { return $this->name; }
+
+    public function toNanos(int $duration): int   { return $duration * $this->nanosPerUnit; }
+    public function toMicros(int $duration): int  { return \intdiv($this->toNanos($duration), 1_000); }
+    public function toMillis(int $duration): int  { return \intdiv($this->toNanos($duration), 1_000_000); }
+    public function toSeconds(int $duration): int { return \intdiv($this->toNanos($duration), 1_000_000_000); }
+    public function toMinutes(int $duration): int { return \intdiv($this->toSeconds($duration), 60); }
+    public function toHours(int $duration): int   { return \intdiv($this->toMinutes($duration), 60); }
+    public function toDays(int $duration): int    { return \intdiv($this->toHours($duration), 24); }
+
+    public function convert(int $sourceDuration, self $sourceUnit): int
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return \intdiv($sourceDuration * $sourceUnit->nanosPerUnit, $this->nanosPerUnit);
     }
 
-    public function convert($a0 = null, $a1 = null)
+    public function sleep(int $duration): void
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        if ($duration <= 0) return;
+        $millis = $this->toMillis($duration);
+        Thread::sleep(\max(1, $millis));
     }
 
-    public function toNanos($a0 = null)
+    public static function values(): array
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return [
+            self::$NANOSECONDS, self::$MICROSECONDS, self::$MILLISECONDS,
+            self::$SECONDS, self::$MINUTES, self::$HOURS, self::$DAYS,
+        ];
     }
 
-    public function toMicros($a0 = null)
+    public static function valueOf(string $name): self
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function toMillis($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function toSeconds($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function toMinutes($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function toHours($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function toDays($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function timedWait($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function timedJoin($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function sleep($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function toChronoUnit()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public static function of($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return match ($name) {
+            'NANOSECONDS'  => self::$NANOSECONDS,
+            'MICROSECONDS' => self::$MICROSECONDS,
+            'MILLISECONDS' => self::$MILLISECONDS,
+            'SECONDS'      => self::$SECONDS,
+            'MINUTES'      => self::$MINUTES,
+            'HOURS'        => self::$HOURS,
+            'DAYS'         => self::$DAYS,
+            default => throw new \PHPJava\Packages\java\lang\IllegalArgumentException("No enum constant TimeUnit.{$name}"),
+        };
     }
 }
+
+TimeUnit::_init();

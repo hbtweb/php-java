@@ -3,91 +3,66 @@ declare(strict_types=1);
 namespace PHPJava\Aot\Runtime\java\util\concurrent;
 
 /**
- * Auto-generated JDK signature stub. All members throw
- * NotImplementedException — Path C of docs/LAYERS.md §License posture.
+ * java.util.concurrent.Executors — static factories for
+ * ExecutorService instances. All factories return ThreadPoolExecutor
+ * variants with different sizing parameters.
  *
- * Source: javap signature of java.util.concurrent.Executors. Regenerate via
- *   php tools/gen-aot-stubs.php java.util.concurrent.Executors
+ * Under PHP cooperative scheduling all "thread pools" share one
+ * carrier thread (the PHP process). Pool sizing is observable as
+ * backpressure / submit-rejection rather than as parallel-execution
+ * width. Factories preserve Java's API signatures so user code
+ * compiles unchanged; the perf-class differences between pool
+ * variants do not apply.
  */
 final class Executors
 {
-    public static function newWorkStealingPool($a0 = null)
+    private function __construct() {}
+
+    public static function newFixedThreadPool(int $nThreads): ExecutorService
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return new ThreadPoolExecutor($nThreads, $nThreads);
     }
 
-    public static function newFixedThreadPool($a0 = null, $a1 = null)
+    public static function newCachedThreadPool(): ExecutorService
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return new ThreadPoolExecutor(0, \PHP_INT_MAX, 60_000);
     }
 
-    public static function newSingleThreadExecutor($a0 = null)
+    public static function newSingleThreadExecutor(): ExecutorService
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return new ThreadPoolExecutor(1, 1);
     }
 
-    public static function newCachedThreadPool($a0 = null)
+    /** Java 21+: virtual-thread-per-task. PHP Fibers are virtual threads. */
+    public static function newVirtualThreadPerTaskExecutor(): ExecutorService
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return new ThreadPoolExecutor(0, \PHP_INT_MAX);
     }
 
-    public static function newThreadPerTaskExecutor($a0 = null)
+    public static function newWorkStealingPool(int $parallelism = 0): ExecutorService
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        // Cooperative scheduling provides no parallelism; this returns
+        // a regular ThreadPoolExecutor. Work-stealing semantics are
+        // observably equivalent on a single carrier thread.
+        return new ThreadPoolExecutor($parallelism ?: 1, \PHP_INT_MAX);
     }
 
-    public static function newVirtualThreadPerTaskExecutor()
+    public static function newThreadPerTaskExecutor(?ThreadFactory $threadFactory = null): ExecutorService
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return new ThreadPoolExecutor(0, \PHP_INT_MAX, 60_000, null, $threadFactory);
     }
 
-    public static function newSingleThreadScheduledExecutor($a0 = null)
+    public static function defaultThreadFactory(): ThreadFactory
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return new DefaultThreadFactory();
     }
 
-    public static function newScheduledThreadPool($a0 = null, $a1 = null)
+    /** Java: callable(Runnable, T) — adapter from Runnable + result to Callable<T>. */
+    public static function callable(callable $task, mixed $result = null): callable
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public static function unconfigurableExecutorService($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public static function unconfigurableScheduledExecutorService($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public static function defaultThreadFactory()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public static function privilegedThreadFactory()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public static function callable($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public static function privilegedCallable($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public static function privilegedCallableUsingCurrentClassLoader($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function __construct()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return static function () use ($task, $result) {
+            $task();
+            return $result;
+        };
     }
 }

@@ -3,19 +3,15 @@ declare(strict_types=1);
 namespace PHPJava\Aot\Runtime\java\util\concurrent;
 
 /**
- * Auto-generated JDK signature stub. All members throw
- * NotImplementedException — Path C of docs/LAYERS.md §License posture.
- *
- * Source: javap signature of java.util.concurrent.Future. Regenerate via
- *   php tools/gen-aot-stubs.php java.util.concurrent.Future
+ * java.util.concurrent.Future — represents the eventual result of
+ * an asynchronous computation. Implementations: ConcreteFuture
+ * (this module's wrapper around InlineExecutor / VTE Future ids),
+ * CompletableFuture (Java 8+ composition surface).
  */
 interface Future
 {
-    public function cancel($a0 = null);
-    public function isCancelled();
-    public function isDone();
-    public function get($a0 = null, $a1 = null);
-    public function resultNow();
-    public function exceptionNow();
-    public function state();
+    public function cancel(bool $mayInterruptIfRunning = false): bool;
+    public function isCancelled(): bool;
+    public function isDone(): bool;
+    public function get(): mixed;
 }

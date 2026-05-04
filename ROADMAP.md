@@ -293,8 +293,8 @@ The Swoole equivalent requires building a Future type out of channels.
    using Fibers. JS-engine-style async/await transformation. ~1-2
    weeks compiler work; would put suspending operations at ~100-200 ns
    instead of the ~12 µs Fiber suspend/resume floor. **NOT STARTED**.
-7. **Remaining JDK concurrent shims** — ~5-8 weeks remaining (down
-   from ~6-10 with steps below shipped). Covered shims listed in
+7. **Remaining JDK concurrent shims** — ~3-5 weeks remaining (down
+   from ~5-8 with steps below shipped). Covered shims listed in
    step 4 above; remaining surface:
    - ~~**Locks family**: Condition, ReadWriteLock~~ — DONE
      (`Condition.php`, `ReentrantReadWriteLock.php` + Lock interface,
@@ -306,21 +306,36 @@ The Swoole equivalent requires building a Future type out of channels.
      + `BrokenBarrierException`).
    - **Sync primitives remaining**: Phaser — ~3 days. Hierarchical
      cyclic-barrier with dynamic-party support.
-   - **Queues**: BlockingQueue + LinkedBlockingQueue / ArrayBlockingQueue /
-     SynchronousQueue / PriorityBlockingQueue — ~1 week
-   - **ConcurrentHashMap** (single-mutex impl observably equivalent
-     for most workloads; full lock-striping ~1-2 weeks if perf-critical)
-   - **ConcurrentLinkedQueue/Deque** — ~1 week (lock-free atomics)
-   - **CopyOnWriteArrayList/Set** — ~2 days (trivial single-thread)
-   - **ExecutorService family**: Executors, ThreadPoolExecutor,
-     ScheduledThreadPoolExecutor, ForkJoinPool, ForkJoinTask — ~2 weeks
+   - ~~**Queues**: BlockingQueue + LinkedBlockingQueue / ArrayBlockingQueue /
+     SynchronousQueue~~ — DONE.
+   - **Queues remaining**: PriorityBlockingQueue (~150 LOC, heap-ordered),
+     LinkedBlockingDeque (~200 LOC, both-ends symmetric), DelayQueue
+     (~200 LOC, time-ordered).
+   - ~~**ConcurrentHashMap**~~ — DONE (single-mutex; observably
+     equivalent on PHP cooperative scheduling).
+   - **ConcurrentLinkedQueue/Deque** — ~1 week (lock-free atomics not
+     needed under PHP's single-threaded model; SplDoublyLinkedList
+     wrapper).
+   - ~~**CopyOnWriteArrayList**~~ — DONE.
+   - **CopyOnWriteSet** — ~50 LOC (wraps COW list).
+   - ~~**ExecutorService family**: Executor, ExecutorService, Executors,
+     ThreadPoolExecutor, ThreadFactory, DefaultThreadFactory, Future,
+     ConcreteFuture, ExecutionException, TimeoutException, TimeUnit~~
+     — DONE. Routes through VTE for the cooperative-scheduling case;
+     pool-size limits documented but observably no-ops on PHP.
+   - **ScheduledExecutorService / ScheduledThreadPoolExecutor** —
+     needs VTE timer integration (~150 LOC each).
+   - **ForkJoinPool / ForkJoinTask** — work-stealing not relevant
+     under cooperative single-thread scheduling; ForkJoinPool can
+     alias ThreadPoolExecutor; ForkJoinTask covers RecursiveTask /
+     RecursiveAction (~200 LOC).
    - **VarHandle (Java 9+)** — extends Unsafe, ~3 days
    - **StructuredTaskScope (Java 21+)** — ~3 days
    - **ScopedValue (Java 21+)** — ~3 days
 
-   Cross-fiber lock-contention fix landed in this step: ReentrantLock
-   now stores `\Fiber` waiters (not just fiber-ids) and resumes the
-   next waiter from `unlock()`. Required for Condition.signal() →
+   Cross-fiber lock-contention fix landed: ReentrantLock now stores
+   `\Fiber` waiters (not just fiber-ids) and resumes the next waiter
+   from `unlock()`. Required for Condition.signal() →
    re-acquire-lock to work correctly.
 
 Total: ~1,900 LOC across analyzer + runtime + specialiser + shims.

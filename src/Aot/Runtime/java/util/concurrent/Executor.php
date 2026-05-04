@@ -3,13 +3,12 @@ declare(strict_types=1);
 namespace PHPJava\Aot\Runtime\java\util\concurrent;
 
 /**
- * Auto-generated JDK signature stub. All members throw
- * NotImplementedException — Path C of docs/LAYERS.md §License posture.
- *
- * Source: javap signature of java.util.concurrent.Executor. Regenerate via
- *   php tools/gen-aot-stubs.php java.util.concurrent.Executor
+ * java.util.concurrent.Executor — base interface for objects that
+ * execute Runnables. Decouples task submission from task execution
+ * (threading, queueing, scheduling). Implementations: any
+ * ExecutorService, plus ad-hoc inline executors.
  */
 interface Executor
 {
-    public function execute($a0 = null);
+    public function execute(callable $command): void;
 }

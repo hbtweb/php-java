@@ -3,17 +3,10 @@ declare(strict_types=1);
 namespace PHPJava\Aot\Runtime\java\util\concurrent;
 
 /**
- * Auto-generated JDK signature stub. All members throw
- * NotImplementedException — Path C of docs/LAYERS.md §License posture.
- *
- * Source: javap signature of java.util.concurrent.ExecutionException. Regenerate via
- *   php tools/gen-aot-stubs.php java.util.concurrent.ExecutionException
+ * java.util.concurrent.ExecutionException — wraps an exception
+ * thrown by a Future's task when retrieved via Future.get().
+ * Thrown by ThreadPoolExecutor.invokeAny when all tasks fail.
  */
-class ExecutionException
+class ExecutionException extends \Exception
 {
-
-    public function __construct($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
 }

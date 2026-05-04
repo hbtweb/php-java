@@ -2,14 +2,17 @@
 declare(strict_types=1);
 namespace PHPJava\Aot\Runtime\java\util\concurrent;
 
+use PHPJava\Aot\Runtime\java\lang\Thread;
+
 /**
- * Auto-generated JDK signature stub. All members throw
- * NotImplementedException — Path C of docs/LAYERS.md §License posture.
+ * java.util.concurrent.ThreadFactory — produces new Thread instances
+ * on demand. Used by ThreadPoolExecutor and Executors factories
+ * that customise thread naming, daemon-ness, priority, etc.
  *
- * Source: javap signature of java.util.concurrent.ThreadFactory. Regenerate via
- *   php tools/gen-aot-stubs.php java.util.concurrent.ThreadFactory
+ * Default implementation matches Java's defaultThreadFactory:
+ * threads are non-daemon, named pool-N-thread-M.
  */
 interface ThreadFactory
 {
-    public function newThread($a0 = null);
+    public function newThread(callable $runnable): Thread;
 }
