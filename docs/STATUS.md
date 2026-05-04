@@ -356,22 +356,17 @@ Plus 7 measurement harnesses in `bench/`:
 | AOT-clean stdlib shim | ✓ `\PHPJava\Aot\Runtime\java\lang\System` + `java\io\PrintStream` | `src/Aot/Runtime/bootstrap.php` |
 | Test suite unblock for JDK 25 | ✓ committed | `tests/Cases/Base.php` |
 
-## What's open (rank 2/3 estimates)
+## What's open
 
-| Work | Estimated effort | Blocking |
-|---|---|---|
-| ~~Full opcode coverage in AOT compiler~~ | done modulo invokedynamic + exception tables | – |
-| ~~Method dispatch (INVOKE*) emission~~ | done — `\Class::m()` and `$obj->m()` direct emit per CONTRACTS.md §6, hours not weeks once the architectural cut was clear | – |
-| ~~Exception-table → try/catch translation~~ | done for non-nested ranges — per-range try/catch with goto-from-catch handler dispatch. Rank-1 verified on `BenchTryCatch::run() = 42`. Nested/overlapping ranges fall back to no-protection emit; refine when fixture surfaces. | – |
-| ~~`Compiler::compileBytes()` — defineClass(byte[]) path~~ | done — AOT compiler now accepts raw `.class` bytes via `InlineReader`. Rank-1 verified by reading `BenchAdd.class` from disk, AOT-compiling the bytes (no `ClassResolver`), running result = 499500. Unlocks runtime class synthesis: custom ClassLoader, CGLIB-style proxies, Clojure's anonymous fn classes, mocking frameworks. | – |
-| ~~StringConcatFactory (subset of INVOKEDYNAMIC)~~ | done — recipe-to-PHP-concat translation. Rank-1 verified on `BenchConcat::greet("alice", 5)`. | – |
-| ~~LambdaMetafactory~~ | done — synthetic PHP class generated per lambda, captures stored in private fields, SAM method forwards to the AOT'd static lambda body. Rank-1 verified on `BenchLambda::run()=42` (no-capture) and `BenchLambda::withCapture(7)=107` (1-capture). Covers every Java 8+ `() -> ...`. `altMetafactory` reuses the same path. | – |
-| Arbitrary INVOKEDYNAMIC bootstraps (custom dynamic-language dispatch, ObjectMethods records, SwitchBootstraps pattern-switch) | ~1 week each | T1 — long tail of indy use; lazy CallSite shim for unknown bootstraps |
-| `defineClass(byte[])` | 3–5 days | nothing |
-| Test suite to green | 1–2 weeks | value-rep refactor |
-| Value-rep refactor (drop `Int_`/`Long_`/`Double_` boxing) | 2 weeks | CONTRACTS.md ✓ |
-| `Unsafe` shim (PHP-locked CAS) | 1 week | nothing |
-| 233-class T2 implementation | 2–4 months | T1 |
+Forward-work priority moved to
+[ROADMAP.md §Next-work hierarchy](../ROADMAP.md#next-work-hierarchy-post-2026-05-04-audit)
+as of the 2026-05-04 audit pass. The duplicated effort table that
+previously lived here drifted between sessions; ROADMAP is canonical.
+
+This document focuses on **measured rank-1 state** (what works, what
+the numbers say) rather than forward-work priority. The "Ranked next
+steps" section below pre-dates the audit and is preserved for prior
+context only.
 
 ## Revised tier work estimate (after CLOJURE-BOOT-ANALYSIS)
 
@@ -388,7 +383,13 @@ Plus 7 measurement harnesses in `bench/`:
 ~130 stubs). Bigger than the earlier "~383" estimate but a meaningful
 fraction is generator-amenable stubs.
 
-## Ranked next steps (revised 2026-05-03 after IR migration)
+## Ranked next steps (HISTORICAL — superseded by ROADMAP §Next-work hierarchy)
+
+> Preserved for prior context. Forward-work priority lives in
+> [ROADMAP.md §Next-work hierarchy](../ROADMAP.md#next-work-hierarchy-post-2026-05-04-audit)
+> as of the 2026-05-04 audit pass. Several items below are now done:
+> ObjectMethods/SwitchBootstraps detection, LRU eviction, dead
+> string-path emitter removal, sub-step 1c-β.
 
 The original 3-week plan around H1-H8 hot-loop fixes is mostly
 overtaken by the IR migration — the AOT compiler now sits at ~0.18

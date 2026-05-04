@@ -10,6 +10,37 @@
 
 ---
 
+## Update — 2026-05-04 (Path C stub generator + audit pass)
+
+Two things since the SBAR below was written:
+
+1. **Path C stub generator landed** (`tools/gen-aot-stubs.php`,
+   uncommitted). javap-driven; emits PHP signature stubs under
+   `src/Aot/Runtime/<package>/<Name>.php` with `NotImplementedException`
+   bodies. **110 stubs generated** for the bb-allowlist ∩ Clojure-boot
+   ∩ not-already-present set (uncommitted). Suite count unchanged at
+   476 / 39E / 9F / 2S — those 39E/9F are pre-existing
+   `tests/Cases/Packages/*` and `tests/Cases/Compiler/*` failures, not
+   tracked in the 47-case-file scorecard.
+
+2. **Doc audit pass** validated the open-work surface across all docs
+   against the code. Many items previously listed as TODO are landed:
+   Sub-step 1c-β (full abstract-stack), 1c-ε (Switch_ terminator),
+   1c-ζ (DUP2/IUSHR/LUSHR/MULTIANEWARRAY), SwitchBootstraps, LRU
+   eviction on Compiler caches, dead string-path emitter removal,
+   class-file version table extension to Java 25, Symfony Console
+   constraint. Audit also surfaced **7 correctness gaps not on any
+   roadmap** — long overflow, float narrowing, NaN comparison,
+   `String.length` byte-vs-unit, `iinc` mask, char surrogate pairs,
+   nested-try silent fall-through. All listed in
+   [ROADMAP.md §Next-work hierarchy](ROADMAP.md#next-work-hierarchy-post-2026-05-04-audit).
+
+Forward-work priority lives in ROADMAP from this point on. This file
+is session-scoped (SBAR for the 2026-05-04 contract-compliance batch);
+do not duplicate ROADMAP entries here.
+
+---
+
 ## Situation
 
 The fork's test suite is **fully green for the first time in the AOT-
@@ -130,55 +161,32 @@ the architecture is no longer the bottleneck. **JDK shim coverage is**.
 
 ## Recommendation — next session focus
 
-Priority is now **outside** the AOT pipeline. With suite green and perf
-within budget, the architecture is no longer the bottleneck. The next
-deltas should attack the **JDK surface** — that's what unblocks running
-real Java code (Apache Commons, Clojure boot, etc.).
+Priority and ordering of forward work moved to
+[ROADMAP.md §Next-work hierarchy](ROADMAP.md#next-work-hierarchy-post-2026-05-04-audit).
+That section is canonical and reflects the post-audit picture; the
+duplicated priority list that previously lived here drifted between
+sessions and is gone.
 
-### Next major goal — bb allowlist non-stub
+Headline shape for the next session:
 
-`ROADMAP.md` defines v1 success as the bb allowlist (~80 most-used
-classes from babashka) being non-stub. From there, Clojure boot and
-the long tail are characterised as "probes against existing
-infrastructure rather than new architecture."
-
-**Concrete next steps, in priority order:**
-
-1. **Stub generator (~1 day)** — Path C in the prior session's terminology.
-   javap-driven; emit PHP class declarations with
-   `NotImplementedException` bodies for the 130 stub-only T2 classes.
-   Mechanical. Closes the long tail of "class not found" runtime errors
-   that block discovery of what's actually needed.
-
-2. **Behavioural oracle harness (~1 week)** — Path D′. PHPJava already
-   has FFM-based JVM-side parity infrastructure. Extend to per-method
-   I/O capture: run a method on JVM, capture (args, return, side
-   effects), compare against AOT-emitted PHPJava run. Foundation for
-   clean-room shim authoring per the GPL+CPE constraint documented in
-   `docs/LAYERS.md`.
-
-3. **bb allowlist class fill** — work the ~80 classes from
-   `src/babashka/impl/classes.clj`. With the oracle harness in place,
-   each class's surface can be specced and tested against JVM ground
-   truth without GPL contamination. Current AOT pipeline correctness
-   should mean each class is "small enough to author in a day or two."
-
-4. **Document the AOT class-emit shape** — the architecture changes
-   landed this session (overload dispatcher, abstract-class-for-
-   interface, `extends` + parent preload, by-ref params, contract-shape
-   conversions) need a doc-side companion in `docs/LAYERS.md` so future
-   contributors can read the emitted PHP without reverse-engineering
-   the IR Builder. Started this session inline.
-
-5. **Interpreter delete (Phase D)** can begin. The suite is green; the
-   AOT path covers the test surface; the interp is no longer load-
-   bearing. ~10 kloc removal. Defer until after the JDK fill if Phase D
-   touching the same files would conflict.
+- **Testing** — 7 correctness gaps surfaced by the 2026-05-04 audit
+  (long overflow, float narrowing, NaN comparison, `String.length`
+  bytes-vs-units, `iinc` mask, char surrogate-pair, nested-try silent
+  fall-through). 1–2 days; land before bb-fill exposes broader surface.
+- **Build (v1 critical path)** — Path D′ behavioural oracle harness
+  (~1 week) → bb-allowlist non-stub fill (~80 classes, 2–4 months).
+- **Build (parallelizable)** — Phase B receiver-shape unification
+  (instance dispatch into AOT), ObjectMethods record-shape emit,
+  T1 class-file gaps (`CONSTANT_Dynamic`, `Module`/`Package` constants,
+  `NestHost`/`Record`/`PermittedSubclasses`/`Module*` attributes),
+  sequenced collections, `Unsafe` shim, lazy CP resolution.
+- **Refinement** — P6 peephole, cache observability.
+- **Cleanup** — Phase C/D/E deletions when convenient.
 
 ### Not a priority
 
 - Further AOT perf work — already at 0.20 ns/op, well under the
-  5 ns/op budget.
+  5 ns/op budget. P6 peephole is the only one with measured headroom.
 - Further test-shape migration — clusters touched are now closed.
 - The PHP-source → JVM-bytecode bidirectional pipeline (Q-future).
 

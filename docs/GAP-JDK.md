@@ -230,7 +230,29 @@ The honest call is that **Java 21 LTS is the right target** for the project's st
 
 ---
 
-## 9. Prioritized work list (incremental, each PR-sized)
+## 9. Prioritized work list (HISTORICAL — superseded by ROADMAP §Next-work hierarchy)
+
+> Preserved for prior context. Forward-work priority lives in
+> [ROADMAP.md §Next-work hierarchy](../ROADMAP.md#next-work-hierarchy-post-2026-05-04-audit)
+> as of the 2026-05-04 audit pass. Updates against this list:
+>
+> - Item 1 (version table) — **DONE** through Java 25 (class file 69.0).
+> - Item 9 (StringConcatFactory) — **DONE in AOT path**
+>   (`src/Aot/Ir/Builder.php:1675–1679`); interpreter stub remains.
+> - Item 10 (LambdaMetafactory) — **DONE in AOT path**
+>   (`src/Aot/Ir/Builder.php:1637–1640,1819–1851`); rank-1 verified
+>   on `BenchLambda::run()=42` and `BenchLambda::withCapture(7)=107`;
+>   interpreter stub remains.
+> - Items 2–7 (constant/attribute parsers) — still open; tracked in
+>   ROADMAP §Build T1 class-file gaps.
+> - Item 8 (`String_` fill) — partial; AOT bootstrap.php has ~17
+>   methods filled (`length`, `indexOf`, `charAt`, `substring`,
+>   `equals`, `hashCode`, `trim`, `strip`, `startsWith`, `endsWith`,
+>   `contains`, `replace`); missing `formatted`, `toLowerCase`,
+>   `toUpperCase`, `format`, `join`, `intern`, etc.
+> - Item 11 (sequenced collections) — still open.
+> - Items 12–14 (Java 22–25 surface) — version table done; runtime
+>   classes mostly absent.
 
 Ordering by *enabling other work* + *probability of need*:
 

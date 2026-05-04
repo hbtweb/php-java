@@ -78,9 +78,13 @@ is stubs (10–50 LOC each).
 
 ## Concrete next steps from this analysis
 
-1. **Stub generator** — for the ~400 likely-stub-only classes, generate
-   skeleton PHP that satisfies class-loading without throwing. ~1 day
-   of tooling, ~400 generated files.
+1. **Stub generator** — **DONE 2026-05-04**. `tools/gen-aot-stubs.php`
+   javap-driven; emits PHP signature stubs under
+   `src/Aot/Runtime/<package>/<Name>.php` with `NotImplementedException`
+   bodies. 110 stubs generated covering the bb-allowlist ∩
+   Clojure-boot ∩ not-already-present surface. 4 PHP-reserved-leaf
+   classes (Object, Class, Float, plus List/Function) deferred — need
+   a `Builder.classFqn` remap to route AOT calls to `<Name>_`.
 2. **`Unsafe` implementation** — pure PHP fallback (no FFI required for
    most uses; CAS via PHP-level locking). ~500 LOC. **High priority** —
    without it, ConcurrentHashMap doesn't work.

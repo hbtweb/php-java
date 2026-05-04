@@ -129,12 +129,11 @@ AOT spike (0.2 ns/op) and reaching within 1.8× of HotSpot JIT
 (~0.10 ns/op). ~150 LOC. See `docs/PATTERNS.md` "Stack-erasure
 peephole" for patterns + emit before/after.
 
-**Sub-step 1c-β: full abstract-stack tracking.** Catches the cases the
-peephole misses — push+push+arith-without-immediate-store, cross-block
-stack flow, exception-handler entry stacks. Estimated 4–8h on top of
-1c-α. Probably ~1.5× additional headroom (per spike's hand-emit
-idiomatic at 0.2 ns/op vs our 0.18 — the peephole already absorbed
-most of the value).
+**Sub-step 1c-β: full abstract-stack tracking — DONE.** Catches the
+cases the peephole misses — push+push+arith-without-immediate-store,
+cross-block stack flow, exception-handler entry stacks. Implemented
+via `spillStackToSlot` / `reloadStackFromSlots` in `Builder.php:287–310`;
+handler entries reset stack to `[CaughtException()]`.
 
 **Sub-step 1c-γ: cross-method inlining — DONE 2026-05-03.** First
 shipped as post-emit-text substitution; then ported to IR-level
@@ -156,56 +155,15 @@ IR nodes: `StoreArrayElement` Stmt, `ArrayElementRead` Expr,
 fields, method returns), falls back to ArrayHelper which handles
 both wrapped and raw shapes dynamically.
 
-**Sub-step 1c-β: full abstract-stack tracking — REMAINING.** Catches
-the cases the peephole + IR-bake-in misses — push+push+arith-
-without-immediate-store, cross-block stack flow, non-empty stack at
-exception-handler entry. Estimated 4–8h on top of 1c-α. Perf
-headroom probably ~1.5× (per spike's hand-emit idiomatic at 0.2 ns/op
-vs our 0.18). **Coverage impact much larger than perf impact:** the
-2026-05-03 commons-lang3 probe (`bench/probe-real-library.md`) found
-this single issue accounts for **95% of remaining IR fallbacks** —
-landing 1c-β lifts production-bytecode IR coverage from 86.5% to ~99%.
+**Sub-step 1c-ε: switch terminator (TABLESWITCH/LOOKUPSWITCH) — DONE.**
+`Switch_` IR node at `Node.php:220`; opcode parse at `Builder.php:501,
+1128–1136`; PHP `switch` render at `Lowerer.php:245–251`.
 
-**Sub-step 1c-ε: switch terminator (TABLESWITCH/LOOKUPSWITCH).** New
-`Switch` Terminator IR node + Lowerer match/switch rendering.
-Currently 19 fallbacks on commons-lang3 (4% of remaining). ~hours.
+**Sub-step 1c-ζ: rare-opcode tail — DONE.** DUP2 (`Builder.php:799`),
+IUSHR/LUSHR (`:814–831`), MULTIANEWARRAY (`:836–847`).
 
-**Sub-step 1c-ζ: rare-opcode tail.** DUP2 / LUSHR / IUSHR /
-MULTIANEWARRAY — 5 fallbacks total on commons-lang3, 1% of remaining.
-~hour total.
-
-### Work plan (ordered, post-2026-05-03 probe)
-
-Tractable in ~1–3 sessions. Skip soak test (#7, 24h elapsed time),
-boxing refactor (#11/#12, 1–2wks), Tier 2 shim (#13, months).
-
-1. **Sub-step 1c-β** — full abstract-stack tracking. Architecture +
-   95% of remaining probe fallbacks.
-2. **Sub-step 1c-ε** — switch terminator. Closes IR coverage to ~99%
-   when combined with 1c-β.
-3. **Lazy CP resolution in PHPJava parser** — fixes the 22% top-level
-   probe-fail rate (`ClassNotFoundException` during parse). Real
-   architectural cleanup; unblocks running real-library probes
-   without bespoke classpath plumbing.
-4. **Sub-step 1c-ζ** — DUP2/LUSHR/IUSHR/MULTIANEWARRAY tail.
-5. **AOT classloader integration into `JavaClass::load`** — wires
-   eager/lazy AOT strategies per CONTRACTS.md §3 + §5. Production
-   reachability: AOT currently only via direct `Compiler::compileBytes`.
-6. **LRU eviction on Compiler caches** — daemon-safety prereq;
-   currently `compileBytes/compileClass` static caches grow unbounded.
-7. **ObjectMethods bootstrap** — Java records' equals/hashCode/toString.
-8. **SwitchBootstraps** — Java 21+ pattern switch.
-9. Symfony Console version mismatch — minutes.
-10. Remove dead string-path emitter — **deferred**. After 1+2+4
-    landed, the IR path covers 100% of commons-lang3. But "provably
-    redundant" needs broader rank-1 evidence (PDFBox / Tika / a real
-    multi-JAR probe) before removing the 1500-line fallback. Rolling
-    back accidental gaps would be a real cost; the fallback's
-    defensive value still exceeds its maintenance cost. Re-evaluate
-    after Tier 3 probe Q3.1 (real-Java-library end-to-end run).
-
-Reference: `bench/probe-real-library.md` is the rank-1 evidence
-driving this ordering.
+For canonical priority/ordering of remaining work, see
+[Next-work hierarchy](#next-work-hierarchy-post-2026-05-04-audit) below.
 
 ### Tier 2 — surface coverage (shared by all Tier 1 strategies)
 
@@ -243,6 +201,142 @@ Each is a question answered by running, not built features.
 | Q3.4 — bb compatibility | Do bb's pure-Clojure libs run on cljp+PHPJava? |
 | Q3.5 — hot reload | Edit `.java`, re-AOT, callers see new methods? |
 
+## Next-work hierarchy (post-2026-05-04 audit)
+
+The 2026-05-04 audit verified all open-work claims across the docs
+against the code; many items previously listed as TODO had already
+landed. The remaining surface, organised by kind. Correctness gaps
+sit ahead of new build because bb-fill (the v1 gate) will exercise
+broader semantic surface, and substrate bugs will surface as
+implementation bugs in shim code rather than at their actual site.
+
+### Testing — correctness gaps surfaced by audit (1–2 days)
+
+JVM-semantic divergences current tests don't exercise. Ranked roughly by
+likelihood-of-being-hit-during-bb-fill.
+
+| # | Gap | Site | Fix |
+|---|---|---|---|
+| T1 | Long overflow unmasked → silent float promotion | `src/Aot/Ir/Builder.php:474,476,478` ladd/lsub/lmul; `:738` ldiv; `:741` lrem | 64-bit overflow guard or GMP fallback. Java long wraps at 64-bit; PHP int promotes to float on overflow. |
+| T2 | Float narrowing missing on FSTORE / putfield(F) / f2d / d2f | `src/Aot/Ir/Builder.php:1556–1577` widenForJvmStack/narrowForFieldStorage; `:459` f2d/d2f | Add F descriptor; pack/unpack via `'f'` at field/array boundary. PHP `float` is binary64; Java `float` is binary32. |
+| T3 | NaN comparison wrong | `src/Aot/Ir/Builder.php:461–463` fcmp[lg]/dcmp[lg] use PHP `<=>` (returns 0 on NaN); `:1515` Float.equals uses `===` (returns false on NaN) | fcmpl returns -1, fcmpg returns +1 if either operand is NaN; `Float.equals(NaN, NaN)` returns true. |
+| T4 | `String.length` byte vs UTF-16 unit | `src/Aot/Runtime/bootstrap.php:93` returns `strlen($s)` | Count UTF-16 code units (not bytes, not codepoints). For BMP-only ASCII the values match; multi-byte UTF-8 diverges. |
+| T5 | `iinc` opcode no 32-bit mask | `src/Aot/Ir/Lowerer.php:209` emits `+= delta;` | Apply 32-bit mask consistent with iadd. Diverges for tight increment loops at 2^31 boundary. |
+| T6 | Char surrogate-pair semantics | `src/Aot/Ir/Builder.php:1559–1576` mb_chr/mb_ord with `'UTF-8'` | Java `char` is a UTF-16 code unit; supplementary chars (U+10000+) are 2 chars in Java but 1 PHP UTF-8 sequence. `String.charAt` semantics diverge for non-BMP. |
+| T7 | Nested/overlapping try-catch silently uncaught | `src/Aot/Compiler.php:802–805,823–825` falls back to no-protection emit with leading comment only | Either implement nested-range support or emit a runtime warning so the silent miss is visible. |
+
+For each: write a fixture exercising the bug, land the fix, confirm
+rank-1 in suite. None blocked.
+
+### Build — capability extension (~6–8 weeks for v1)
+
+The v1 gate is bb-allowlist non-stub fill. Path D′ oracle is its
+prerequisite.
+
+**v1 critical path (sequential):**
+
+1. **Path D′ behavioural oracle harness** (~1 week, *not started*) —
+   extend FFM-based JVM-side parity infra to per-method I/O capture.
+   Foundation for clean-room bb-fill per GPL+CPE constraint
+   ([LAYERS.md §License posture](docs/LAYERS.md)).
+2. **bb-allowlist non-stub fill** (~80 most-used babashka classes,
+   2–4 months) — work each class against the oracle. The actual v1
+   gate. ~110 of the ~130 stub-only T2 classes are already Path C
+   stubs (`tools/gen-aot-stubs.php` + `src/Aot/Runtime/java/**`); this
+   step replaces the stub bodies with real implementations.
+
+**Independent capability work (parallelizable with the critical path):**
+
+3. **AOT instance dispatch (Phase B receiver-shape unification)** —
+   `src/Core/JVM/Invoker/Extended/JavaMethodCallable.php:114–138`
+   instance path still routes through the interpreter; only static
+   dispatch reaches AOT. ~2–3 days. Unblocks every test that calls
+   instance methods through AOT.
+4. **ObjectMethods record-shape emit** — indy detection done at
+   `src/Aot/Ir/Builder.php:1656–1670`, but record-class shape
+   (`extends \PHPJava\Aot\Runtime\java\lang\Record` + component
+   accessors) not emitted (`Builder.php:1926` comment marks the gap).
+   Hours.
+5. **T1 class-file gaps** (Java 11+ load-time):
+   - `CONSTANT_Dynamic` (tag 17) parsing — 1–2 days. No entry in
+     `src/Kernel/Maps/ConstantPoolTag.php`.
+   - `CONSTANT_Module`/`Package` (tags 19, 20) — 1 day. Declared in
+     tag map; throw on read at `src/Core/JVM/ConstantPool.php:104–106`.
+   - `NestHost`/`Record`/`PermittedSubclasses`/`Module`/
+     `ModulePackages`/`ModuleMainClass` attribute parsers — ~1 week
+     total. Only `NestMembersAttribute.php` exists.
+6. **Sequenced collections (Java 21)** — `SequencedCollection`/
+   `SequencedSet`/`SequencedMap` interfaces + `LinkedHashMap`/
+   `LinkedHashSet` retrofit. ~4 days. Currently absent.
+7. **Unsafe shim** — pure-PHP, lock-based CAS. ~500 LOC. Required
+   for `ConcurrentHashMap` (touched by Clojure boot per
+   `docs/CLOJURE-BOOT-ANALYSIS.md`).
+8. **Lazy CP resolution in parser** (`src/Core/JVM/ConstantPool.php:42–59`)
+   — closes 22% top-level real-library probe-fail rate per
+   `bench/probe-real-library.md`.
+
+### Refinement — perf and reliability tightening (1–2 weeks total)
+
+Doesn't gate v1 but tightens substrate before bb-fill exercises it
+broadly.
+
+1. **P6 peephole — pop-into-temp + push-expr collapse** at
+   `src/Aot/Compiler.php:1629–1632` punted. Closes ~2× remaining gap
+   on inlined call sites per
+   [PATTERNS.md "Cross-method inlining"](docs/PATTERNS.md).
+2. **Compiler cache observability** — hit/miss metrics on
+   `$compileClassCache` / `$compileBytesCache` (`src/Aot/Compiler.php:84–200`)
+   for daemon production visibility. Cap is 1000 entries; daemons
+   loading more thrash silently.
+3. **Method overload — fuller arg-shape matching** — current dispatcher
+   falls through to `NoSuchMethodException` on shape ambiguity. Refine
+   when a real overload set surfaces a mismatch.
+4. **Multi-interface implementation** — needs PHP `traits` + `interface`
+   combo. Single suffices today (`src/Aot/Compiler.php:500–507`).
+5. **cljp by-ref patterns 2+3** — known-PHP-mutating-fn registry;
+   chained user fns (`src/Aot/Ir/Builder.php:356–366` defer comment).
+   Direct-aset alone covers current tests.
+6. **AOT class-emit shape doc companion** in
+   [LAYERS.md](docs/LAYERS.md) (partly inline already).
+
+### Cleanup — pure subtraction (~21.6 kloc deletable)
+
+Each phase produces a green suite before the next; C, D, E are
+independent and parallelizable per [LAYERS.md §"Order of cuts"](docs/LAYERS.md).
+
+1. **Phase C** — `Dynamic→Instance` rename per LAYERS.md:65–72.
+   Cosmetic, mechanical. Days.
+2. **Phase D** — interpreter delete (~10 kloc): `src/Kernel/Mnemonics/`,
+   `JavaMethodCallable` interpreter half, `src/Kernel/Types/` remainder,
+   `src/Kernel/Filters/Normalizer.php`, `src/Kernel/Frames/`,
+   `src/Kernel/Variables/`, `src/Kernel/Provider/`, `OperationCache`,
+   `MnemonicResolver`, `tests/Cases/OutputDebugTraceTest.php`. Single
+   PR, single revert.
+3. **Phase E** — legacy stack delete (~12.5 kloc):
+   `src/Compiler/Lang/Assembler/`, `src/Compiler/Builder/`,
+   `src/Compiler/Emulator/`, `src/Compiler/Compiler.php`,
+   `tests/Cases/Compiler/*`. Independent of D.
+4. **Doc consolidation** (this update — done): ROADMAP is canonical
+   "what's open + priority"; HANDOVER session-only; STATUS measured
+   rank-1 only; GAP-JDK version coverage map; MODEL strategic framing
+   only.
+
+### Done since 2026-05-04 docs were written (audit-confirmed)
+
+| Item | Site |
+|---|---|
+| Sub-step 1c-β (full abstract-stack) | `src/Aot/Ir/Builder.php:287–310` |
+| Sub-step 1c-ε (Switch_ terminator) | `src/Aot/Ir/Node.php:220`; `Builder.php:501,1128–1136`; `Lowerer.php:245–251` |
+| Sub-step 1c-ζ (DUP2/IUSHR/LUSHR/MULTIANEWARRAY) | `src/Aot/Ir/Builder.php:799,814–831,836–847` |
+| SwitchBootstraps (Java 21 pattern switch) | `src/Aot/Ir/Builder.php:1643–1652`; `src/Aot/Runtime/bootstrap.php:326–381` |
+| LRU eviction on Compiler caches (1000 entries each) | `src/Aot/Compiler.php:84–200` |
+| Dead string-path emitter removal | only ~32-line `emitStringConcat` left |
+| Class-file version table 53.0–69.0 (Java 9–25) | `src/Kernel/Resolvers/SDKVersionResolver.php:35` |
+| StringConcatFactory (AOT path) | `src/Aot/Ir/Builder.php:1675–1679` |
+| LambdaMetafactory + altMetafactory (AOT path) | `src/Aot/Ir/Builder.php:1637–1640,1819–1851` |
+| Symfony Console version constraint | `composer.json:20` `^5.4|^6.0|^7.0` |
+| Path C stub generator + 110 stubs | `tools/gen-aot-stubs.php`; `src/Aot/Runtime/java/**` |
+
 ## What's not on the roadmap
 
 - Shared `$GLOBALS` runtime with cljp. cljp and PHPJava are peers on
@@ -266,13 +360,10 @@ Each is a question answered by running, not built features.
 
 ## Open questions
 
-- **Symfony Console version.** PHPJava uses `symfony/console: ^5.2`;
-  current 6.x and 7.x require `int` return from `Command::execute()`.
-  Cosmetic but visible. Tier 0 housekeeping.
-- **`Compiler/Emulator/` repurposing.** The existing parallel mnemonics
-  tree at `Compiler/Emulator/Mnemonics/` does abstract type tracking at
-  build time. Tier 1b's emit pass shares 90% of that pattern. Possibly
-  rename / repurpose rather than create a third parallel tree.
+- **`Compiler/Emulator/` repurposing.** Settled by 2026-05-04 audit
+  (`docs/LAYERS.md`): Phase E deletes it — pattern overlap with
+  `src/Aot/Ir/Builder.php`'s abstract-stack tracking is structural, not
+  reusable code. Listed for transparency; not actually open.
 - **License posture for shim port.** Spec-based reimplementation is the
   default. Specific cases (e.g., a complex `String.format` parser) may
   benefit from referencing OpenJDK in the abstract — never copy.

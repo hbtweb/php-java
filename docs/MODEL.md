@@ -294,7 +294,8 @@ Driven by P1's needs and Clojure-on-PHPJava ambition:
 - `WeakReference` / `WeakMap` (PHP 7.4+ wrappers)
 
 **T3 — required for Clojure:**
-- `defineClass(byte[])` — runtime class loading from synthesised bytes
+- `defineClass(byte[])` — **DONE** via `Compiler::compileBytes` +
+  `Aot\Loader::defineClass` (rank-1 verified per `docs/STATUS.md`)
 - ASM library (Java) running on PHPJava (uses no exotic deps)
 - All of T1 + T2
 
