@@ -32,7 +32,17 @@ class JavaIoPrintStreamClassTest extends Base
         try {
             return $this->call($method, ...$arguments);
         } catch (UncaughtException $e) {
+            // Legacy interp path wraps Java exceptions in UncaughtException.
             $this->expectedSpecialException = get_class($e->getPrevious());
+        } catch (\PHPJava\Packages\java\lang\Throwable $e) {
+            // AOT path: Java exceptions propagate raw — the AOT-namespace
+            // exception class extends the Packages-namespace one, so map
+            // back to the Packages name the test asserts against.
+            $this->expectedSpecialException = \str_replace(
+                'PHPJava\\Aot\\Runtime\\java\\lang\\',
+                'PHPJava\\Packages\\java\\lang\\',
+                get_class($e)
+            );
         }
         return Output::getHeapspace();
     }
@@ -70,7 +80,11 @@ class JavaIoPrintStreamClassTest extends Base
     public function testPrintlnWithNullCharArrayParams()
     {
         $result = $this->callWithExpectingException(explode('::', __METHOD__)[1]);
-        $this->assertEquals("\n", $result);
+        // AOT path matches Java spec: println(char[] x) calls write
+        // before newLine; for null x, write throws NPE before the
+        // newline is emitted, so output is empty. Legacy interp path
+        // emitted "\n" first — that was the path-specific artifact.
+        $this->assertEquals("", $result);
         $this->assertSame(
             NullPointerException::class,
             $this->expectedSpecialException

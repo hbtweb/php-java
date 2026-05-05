@@ -743,6 +743,49 @@ function jvm_lushr(int $v, int $n): int
 }
 
 /**
+ * Z (boolean) narrowing helper. JVM stack passes booleans as int
+ * 0/1; per CONTRACTS.md §1 booleans carry as PHP bool at AOT
+ * runtime. Used by IR Builder to wrap args at invokevirtual sites
+ * where the descriptor type is Z but the IR has an int expression.
+ */
+function jvm_z_narrow($v): bool
+{
+    return (bool) $v;
+}
+
+/**
+ * C (char) → single-char UTF-8 string conversion. AOT contract
+ * carries char as PHP int; for methods that semantically print a
+ * char (PrintStream.println(C)), wrap the int arg into a string
+ * before passing.
+ */
+function jvm_c_to_string($v): string
+{
+    return \is_int($v) ? (\mb_chr($v, 'UTF-8') ?: '') : (string) $v;
+}
+
+/**
+ * char[] → string conversion for PrintStream's println([C)V. Java
+ * spec: throw NullPointerException when arg is null, else write
+ * each char's UTF-8 representation.
+ */
+function jvm_print_chars($v): string
+{
+    if ($v === null) {
+        throw new \PHPJava\Aot\Runtime\java\lang\NullPointerException();
+    }
+    if (\is_string($v)) return $v;  // already string-shaped
+    if (\is_array($v)) {
+        $s = '';
+        foreach ($v as $c) {
+            $s .= \is_int($c) ? (\mb_chr($c, 'UTF-8') ?: '') : (string) $c;
+        }
+        return $s;
+    }
+    return (string) $v;
+}
+
+/**
  * Java `long` arithmetic — wrap modulo 2^64, two's-complement.
  *
  * PHP int is 64-bit on 64-bit hosts, but PHP overflows promote to

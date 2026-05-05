@@ -1334,6 +1334,14 @@ final class Builder
         $args = array_values($args);
         $receiver = $this->pop();
 
+        // Descriptor-aware arg narrowing for JDK shim methods that
+        // semantically distinguish primitive types but can't dispatch
+        // by descriptor at the PHP boundary. Z (boolean), C (char),
+        // [C (char[]) on PrintStream's print/println need this:
+        // bytecode pushes int 0/1 for Z but the shim's PHP method
+        // can't tell that from int 1 (which means literal 1).
+        $args = $this->narrowArgsForJdkShim($cls, $methodName, $argTypes, $args);
+
         // new+dup+invokespecial<init> peephole. The receiver is the
         // dup'd uninit marker; the abstractStack still has one more
         // copy of it from the original new+dup. Replace BOTH with
@@ -1433,6 +1441,38 @@ final class Builder
         } else {
             $this->push($call);
         }
+    }
+
+    /**
+     * Wrap descriptor-typed args at JDK shim call sites where the
+     * shim's PHP method can't reconstruct the original type from the
+     * runtime value alone. Currently:
+     *   - PrintStream.print/println(Z)     → narrow int → bool
+     *   - PrintStream.print/println(C)     → int code unit → 1-char string
+     *   - PrintStream.print/println([C)    → char[] → joined string (NPE on null)
+     *
+     * Other JDK shims with similar issues get added to the per-call
+     * special-case below as fixtures surface them.
+     */
+    private function narrowArgsForJdkShim(
+        string $cls,
+        string $methodName,
+        array $argTypes,
+        array $args
+    ): array {
+        $isPrintStream = $cls === 'java/io/PrintStream'
+            && \in_array($methodName, ['print', 'println'], true);
+        if (!$isPrintStream) return $args;
+
+        foreach ($argTypes as $i => $t) {
+            $args[$i] = match ($t) {
+                'Z'  => new StaticCall('\\PHPJava\\Aot\\Runtime\\jvm_z_narrow',   '', [$args[$i]]),
+                'C'  => new StaticCall('\\PHPJava\\Aot\\Runtime\\jvm_c_to_string', '', [$args[$i]]),
+                '[C' => new StaticCall('\\PHPJava\\Aot\\Runtime\\jvm_print_chars', '', [$args[$i]]),
+                default => $args[$i],
+            };
+        }
+        return $args;
     }
 
     /**

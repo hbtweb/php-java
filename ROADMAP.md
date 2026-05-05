@@ -30,7 +30,9 @@ than new architecture.
 
 ## Current state (2026-05-04, HEAD = `b631328`)
 
-- **Tests:** **0 errors / 0 failures / 2 skipped** — fully green for the first time in the AOT-default era. 45/47 case files pass. Skipped: `KotlinTest` (pre-existing, no Kotlin runtime in CI) and `OutputDebugTraceTest` (interp-only bytecode-trace dumper, no AOT analog, marked for Phase D delete).
+- **Tests:** **0 errors / 0 failures / 6 skipped (2026-05-05).** 47/47 case files run. Skipped: `KotlinTest` (pre-existing, no Kotlin runtime in CI), `OutputDebugTraceTest` (interp-only bytecode-trace dumper, no AOT analog, marked for Phase D delete), and 4 contract-divergence tests with documented reasons:
+  - `JavaLangStringTest::testIntern / testNotInterned / testNotInternedAfterLiteral` — PHPJava AOT contract (CONTRACTS.md §1) makes PHP string IS Java String value-wise; per-instance identity isn't modelled. Tests assert Java's per-instance distinction which is unreachable by design.
+  - `JavaLangSystemTest::testIdentityHashCode` — same divergence. `System.identityHashCode` of two equal-value `new String(s)` calls returns the same value.
 - **AOT pipeline:** **AOT is the default execution path** since `7f01155` (no env gate). End-to-end coverage now includes inheritance (`extends` + `parent::__construct`), interface compilation (Java interface → PHP `abstract class` with default-method bodies), method overload (descriptor-mangled names + arg-shape dispatcher), array by-ref auto-detect (cljp `aset`-on-param port), contract-shape Z (boolean) and C (char) field/array storage, wrapper-class IR lowerings (BOXING.md inline lowerings — `Integer.MAX_VALUE` → `IntLit`, `i.intValue()` → identity, `i.equals(j)` → `===`, etc.).
 - **Hot-path perf (AOT):** **0.18-0.20 ns/op JIT** for int loops (1.8× of HotSpot JIT, 2.9× faster than HotSpot interpreted); **0.24 ns/op** for invokestatic-heavy code; ~2.2 ns/op for array workloads; ~22 ns/call empty-method dispatch. Unchanged this session — work was correctness, not perf.
 - **Compile-output cache:** **2649× speedup** on repeat compiles (1578 µs → 0.6 µs).
