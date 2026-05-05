@@ -1,0 +1,88 @@
+{
+  "class": "java.lang.Long",
+  "_note": [
+    "Fifth bb-allowlist parity battery. Long is the 64-bit sister of",
+    "Integer; PHP int IS Java long natively, so most ops are direct.",
+    "Case spec uses JSON ints (decode as Long) which match Java long",
+    "params without narrowing — driver's reflection picks the long",
+    "overload directly."
+  ],
+  "cases": [
+    {"method": "bitCount", "args": [0]},
+    {"method": "bitCount", "args": [1]},
+    {"method": "bitCount", "args": [-1]},
+    {"method": "bitCount", "args": [9223372036854775807]},
+    {"method": "bitCount", "args": [-9223372036854775808]},
+    {"method": "bitCount", "args": [81985529216486895]},
+
+    {"method": "numberOfLeadingZeros", "args": [0]},
+    {"method": "numberOfLeadingZeros", "args": [1]},
+    {"method": "numberOfLeadingZeros", "args": [256]},
+    {"method": "numberOfLeadingZeros", "args": [9223372036854775807]},
+    {"method": "numberOfLeadingZeros", "args": [-1]},
+    {"method": "numberOfLeadingZeros", "args": [-9223372036854775808]},
+
+    {"method": "numberOfTrailingZeros", "args": [0]},
+    {"method": "numberOfTrailingZeros", "args": [1]},
+    {"method": "numberOfTrailingZeros", "args": [8]},
+    {"method": "numberOfTrailingZeros", "args": [256]},
+    {"method": "numberOfTrailingZeros", "args": [-1]},
+    {"method": "numberOfTrailingZeros", "args": [-9223372036854775808]},
+
+    {"method": "highestOneBit", "args": [0]},
+    {"method": "highestOneBit", "args": [1]},
+    {"method": "highestOneBit", "args": [255]},
+    {"method": "highestOneBit", "args": [256]},
+    {"method": "highestOneBit", "args": [9223372036854775807]},
+    {"method": "highestOneBit", "args": [-1]},
+
+    {"method": "lowestOneBit", "args": [0]},
+    {"method": "lowestOneBit", "args": [12]},
+    {"method": "lowestOneBit", "args": [1]},
+    {"method": "lowestOneBit", "args": [256]},
+    {"method": "lowestOneBit", "args": [-9223372036854775808]},
+
+    {"method": "reverse", "args": [0]},
+    {"method": "reverse", "args": [1]},
+    {"method": "reverse", "args": [-1]},
+    {"method": "reverse", "args": [9223372036854775807]},
+
+    {"method": "reverseBytes", "args": [0]},
+    {"method": "reverseBytes", "args": [72623859790382856]},
+    {"method": "reverseBytes", "args": [-1]},
+
+    {"method": "compare", "args": [3, 5]},
+    {"method": "compare", "args": [5, 3]},
+    {"method": "compare", "args": [3, 3]},
+    {"method": "compare", "args": [-9223372036854775808, 9223372036854775807]},
+
+    {"method": "signum", "args": [0]},
+    {"method": "signum", "args": [42]},
+    {"method": "signum", "args": [-42]},
+    {"method": "signum", "args": [9223372036854775807]},
+    {"method": "signum", "args": [-9223372036854775808]},
+
+    {"method": "hashCode", "args": [0]},
+    {"method": "hashCode", "args": [42]},
+    {"method": "hashCode", "args": [-1]},
+    {"method": "hashCode", "args": [9223372036854775807]},
+    {"method": "hashCode", "args": [-9223372036854775808]},
+
+    {"method": "sum", "args": [0, 0]},
+    {"method": "sum", "args": [1, 2]},
+    {"method": "sum", "args": [1000000000000, 2000000000000]},
+
+    {"method": "max", "args": [3, 5]},
+    {"method": "max", "args": [-1, 0]},
+    {"method": "min", "args": [3, 5]},
+    {"method": "min", "args": [-1, 0]},
+
+    {"method": "parseLong", "args": ["42"]},
+    {"method": "parseLong", "args": ["-1"]},
+    {"method": "parseLong", "args": ["9223372036854775807"]},
+    {"method": "parseLong", "args": ["-9223372036854775808"]},
+    {"method": "toString", "args": [42]},
+    {"method": "toString", "args": [-1]},
+    {"method": "toString", "args": [9223372036854775807]}
+  ]
+}

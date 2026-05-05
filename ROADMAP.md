@@ -529,7 +529,7 @@ prerequisite.
    stubs (`tools/gen-aot-stubs.php` + `src/Aot/Runtime/java/**`); this
    step replaces the stub bodies with real implementations.
 
-   **Progress (2026-05-05): 4/80 shipped + parity-validated. 183/183
+   **Progress (2026-05-05): 5/80 shipped + parity-validated. 247/247
    total parity cases.**
    - `java.lang.Math` — `src/Aot/Runtime/java/lang/Math.php`. Surface:
      abs/min/max (polymorphic int+long+float+double), sqrt/pow/floor/
@@ -572,6 +572,22 @@ prerequisite.
      toUnsignedString / divideUnsigned / remainderUnsigned /
      compareUnsigned deferred (rarely-used in bb). **57/57 parity
      vs HotSpot.**
+   - `java.lang.Long` — `src/Aot/Runtime/java/lang/Long.php`, sister of
+     Integer for 64-bit. PHP int IS Java long natively (both 64-bit
+     signed two's complement) so most ops are direct — no masking, no
+     narrowing. Surface: parseLong (radix 2..36 with PHP_INT_MIN
+     special-case for round-trip check), valueOf, toString /
+     toBinaryString / toHexString / toOctalString (PHP's dec-conv
+     functions on negatives produce the unsigned 16/22-digit form Java
+     emits); max, min, sum, compare, signum, hashCode (`(int)(v ^ (v
+     >>> 32))` bit-fold); bit-twiddle family at 64-bit cascades
+     (bitCount via byte-sum because the SWAR multiply variant
+     overflows PHP int; numberOfLeadingZeros / Trailing; highestOneBit
+     handles sign-bit case; lowestOneBit relies on PHP_INT_MIN's
+     unary-negation wrap; reverse / reverseBytes via SWAR/byte-extract
+     to avoid mask literals exceeding PHP_INT_MAX). **64/64 parity vs
+     HotSpot.** parseUnsignedLong, compareUnsigned, divideUnsigned,
+     remainderUnsigned deferred.
 
    Driver capability gained — `find-method` does name+arity+
    assignable-types lookup with primitive ↔ wrapper unboxing and
