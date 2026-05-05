@@ -1,0 +1,97 @@
+{
+  "class": "java.lang.StringBuilder",
+  "_note": [
+    "11th bb-allowlist battery. Instance-mode chains. StringBuilder is",
+    "a mutable string buffer; chains exercise append → toString and",
+    "the insertion / deletion / replacement family."
+  ],
+  "cases": [
+    {"new": [], "ops": [{"call": "length"}]},
+    {"new": [], "ops": [{"call": "toString"}]},
+
+    {"new": [], "ops": [
+      {"call": "append", "args": ["hello"]},
+      {"call": "toString"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "append", "args": ["hello, "]},
+      {"call": "append", "args": ["world"]},
+      {"call": "toString"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "append", "args": ["count="]},
+      {"call": "append", "args": [42]},
+      {"call": "toString"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "append", "args": ["abc"]},
+      {"call": "length"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "append", "args": ["abcdef"]},
+      {"call": "charAt", "args": [3]}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "append", "args": ["hello"]},
+      {"call": "reverse"},
+      {"call": "toString"}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "append", "args": ["hello"]},
+      {"call": "insert", "args": [0, "say "]},
+      {"call": "toString"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "append", "args": ["hello"]},
+      {"call": "insert", "args": [5, "!"]},
+      {"call": "toString"}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "append", "args": ["abcdef"]},
+      {"call": "delete", "args": [1, 4]},
+      {"call": "toString"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "append", "args": ["abcdef"]},
+      {"call": "deleteCharAt", "args": [2]},
+      {"call": "toString"}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "append", "args": ["abcdef"]},
+      {"call": "replace", "args": [1, 4, "XYZ"]},
+      {"call": "toString"}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "append", "args": ["abcdef"]},
+      {"call": "substring", "args": [1, 4]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "append", "args": ["abcdef"]},
+      {"call": "substring", "args": [3]}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "append", "args": ["foobar"]},
+      {"call": "indexOf", "args": ["bar"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "append", "args": ["foobar"]},
+      {"call": "indexOf", "args": ["xyz"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "append", "args": ["abcabc"]},
+      {"call": "lastIndexOf", "args": ["b"]}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "append", "args": ["hello"]},
+      {"call": "setLength", "args": [3]},
+      {"call": "toString"}
+    ]}
+  ]
+}

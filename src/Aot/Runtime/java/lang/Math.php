@@ -209,4 +209,84 @@ final class Math
         if ($a < 0.0) return -1.0;
         return $a; // preserves -0.0 vs 0.0
     }
+
+    // ── Transcendentals — PHP natives match Java semantics ──
+
+    public static function sin(float $a): float  { return \sin($a); }
+    public static function cos(float $a): float  { return \cos($a); }
+    public static function tan(float $a): float  { return \tan($a); }
+    public static function asin(float $a): float { return \asin($a); }
+    public static function acos(float $a): float { return \acos($a); }
+    public static function atan(float $a): float { return \atan($a); }
+    public static function atan2(float $y, float $x): float { return \atan2($y, $x); }
+    public static function sinh(float $a): float { return \sinh($a); }
+    public static function cosh(float $a): float { return \cosh($a); }
+    public static function tanh(float $a): float { return \tanh($a); }
+    public static function exp(float $a): float  { return \exp($a); }
+    public static function expm1(float $a): float { return \expm1($a); }
+    public static function log(float $a): float  { return \log($a); }
+    public static function log10(float $a): float { return \log10($a); }
+    public static function log1p(float $a): float { return \log1p($a); }
+
+    /**
+     * Real cube root — handles negatives (PHP's `**` would yield NaN
+     * for `(-x) ** (1/3)`). Standard fold via signum + abs.
+     */
+    public static function cbrt(float $a): float
+    {
+        if (\is_nan($a)) return \NAN;
+        if ($a === 0.0) return $a;  // preserves ±0.0
+        return $a >= 0 ? $a ** (1.0/3.0) : -((-$a) ** (1.0/3.0));
+    }
+
+    /**
+     * Java's copySign(magnitude, sign) — returns first arg with the
+     * sign of the second. NaN sign is treated as positive per Java
+     * spec (copySign(x, NaN) returns abs(x)).
+     */
+    public static function copySign(float $magnitude, float $sign): float
+    {
+        $absM = \abs($magnitude);
+        // Sign-of-NaN per Java: behaves as positive.
+        if (\is_nan($sign)) return $absM;
+        // -0.0 detection: fdiv(1, x) returns -INF for -0.0, +INF for 0.0.
+        $isNeg = ($sign < 0.0) || ($sign === 0.0 && \fdiv(1.0, $sign) === -\INF);
+        return $isNeg ? -$absM : $absM;
+    }
+
+    /**
+     * Math.random() — uniform random in [0, 1). Non-deterministic;
+     * not parity-tested.
+     */
+    public static function random(): float
+    {
+        return \mt_rand() / \mt_getrandmax();
+    }
+
+    /**
+     * Math.IEEEremainder(x, y) — IEEE 754 remainder. Differs from
+     * fmod / modulo: rounds the quotient toward the NEAREST integer
+     * (ties to even), where fmod truncates toward zero.
+     */
+    public static function IEEEremainder(float $x, float $y): float
+    {
+        if (\is_nan($x) || \is_nan($y) || \is_infinite($x) || $y === 0.0) {
+            return \NAN;
+        }
+        if (\is_infinite($y)) return $x;
+        $q = $x / $y;
+        // Round-half-to-even (banker's rounding).
+        $rounded = (float) \round($q, 0, \PHP_ROUND_HALF_EVEN);
+        return $x - $rounded * $y;
+    }
+
+    public static function toRadians(float $deg): float { return $deg * (\M_PI / 180.0); }
+    public static function toDegrees(float $rad): float { return $rad * (180.0 / \M_PI); }
+
+    public static function hypot(float $x, float $y): float
+    {
+        // Java spec: sqrt(x² + y²) without intermediate overflow.
+        // PHP has hypot() which does the same.
+        return \hypot($x, $y);
+    }
 }

@@ -529,12 +529,12 @@ prerequisite.
    stubs (`tools/gen-aot-stubs.php` + `src/Aot/Runtime/java/**`); this
    step replaces the stub bodies with real implementations.
 
-   **Progress (2026-05-05): 9/80 shipped + parity-validated. 412/412
-   parity cases including HashMap via instance-mode dispatch (driver
-   gained constructor + ops-chain support). Profile depth ≥3 fires
-   for 4 methods (was 1 at session start), including the predicted
-   Arrays::hashCode → Objects::hash → Objects::hashCode →
-   String_::hashCode depth-4 chain.**
+   **Progress (2026-05-05): 13/80 shipped + parity-validated.
+   419/419 parity cases. Math transcendental fill (sin/cos/log/exp
+   family + cbrt + copySign + IEEEremainder + hypot + toRadians/
+   toDegrees) closed 18 suite errors at once: 22E/11F → 4E/11F.
+   Profile depth ≥3 fires for 6 methods (was 1 at session start
+   before HashMap+Arrays).**
    - `java.lang.Math` — `src/Aot/Runtime/java/lang/Math.php`. Surface:
      abs/min/max (polymorphic int+long+float+double), sqrt/pow/floor/
      ceil, round (Java half-up semantics, not PHP half-away-from-zero),
@@ -659,6 +659,30 @@ prerequisite.
      Arrays.sort + sortRange shipped (in-place via PHP's `\sort`); no
      parity battery — through-reflection by-reference dispatch is
      fiddly, sort correctness validated by PHP builtins.
+   - **Math transcendentals** filled in `src/Aot/Runtime/java/lang/Math.php`
+     (sin/cos/tan + asin/acos/atan/atan2; sinh/cosh/tanh; exp/expm1;
+     log/log10/log1p; cbrt with negative-handling fold; copySign with
+     NaN-as-positive sign per Java spec; random; IEEEremainder via
+     round-half-to-even; hypot; toRadians/toDegrees). **Closed 18
+     suite errors** in JavaLangMathTest. Native PHP delegations except
+     cbrt + copySign + IEEEremainder (explicit semantic handling).
+   - `java.util.ArrayList` — `src/Aot/Runtime/java/util/ArrayList.php`,
+     new file. PHP-array-backed list. Surface: add / addAt / get /
+     set / remove (polymorphic — int=index, other=value) / contains /
+     indexOf / lastIndexOf / subList / clear / size / isEmpty /
+     toArray / equals / hashCode / toString. **19/19 parity.**
+   - `java.lang.StringBuilder` — extension to existing minimal class
+     in bootstrap.php. Added: insert / delete / deleteCharAt / replace /
+     setCharAt / substring / indexOf / lastIndexOf / capacity / ensure
+     Capacity / trimToSize. **19/19 parity.**
+   - `java.util.regex.Pattern` — replacing Path C stub. compile /
+     matcher / split / matches (static) / quote. PCRE `~...~`
+     delimiters; flags translate to PCRE modifiers (CASE_INSENSITIVE
+     →i, MULTILINE→m, DOTALL→s, etc.). **21/21 parity** static.
+   - `java.util.regex.Matcher` — replacing Path C stub. matches /
+     lookingAt / find / group / start / end / groupCount / replaceAll
+     / replaceFirst / reset / pattern. Smoke-validated; full parity
+     needs cross-class chained dispatch in the driver.
 
    Driver capability gained — instance-method dispatch
    (`bench/parity/oracle_driver.clj`):

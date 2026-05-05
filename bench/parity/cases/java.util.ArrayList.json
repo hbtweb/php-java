@@ -1,0 +1,100 @@
+{
+  "class": "java.util.ArrayList",
+  "_note": [
+    "10th bb-allowlist battery. Instance-mode chains exercising add /",
+    "get / set / remove / size / contains / indexOf / lastIndexOf /",
+    "clear / equals (skipped, would need 2 instances). Empty-list",
+    "and out-of-range cases included where the result is observable."
+  ],
+  "cases": [
+    {"new": [], "ops": [{"call": "size"}]},
+    {"new": [], "ops": [{"call": "isEmpty"}]},
+
+    {"new": [], "ops": [
+      {"call": "add", "args": ["a"]},
+      {"call": "size"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": [1]},
+      {"call": "add", "args": [2]},
+      {"call": "add", "args": [3]},
+      {"call": "size"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": ["x"]},
+      {"call": "isEmpty"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": [1]},
+      {"call": "add", "args": [2]},
+      {"call": "add", "args": [3]},
+      {"call": "get", "args": [0]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": [10]},
+      {"call": "add", "args": [20]},
+      {"call": "add", "args": [30]},
+      {"call": "get", "args": [2]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": ["a"]},
+      {"call": "add", "args": ["b"]},
+      {"call": "set", "args": [0, "z"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": ["a"]},
+      {"call": "set", "args": [0, "z"]},
+      {"call": "get", "args": [0]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": [1]},
+      {"call": "add", "args": [2]},
+      {"call": "add", "args": [3]},
+      {"call": "remove", "args": [0]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": [1]},
+      {"call": "add", "args": [2]},
+      {"call": "add", "args": [3]},
+      {"call": "remove", "args": [1]},
+      {"call": "size"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": [1]},
+      {"call": "contains", "args": [1]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": [1]},
+      {"call": "contains", "args": [99]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": ["a"]},
+      {"call": "add", "args": ["b"]},
+      {"call": "add", "args": ["c"]},
+      {"call": "indexOf", "args": ["b"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": ["a"]},
+      {"call": "indexOf", "args": ["zzz"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": [1]},
+      {"call": "add", "args": [2]},
+      {"call": "add", "args": [1]},
+      {"call": "lastIndexOf", "args": [1]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": [1]},
+      {"call": "add", "args": [2]},
+      {"call": "clear"},
+      {"call": "size"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "add", "args": [1]},
+      {"call": "add", "args": [2]},
+      {"call": "clear"},
+      {"call": "isEmpty"}
+    ]},
+    {"new": [], "ops": [{"call": "size"}]}
+  ]
+}

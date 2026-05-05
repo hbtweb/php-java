@@ -2,213 +2,145 @@
 declare(strict_types=1);
 namespace PHPJava\Aot\Runtime\java\util\regex;
 
+use PHPJava\Aot\Runtime\java\lang\IllegalStateException;
+
 /**
- * Auto-generated JDK signature stub. All members throw
- * NotImplementedException — Path C of docs/LAYERS.md §License posture.
+ * java.util.regex.Matcher — bb-allowlist fill (13/80).
  *
- * Source: javap signature of java.util.regex.Matcher. Regenerate via
- *   php tools/gen-aot-stubs.php java.util.regex.Matcher
+ * Stateful matcher. find() advances an internal cursor; matches()
+ * requires whole-input match. group/start/end return the last
+ * successful match's data.
  */
 final class Matcher
 {
-    public $parentPattern = null;
-    public $groups = null;
-    public $from = null;
-    public $to = null;
-    public $lookbehindTo = null;
-    public $text = null;
-    public static $ENDANCHOR = null;
-    public static $NOANCHOR = null;
-    public $acceptMode = null;
-    public $first = null;
-    public $last = null;
-    public $oldLast = null;
-    public $lastAppendPosition = null;
-    public $locals = null;
-    public $localsPos = null;
-    public $hitEnd = null;
-    public $requireEnd = null;
-    public $transparentBounds = null;
-    public $anchoringBounds = null;
-    public $modCount = null;
+    private string $regex;
+    private string $input;
+    private int $flags;
+    /** @var array<int|string, array{0: string, 1: int}|null> */
+    private array $matchGroups = [];
+    private bool $matchValid = false;
+    private int $findFrom = 0;
 
-    public function __construct($a0 = null, $a1 = null)
+    public function __construct(string $regex, string $input, int $flags = 0)
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $this->regex = $regex;
+        $this->input = $input;
+        $this->flags = $flags;
     }
 
-    public function pattern()
+    public function matches(): bool
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $delim = Pattern::buildDelim('^(?:' . $this->regex . ')$', $this->flags);
+        $r = \preg_match($delim, $this->input, $m, \PREG_OFFSET_CAPTURE);
+        if ($r === 1) {
+            $this->matchGroups = $m;
+            $this->matchValid = true;
+            return true;
+        }
+        $this->matchGroups = [];
+        $this->matchValid = false;
+        return false;
     }
 
-    public function toMatchResult()
+    public function lookingAt(): bool
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $delim = Pattern::buildDelim('^(?:' . $this->regex . ')', $this->flags);
+        $r = \preg_match($delim, $this->input, $m, \PREG_OFFSET_CAPTURE);
+        if ($r === 1) {
+            $this->matchGroups = $m;
+            $this->matchValid = true;
+            return true;
+        }
+        return false;
     }
 
-    public function usePattern($a0 = null)
+    public function find(): bool
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $delim = Pattern::buildDelim($this->regex, $this->flags);
+        $r = \preg_match($delim, $this->input, $m, \PREG_OFFSET_CAPTURE, $this->findFrom);
+        if ($r === 1) {
+            $this->matchGroups = $m;
+            $this->matchValid = true;
+            // Advance past the match (at least one char to avoid
+            // infinite loops on zero-width matches).
+            $matchEnd = $m[0][1] + \strlen($m[0][0]);
+            $this->findFrom = $matchEnd > $this->findFrom ? $matchEnd : $this->findFrom + 1;
+            return true;
+        }
+        $this->matchValid = false;
+        return false;
     }
 
-    public function reset($a0 = null)
+    public function group(int|string $idx = 0): ?string
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $this->requireMatch();
+        $g = $this->matchGroups[$idx] ?? null;
+        if ($g === null) return null;
+        if ($g[1] === -1) return null;
+        return $g[0];
     }
 
-    public function start($a0 = null)
+    public function start(int|string $idx = 0): int
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $this->requireMatch();
+        $g = $this->matchGroups[$idx] ?? null;
+        return $g === null ? -1 : $g[1];
     }
 
-    public function end($a0 = null)
+    public function end(int|string $idx = 0): int
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $this->requireMatch();
+        $g = $this->matchGroups[$idx] ?? null;
+        if ($g === null || $g[1] === -1) return -1;
+        return $g[1] + \strlen($g[0]);
     }
 
-    public function group($a0 = null)
+    public function groupCount(): int
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        // Java returns count of capture groups excluding group 0
+        // (the full match). PREG_OFFSET_CAPTURE keys are mixed int /
+        // named-string; we count distinct integer keys > 0. PHP also
+        // duplicates named-group entries under their integer key, so
+        // counting integer-only is correct.
+        $n = 0;
+        foreach ($this->matchGroups as $k => $_) {
+            if (\is_int($k) && $k > 0) $n++;
+        }
+        return $n;
     }
 
-    public function groupCount()
+    public function replaceAll(string $replacement): string
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $delim = Pattern::buildDelim($this->regex, $this->flags);
+        $r = \preg_replace($delim, $replacement, $this->input);
+        return $r === null ? $this->input : $r;
     }
 
-    public function matches()
+    public function replaceFirst(string $replacement): string
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        $delim = Pattern::buildDelim($this->regex, $this->flags);
+        $r = \preg_replace($delim, $replacement, $this->input, 1);
+        return $r === null ? $this->input : $r;
     }
 
-    public function find($a0 = null)
+    public function reset(?string $newInput = null): self
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        if ($newInput !== null) $this->input = $newInput;
+        $this->findFrom = 0;
+        $this->matchGroups = [];
+        $this->matchValid = false;
+        return $this;
     }
 
-    public function lookingAt()
+    public function pattern(): Pattern
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        return Pattern::compile($this->regex, $this->flags);
     }
 
-    public static function quoteReplacement($a0 = null)
+    private function requireMatch(): void
     {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function appendReplacement($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function appendTail($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function replaceAll($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function results()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function replaceFirst($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function region($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function regionStart()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function regionEnd()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function hasTransparentBounds()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function useTransparentBounds($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function hasAnchoringBounds()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function useAnchoringBounds($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function toString()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function hitEnd()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function requireEnd()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function search($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function match($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function getTextLength()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function getSubSequence($a0 = null, $a1 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function charAt($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function getMatchedGroupIndex($a0 = null)
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function namedGroups()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
-    }
-
-    public function hasMatch()
-    {
-        throw new \PHPJava\Exceptions\NotImplementedException(__METHOD__);
+        if (!$this->matchValid) {
+            throw new IllegalStateException('No match available');
+        }
     }
 }

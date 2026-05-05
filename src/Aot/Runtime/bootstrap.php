@@ -565,6 +565,100 @@ class StringBuilder
     }
 
     public function reverse(): self  { $this->buf = \strrev($this->buf); return $this; }
+
+    // ── extended surface ──
+
+    public function insert(int $offset, $x): self
+    {
+        $cur = \strlen($this->buf);
+        if ($offset < 0 || $offset > $cur) {
+            throw new StringIndexOutOfBoundsException("offset $offset, length $cur");
+        }
+        $s = $x === null ? 'null' : ($x === true ? 'true' : ($x === false ? 'false' : (string) $x));
+        $this->buf = \substr($this->buf, 0, $offset) . $s . \substr($this->buf, $offset);
+        return $this;
+    }
+
+    public function delete(int $start, int $end): self
+    {
+        $cur = \strlen($this->buf);
+        if ($start < 0 || $start > $cur || $start > $end) {
+            throw new StringIndexOutOfBoundsException("[$start, $end) of length $cur");
+        }
+        $end = \min($end, $cur);
+        $this->buf = \substr($this->buf, 0, $start) . \substr($this->buf, $end);
+        return $this;
+    }
+
+    public function deleteCharAt(int $idx): self
+    {
+        $cur = \strlen($this->buf);
+        if ($idx < 0 || $idx >= $cur) {
+            throw new StringIndexOutOfBoundsException("$idx of length $cur");
+        }
+        $this->buf = \substr($this->buf, 0, $idx) . \substr($this->buf, $idx + 1);
+        return $this;
+    }
+
+    public function replace(int $start, int $end, string $str): self
+    {
+        $cur = \strlen($this->buf);
+        if ($start < 0 || $start > $cur || $start > $end) {
+            throw new StringIndexOutOfBoundsException("[$start, $end) of length $cur");
+        }
+        $end = \min($end, $cur);
+        $this->buf = \substr($this->buf, 0, $start) . $str . \substr($this->buf, $end);
+        return $this;
+    }
+
+    public function setCharAt(int $idx, int $ch): void
+    {
+        $cur = \strlen($this->buf);
+        if ($idx < 0 || $idx >= $cur) {
+            throw new StringIndexOutOfBoundsException("$idx of length $cur");
+        }
+        $this->buf[$idx] = \chr($ch & 0xFF);
+    }
+
+    public function substring(int $start, ?int $end = null): string
+    {
+        $cur = \strlen($this->buf);
+        $end ??= $cur;
+        if ($start < 0 || $end > $cur || $start > $end) {
+            throw new StringIndexOutOfBoundsException("[$start, $end) of length $cur");
+        }
+        return \substr($this->buf, $start, $end - $start);
+    }
+
+    public function indexOf(string $str, int $fromIndex = 0): int
+    {
+        if ($fromIndex < 0) $fromIndex = 0;
+        $r = \strpos($this->buf, $str, $fromIndex);
+        return $r === false ? -1 : $r;
+    }
+
+    public function lastIndexOf(string $str, ?int $fromIndex = null): int
+    {
+        $r = $fromIndex === null
+            ? \strrpos($this->buf, $str)
+            : \strrpos($this->buf, $str, $fromIndex - \strlen($this->buf));
+        return $r === false ? -1 : $r;
+    }
+
+    /**
+     * Java's StringBuilder.capacity() — internal buffer capacity.
+     * PHP strings have no explicit capacity; report length as a
+     * conservative answer (Java spec allows ≥ length).
+     */
+    public function capacity(): int { return \strlen($this->buf); }
+
+    public function ensureCapacity(int $minCapacity): void
+    {
+        // PHP-side no-op — strings auto-grow. Java's contract is just
+        // an optional hint.
+    }
+
+    public function trimToSize(): void { /* no-op for PHP strings */ }
 }
 
 namespace PHPJava\Aot\Runtime\java\io;

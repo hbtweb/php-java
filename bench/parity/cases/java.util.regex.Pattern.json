@@ -1,0 +1,34 @@
+{
+  "class": "java.util.regex.Pattern",
+  "_note": [
+    "12th bb-allowlist battery. Static methods only — Pattern.compile",
+    "returns a Pattern instance; Matcher behaviour reachable via",
+    "Pattern.compile().matcher() chain needs cross-class instance",
+    "dispatch in the driver (TBD). Pattern.matches and Pattern.quote",
+    "both static and well-tested here."
+  ],
+  "cases": [
+    {"method": "matches", "args": ["a.c", "abc"]},
+    {"method": "matches", "args": ["a.c", "axc"]},
+    {"method": "matches", "args": ["a.c", "abcd"]},
+    {"method": "matches", "args": ["\\d+", "42"]},
+    {"method": "matches", "args": ["\\d+", "abc"]},
+    {"method": "matches", "args": ["[a-z]+", "hello"]},
+    {"method": "matches", "args": ["[a-z]+", "Hello"]},
+    {"method": "matches", "args": ["(?i)hello", "HELLO"]},
+    {"method": "matches", "args": ["", ""]},
+    {"method": "matches", "args": ["", "x"]},
+    {"method": "matches", "args": ["^abc$", "abc"]},
+    {"method": "matches", "args": [".*", "anything"]},
+    {"method": "matches", "args": ["a+b", "aaab"]},
+    {"method": "matches", "args": ["a*b", "b"]},
+    {"method": "matches", "args": ["a?b", "b"]},
+    {"method": "matches", "args": ["a?b", "ab"]},
+
+    {"method": "quote", "args": ["abc"]},
+    {"method": "quote", "args": ["a.b"]},
+    {"method": "quote", "args": ["a+b*c"]},
+    {"method": "quote", "args": [""]},
+    {"method": "quote", "args": ["^$|()[]{}"]}
+  ]
+}
