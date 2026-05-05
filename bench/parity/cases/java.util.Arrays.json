@@ -1,0 +1,56 @@
+{
+  "class": "java.util.Arrays",
+  "_note": [
+    "8th bb-allowlist battery. Arrays methods accept arrays — case",
+    "spec uses JSON arrays which the driver dispatches as Object[]",
+    "via the varargs path. Java's primitive-typed overloads (int[],",
+    "long[], etc.) aren't picked because reflection sees Object[] of",
+    "Long/String values, which only matches the Object[] overload.",
+    "Behavioural match for the polynomial-hash result is identical",
+    "across overloads (int=Long.hashCode for in-range values)."
+  ],
+  "cases": [
+    {"method": "equals", "args": [[1, 2, 3], [1, 2, 3]]},
+    {"method": "equals", "args": [[1, 2, 3], [1, 2, 4]]},
+    {"method": "equals", "args": [[1, 2], [1, 2, 3]]},
+    {"method": "equals", "args": [[], []]},
+    {"method": "equals", "args": [null, null]},
+    {"method": "equals", "args": [null, [1, 2]]},
+    {"method": "equals", "args": [["a", "b"], ["a", "b"]]},
+    {"method": "equals", "args": [["a", "b"], ["a", "c"]]},
+
+    {"method": "hashCode", "args": [[]]},
+    {"method": "hashCode", "args": [[1]]},
+    {"method": "hashCode", "args": [[1, 2, 3]]},
+    {"method": "hashCode", "args": [[0, 0, 0]]},
+    {"method": "hashCode", "args": [["a"]]},
+    {"method": "hashCode", "args": [["hello", "world"]]},
+    {"method": "hashCode", "args": [[null]]},
+    {"method": "hashCode", "args": [null]},
+
+    {"method": "copyOf", "args": [[1, 2, 3], 5]},
+    {"method": "copyOf", "args": [[1, 2, 3, 4, 5], 3]},
+    {"method": "copyOf", "args": [[1, 2, 3], 3]},
+    {"method": "copyOf", "args": [[], 0]},
+    {"method": "copyOf", "args": [[], 3]},
+
+    {"method": "copyOfRange", "args": [[1, 2, 3, 4, 5], 1, 4]},
+    {"method": "copyOfRange", "args": [[1, 2, 3, 4, 5], 0, 5]},
+    {"method": "copyOfRange", "args": [[1, 2, 3], 0, 5]},
+    {"method": "copyOfRange", "args": [[1, 2, 3], 2, 2]},
+
+    {"method": "binarySearch", "args": [[1, 3, 5, 7, 9], 5]},
+    {"method": "binarySearch", "args": [[1, 3, 5, 7, 9], 1]},
+    {"method": "binarySearch", "args": [[1, 3, 5, 7, 9], 9]},
+    {"method": "binarySearch", "args": [[1, 3, 5, 7, 9], 4]},
+    {"method": "binarySearch", "args": [[1, 3, 5, 7, 9], 0]},
+    {"method": "binarySearch", "args": [[1, 3, 5, 7, 9], 100]},
+    {"method": "binarySearch", "args": [[], 5]},
+
+    {"method": "toString", "args": [[]]},
+    {"method": "toString", "args": [[1, 2, 3]]},
+    {"method": "toString", "args": [["a", "b"]]},
+    {"method": "toString", "args": [[true, false, null]]},
+    {"method": "toString", "args": [null]}
+  ]
+}

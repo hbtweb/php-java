@@ -23,6 +23,96 @@ class System
 {
     public static ?\PHPJava\Aot\Runtime\java\io\PrintStream $out = null;
     public static ?\PHPJava\Aot\Runtime\java\io\PrintStream $err = null;
+
+    /** Milliseconds since Unix epoch — matches Java's currentTimeMillis. */
+    public static function currentTimeMillis(): int
+    {
+        return (int) (\microtime(true) * 1000);
+    }
+
+    /**
+     * Monotonic nanosecond counter. Java spec: from an arbitrary
+     * origin, only relative differences are meaningful.
+     * PHP hrtime(true) returns ns since process start — same contract.
+     */
+    public static function nanoTime(): int
+    {
+        return \hrtime(true);
+    }
+
+    /**
+     * System.arraycopy(src, srcPos, dest, destPos, length) — copies
+     * `length` elements from `src` starting at `srcPos` into `dest`
+     * at `destPos`. Java mutates `dest` in place; PHP arrays are
+     * value-typed so callers pass by reference. AOT-emitted code's
+     * Java-array-as-PHP-array contract carries the by-ref expectation
+     * via the by-ref auto-detect in IR Builder.
+     */
+    public static function arraycopy(array &$src, int $srcPos, array &$dest, int $destPos, int $length): void
+    {
+        if ($length < 0 || $srcPos < 0 || $destPos < 0
+            || $srcPos + $length > \count($src)
+            || $destPos + $length > \count($dest)) {
+            throw new ArrayIndexOutOfBoundsException('arraycopy out of bounds');
+        }
+        // Same array overlap: copy via temporary if src and dest are
+        // the same reference and ranges overlap.
+        if ($src === $dest && $destPos > $srcPos && $destPos < $srcPos + $length) {
+            $tmp = \array_slice($src, $srcPos, $length);
+            for ($i = 0; $i < $length; $i++) $dest[$destPos + $i] = $tmp[$i];
+            return;
+        }
+        for ($i = 0; $i < $length; $i++) $dest[$destPos + $i] = $src[$srcPos + $i];
+    }
+
+    public static function lineSeparator(): string { return \PHP_EOL; }
+
+    public static function gc(): void { \gc_collect_cycles(); }
+
+    public static function exit(int $status = 0): void { exit($status); }
+
+    /**
+     * Java System.identityHashCode(Object) — identity-based hash.
+     * Under PHPJava AOT contract, primitives have no per-instance
+     * identity; this implementation returns spl_object_id for objects
+     * and the value's hashCode for scalars. testIdentityHashCode in
+     * the suite asserts inequality between two `new String(s)`
+     * instances — that's a contract divergence (PHP string IS Java
+     * String, no identity per instance). The test stays failing with
+     * a documented reason rather than us pretending identity exists.
+     */
+    public static function identityHashCode($o): int
+    {
+        if ($o === null) return 0;
+        if (\is_object($o)) return \spl_object_id($o);
+        if (\is_string($o)) return String_::hashCode($o);
+        if (\is_int($o)) {
+            return \PHPJava\Aot\Runtime\java\util\Objects::hashCode($o);
+        }
+        if (\is_bool($o)) return Boolean::hashCode($o);
+        return 0;
+    }
+
+    /**
+     * Java System.getProperty(name). PHP has no JVM-style system
+     * properties — closest analog is environment variables and a few
+     * synthetic mappings (java.version, line.separator, etc.).
+     */
+    public static function getProperty(string $name, ?string $defaultValue = null): ?string
+    {
+        $synthetic = [
+            'line.separator' => \PHP_EOL,
+            'file.separator' => \DIRECTORY_SEPARATOR,
+            'path.separator' => \PATH_SEPARATOR,
+            'os.name'        => \PHP_OS,
+            'java.version'   => '21',  // PHPJava's claimed JDK ceiling
+            'user.dir'       => \getcwd() ?: '',
+            'user.home'      => \getenv('HOME') ?: '',
+        ];
+        if (isset($synthetic[$name])) return $synthetic[$name];
+        $env = \getenv($name);
+        return $env !== false ? $env : $defaultValue;
+    }
 }
 
 // Throwable hierarchy. Each AOT-runtime exception extends its
@@ -61,6 +151,7 @@ class UnsupportedOperationException extends \PHPJava\Packages\java\lang\Unsuppor
 // External catch on Packages\IndexOutOfBoundsException still works because
 // the AOT IndexOutOfBoundsException extends it.
 class ArrayIndexOutOfBoundsException  extends IndexOutOfBoundsException {}
+class NegativeArraySizeException      extends RuntimeException {}
 class StringIndexOutOfBoundsException extends IndexOutOfBoundsException {}
 class NumberFormatException           extends IllegalArgumentException {}
 

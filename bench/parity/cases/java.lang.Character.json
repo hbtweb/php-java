@@ -1,0 +1,78 @@
+{
+  "class": "java.lang.Character",
+  "_note": [
+    "6th bb-allowlist battery. Java char carries as PHP int per",
+    "AOT contract. Most cases ASCII range — Unicode-aware methods",
+    "match Java when IntlChar is available, ASCII-only fallback",
+    "otherwise. Reflection picks (int) overloads; Character has both",
+    "(char) and (int) overloads — the (int) variants accept JSON ints",
+    "(decode as Long) via the driver's Long→int narrowing."
+  ],
+  "cases": [
+    {"method": "isDigit", "args": [48]},
+    {"method": "isDigit", "args": [57]},
+    {"method": "isDigit", "args": [65]},
+    {"method": "isDigit", "args": [32]},
+
+    {"method": "isLetter", "args": [65]},
+    {"method": "isLetter", "args": [122]},
+    {"method": "isLetter", "args": [48]},
+
+    {"method": "isLetterOrDigit", "args": [48]},
+    {"method": "isLetterOrDigit", "args": [97]},
+    {"method": "isLetterOrDigit", "args": [32]},
+
+    {"method": "isWhitespace", "args": [32]},
+    {"method": "isWhitespace", "args": [9]},
+    {"method": "isWhitespace", "args": [10]},
+    {"method": "isWhitespace", "args": [65]},
+    {"method": "isWhitespace", "args": [160]},
+
+    {"method": "isUpperCase", "args": [65]},
+    {"method": "isUpperCase", "args": [97]},
+    {"method": "isLowerCase", "args": [65]},
+    {"method": "isLowerCase", "args": [97]},
+
+    {"method": "toUpperCase", "args": [97]},
+    {"method": "toUpperCase", "args": [65]},
+    {"method": "toUpperCase", "args": [48]},
+    {"method": "toLowerCase", "args": [65]},
+    {"method": "toLowerCase", "args": [97]},
+
+    {"method": "digit", "args": [48, 10]},
+    {"method": "digit", "args": [57, 10]},
+    {"method": "digit", "args": [65, 16]},
+    {"method": "digit", "args": [97, 16]},
+    {"method": "digit", "args": [70, 10]},
+    {"method": "digit", "args": [70, 16]},
+    {"method": "digit", "args": [122, 36]},
+
+    {"method": "forDigit", "args": [0, 10]},
+    {"method": "forDigit", "args": [9, 10]},
+    {"method": "forDigit", "args": [10, 16]},
+    {"method": "forDigit", "args": [15, 16]},
+    {"method": "forDigit", "args": [10, 10]},
+
+    {"method": "compare", "args": [65, 97]},
+    {"method": "compare", "args": [97, 65]},
+    {"method": "compare", "args": [65, 65]},
+
+    {"method": "hashCode", "args": [65]},
+    {"method": "hashCode", "args": [0]},
+
+    {"method": "isHighSurrogate", "args": [55296]},
+    {"method": "isHighSurrogate", "args": [56319]},
+    {"method": "isHighSurrogate", "args": [56320]},
+    {"method": "isLowSurrogate", "args": [56320]},
+    {"method": "isLowSurrogate", "args": [57343]},
+    {"method": "isSurrogate", "args": [55296]},
+    {"method": "isSurrogate", "args": [65]},
+
+    {"method": "isSurrogatePair", "args": [55357, 56832]},
+    {"method": "isSurrogatePair", "args": [65, 65]},
+
+    {"method": "toCodePoint", "args": [55357, 56832]},
+
+    {"method": "valueOf", "args": [65]}
+  ]
+}

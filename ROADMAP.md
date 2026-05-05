@@ -529,8 +529,10 @@ prerequisite.
    stubs (`tools/gen-aot-stubs.php` + `src/Aot/Runtime/java/**`); this
    step replaces the stub bodies with real implementations.
 
-   **Progress (2026-05-05): 5/80 shipped + parity-validated. 247/247
-   total parity cases.**
+   **Progress (2026-05-05): 8/80 shipped + parity-validated. 388/388
+   total parity cases. Profile depth ≥3 fires for 3 methods now,
+   including the predicted Arrays::hashCode → Objects::hash →
+   Objects::hashCode → String_::hashCode depth-4 chain.**
    - `java.lang.Math` — `src/Aot/Runtime/java/lang/Math.php`. Surface:
      abs/min/max (polymorphic int+long+float+double), sqrt/pow/floor/
      ceil, round (Java half-up semantics, not PHP half-away-from-zero),
@@ -588,6 +590,51 @@ prerequisite.
      to avoid mask literals exceeding PHP_INT_MAX). **64/64 parity vs
      HotSpot.** parseUnsignedLong, compareUnsigned, divideUnsigned,
      remainderUnsigned deferred.
+   - `java.lang.Character` — `src/Aot/Runtime/java/lang/Character.php`,
+     new file. Static surface only — Java char carries as PHP int per
+     AOT contract. ASCII fast-path; Unicode-aware methods delegate to
+     IntlChar (PHP intl extension) when available, ASCII-only fallback
+     otherwise. Surface: isDigit / isLetter / isLetterOrDigit /
+     isWhitespace (Java's spec excludes 0xA0 NBSP from whitespace) /
+     isUpperCase / isLowerCase / isAlphabetic; toUpperCase /
+     toLowerCase; digit / forDigit (radix 2..36); compare (raw
+     difference, NOT sign-only — diverges from Integer.compare);
+     isHigh/Low/Surrogate, isSurrogatePair, toCodePoint; constants
+     MIN_VALUE / MAX_VALUE / MIN_RADIX / MAX_RADIX / surrogate range
+     limits. **52/52 parity vs HotSpot.**
+   - `java.lang.System` — extension to the existing class in
+     bootstrap.php (which had only $out / $err static fields).
+     Added: currentTimeMillis, nanoTime (PHP hrtime), arraycopy
+     (with overlap detection for same-array source/dest),
+     lineSeparator, gc, exit, identityHashCode, getProperty (synthetic
+     fallback for line.separator / file.separator / java.version /
+     etc., else env-var). identityHashCode under our AOT contract
+     uses spl_object_id for objects and value-hash for scalars —
+     diverges from Java's per-instance identity for the
+     `new String("x")` case (testIntern / testNotInterned /
+     testIdentityHashCode in the suite assert that divergence;
+     deliberate, documented at the method).  No parity battery —
+     methods are non-deterministic (timers) or contract-divergent.
+   - `java.util.Arrays` — `src/Aot/Runtime/java/util/Arrays.php`,
+     new file. **First shim that creates a depth-≥3 profile chain.**
+     Surface: equals (with Java's NaN-NaN-equal-in-arrays special-
+     case), hashCode (delegates to Objects::hash, polynomial 31-fold),
+     copyOf / copyOfRange (null-pad to match Object[] semantics),
+     fill / fillRange (mutating — by-ref parameter), toString
+     (Java-style "[a, b, c]" with .0 suffix on integer-valued floats),
+     binarySearch. Sort / asList / Stream / deepEquals / deepHashCode /
+     deepToString deferred. **37/37 parity vs HotSpot.**
+
+   Driver capabilities gained: Long → char narrowing (Character.compare
+   etc. take char which Java reflection requires exact-match for);
+   specificity score's narrow-from-Long preference (int > short > byte
+   > char) so Character.toLowerCase(int) wins over toLowerCase(char)
+   when the case spec passes JSON ints; Character → long unbox in
+   normalise-return for char-returning methods (forDigit etc.); Java
+   array reification via java.lang.reflect.Array/get so methods
+   returning `Object[]` / `int[]` / etc. lift to vectors (cleanly
+   matching the PHP-array shape) instead of the `[L...@hash` toString
+   form.
 
    Driver capability gained — `find-method` does name+arity+
    assignable-types lookup with primitive ↔ wrapper unboxing and

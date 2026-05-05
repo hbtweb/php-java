@@ -71,6 +71,8 @@
     (and (= param Short/TYPE)   (instance? Long arg))    (Short/valueOf (short (long arg)))
     (and (= param Short/TYPE)   (instance? Integer arg)) (Short/valueOf (short (int arg)))
     (and (= param Byte/TYPE)    (instance? Long arg))    (Byte/valueOf (byte (long arg)))
+    (and (= param Character/TYPE) (instance? Long arg))  (Character/valueOf (char (long arg)))
+    (and (= param Character/TYPE) (instance? Integer arg)) (Character/valueOf (char (int arg)))
     (and (= param Float/TYPE)   (instance? Double arg))  (Float/valueOf (float (double arg)))
     :else (box-arg arg)))
 
@@ -108,12 +110,17 @@
     (and (= param Integer/TYPE)   (= arg-cls Long))
     (and (= param Short/TYPE)     (#{Long Integer} arg-cls))
     (and (= param Byte/TYPE)      (#{Long Integer Short} arg-cls))
+    (and (= param Character/TYPE) (#{Long Integer Short} arg-cls))
     (and (= param Float/TYPE)     (= arg-cls Double))))
 
 (defn- specificity
   "Lower score = more specific match. Used to disambiguate when the
    same name + arity has multiple compatible overloads. Exact wrapper
-   ↔ primitive match wins over widening; identity wins over subtype."
+   ↔ primitive match wins over widening / narrowing; among narrowing
+   choices for a Long arg the canonical integer hierarchy is preferred
+   (int < short < byte < char) so e.g. Character.toLowerCase(int) wins
+   over Character.toLowerCase(char) when the case spec passes a JSON
+   int (Long)."
   [^java.lang.reflect.Method m arg-classes]
   (->> (map (fn [^Class p ^Class a]
               (cond
@@ -125,6 +132,12 @@
                     (and (= p Boolean/TYPE) (= a Boolean))
                     (and (= p Byte/TYPE)    (= a Byte))
                     (and (= p Short/TYPE)   (= a Short)))               1  ; exact unbox
+                ;; Narrow from Long — prefer int > short > byte > char.
+                (and (= p Integer/TYPE)   (= a Long))                   2
+                (and (= p Short/TYPE)     (= a Long))                   3
+                (and (= p Byte/TYPE)      (= a Long))                   4
+                (and (= p Character/TYPE) (= a Long))                   5
+                (and (= p Float/TYPE)     (= a Double))                 2
                 (= p Object)                                           50  ; least specific reference
                 (.isPrimitive p)                                       10  ; primitive widening
                 :else                                                   5)) ; subtype
@@ -162,6 +175,8 @@
     (or (instance? Long v) (instance? Integer v)
         (instance? Short v) (instance? Byte v))
     (long v)
+    (instance? Character v)
+    (long (.charValue ^Character v))
     (or (instance? Double v) (instance? Float v))
     (let [d (double v)]
       (cond
@@ -170,6 +185,13 @@
         (= d Double/NEGATIVE_INFINITY)  {"__inf__" -1}
         :else                           d))
     (string? v) v
+    ;; Java arrays (any element type — Object[], int[], long[], etc.)
+    ;; get reified to vectors via reflective Array/get to avoid the
+    ;; `[L...@hash` toString output. Element-wise normalise so nested
+    ;; arrays of primitives lift cleanly.
+    (and (some? v) (.isArray ^Class (class v)))
+    (let [n (java.lang.reflect.Array/getLength v)]
+      (mapv #(normalise-return (java.lang.reflect.Array/get v %)) (range n)))
     :else (str v)))
 
 (defn- invoke-jdk
