@@ -529,8 +529,10 @@ prerequisite.
    stubs (`tools/gen-aot-stubs.php` + `src/Aot/Runtime/java/**`); this
    step replaces the stub bodies with real implementations.
 
-   **Progress (2026-05-05): 8/80 shipped + parity-validated. 388/388
-   total parity cases. Profile depth ≥3 fires for 3 methods now,
+   **Progress (2026-05-05): 9/80 shipped + parity-validated. 388/388
+   parity cases for static-method shims; HashMap smoke-validated
+   (instance-method parity testing needs a richer driver — TBD).
+   Profile depth ≥3 fires for 4 methods now (was 1 at session start),
    including the predicted Arrays::hashCode → Objects::hash →
    Objects::hashCode → String_::hashCode depth-4 chain.**
    - `java.lang.Math` — `src/Aot/Runtime/java/lang/Math.php`. Surface:
@@ -635,6 +637,20 @@ prerequisite.
    returning `Object[]` / `int[]` / etc. lift to vectors (cleanly
    matching the PHP-array shape) instead of the `[L...@hash` toString
    form.
+   - `java.util.HashMap` — `src/Aot/Runtime/java/util/HashMap.php`,
+     new file. First instance-bearing class in bb-allowlist. Backing:
+     PHP array with type-prefixed keys (`s:`, `i:`, `b:`, …) so `"1"`
+     and `1` stay distinct (Java HashMap preserves key identity; PHP
+     arrays coerce). Surface: put / get / containsKey / containsValue
+     / remove / size / isEmpty / clear / getOrDefault / putIfAbsent /
+     equals / hashCode (compositional — Objects::hashCode per key+value,
+     depth-3+ chain) / toString. keySet / values / entrySet deferred
+     (need Set / Collection / Entry interfaces); compute / merge /
+     forEach / putAll deferred. **No parity battery yet** — the oracle
+     dispatches static methods only; instance-method test support is
+     ~30 LOC of driver extension (instance construction + chained
+     call dispatch). Smoke-validated in PHP including the load-bearing
+     key-identity test.
 
    Driver capability gained — `find-method` does name+arity+
    assignable-types lookup with primitive ↔ wrapper unboxing and
