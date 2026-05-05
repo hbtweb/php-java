@@ -398,6 +398,14 @@ final class Compiler
             // peepholes to direct callable invocation, skipping the
             // executor at hot call sites. ROADMAP §Build T3 step 5.
             (new \PHPJava\Aot\Ir\AsyncSpecialiserPass())->run($module);
+            // Wrapper escape analysis (Phase 3 of the String identity
+            // contract, CONTRACTS.md §1). Elide String_Identity
+            // allocations whose identity isn't observed within the
+            // method — restores Phase 1's perf shape for the common
+            // case (concat → println / value-method) while keeping
+            // the wrapper at sites where identity IS observed
+            // (identityHashCode, intern, ===, escape past method).
+            (new \PHPJava\Aot\Ir\WrapperEscapePass())->run($module);
             // Lower each method to its final PHP source.
             foreach ($module->methods as $m) {
                 $emittedMethods[] = $this->irLowerer->lowerMethod($m);
