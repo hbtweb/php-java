@@ -682,14 +682,45 @@ class PrintStream
         // Preserved for shape-compat; routing is global via Output::write.
     }
 
-    public function println($x = null): void
+    public function println(...$args): void
     {
-        \PHPJava\IO\Standard\Output::write(((string) $x) . "\n");
+        if (\count($args) === 0) {
+            \PHPJava\IO\Standard\Output::write("\n");
+            return;
+        }
+        \PHPJava\IO\Standard\Output::write(self::toPrintString($args[0]) . "\n");
     }
 
-    public function print($x = null): void
+    public function print(...$args): void
     {
-        \PHPJava\IO\Standard\Output::write((string) $x);
+        if (\count($args) === 0) return;
+        \PHPJava\IO\Standard\Output::write(self::toPrintString($args[0]));
+    }
+
+    /**
+     * Java's PrintStream.println / print are overloaded per primitive
+     * type plus char[], String, Object. PHP collapses to one method;
+     * dispatch by runtime type:
+     *   - null       → "null"
+     *   - bool       → "true" / "false"
+     *   - char[]     → array of int code units → joined UTF-8 string
+     *                  (each int rendered via mb_chr)
+     *   - anything   → string cast
+     */
+    private static function toPrintString($x): string
+    {
+        if ($x === null)  return 'null';
+        if ($x === true)  return 'true';
+        if ($x === false) return 'false';
+        if (\is_array($x)) {
+            // char[] under AOT contract — array of int code units.
+            $s = '';
+            foreach ($x as $c) {
+                $s .= \is_int($c) ? (\mb_chr($c, 'UTF-8') ?: '') : (string) $c;
+            }
+            return $s;
+        }
+        return (string) $x;
     }
 }
 
