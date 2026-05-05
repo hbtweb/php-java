@@ -338,6 +338,14 @@ class String_
         if ($v === false) return 'false';
         return (string) $v;
     }
+
+    /**
+     * Java: returns canonical pool reference for a string equal-by-
+     * value, adding to pool if needed. Under our contract PHP strings
+     * collapse equal-value into one scalar — the "pool" is just the
+     * PHP-string value space. intern is identity.
+     */
+    public static function intern(string $s): string { return $s; }
 }
 
 /**

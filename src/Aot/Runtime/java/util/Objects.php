@@ -66,6 +66,12 @@ final class Objects
         if (\is_string($a)) {
             return \PHPJava\Aot\Runtime\java\lang\String_::hashCode($a);
         }
+        // Wrapped Java objects expose their own hashCode (matches Java
+        // dispatch — Objects.hashCode delegates to o.hashCode()).
+        // Handles String_Identity etc.
+        if (\is_object($a) && \method_exists($a, 'hashCode')) {
+            return (int) $a->hashCode();
+        }
         if (\is_int($a)) {
             // PHP int is 64-bit signed — same as Java long. Auto-boxing
             // by the JVM resolves to Long → Long.hashCode():

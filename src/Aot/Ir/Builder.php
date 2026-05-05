@@ -1355,25 +1355,25 @@ final class Builder
                 array_pop($this->abstractStack);
             }
 
-            // BOXING.md lowering for `new String(...)`: per CONTRACTS.md §1
-            // String is a raw PHP string at AOT runtime. Constructors that
-            // copy a String (the common `new String(String)` form and the
-            // no-arg form) lower to the literal — no allocation, no shim
-            // instance state required. byte[]/char[] forms still need
-            // String_ instance support; deferred until a fixture surfaces.
+            // `new String(...)` allocates a String_Identity wrapper to
+            // preserve Java's per-instance identity semantics — `==`,
+            // System.identityHashCode, IdentityHashMap distinguish
+            // wrapper instances. Per the principled-elision model:
+            // emit the wrapper as Java semantics demands; the
+            // WrapperEscapeAnalysis pass (TBD) elides allocations whose
+            // identity isn't observed locally. Until that pass lands we
+            // always allocate — perf cost bounded to explicit
+            // `new String(...)` sites in user bytecode (literals,
+            // concatenation, String.valueOf still produce raw PHP
+            // strings; StringConcatFactory wrapping is Phase 2).
             if ($cls === 'java/lang/String') {
-                if (empty($args)) {
-                    $this->push(new StringLit(''));
-                    return;
-                }
-                if (count($args) === 1 && ($argTypes[0] ?? null) === 'Ljava/lang/String;') {
-                    $this->push($args[0]);
-                    return;
-                }
-                // Other constructor forms — fall through to New_, which
-                // will fail at PHP eval time pointing at the missing
-                // String_ instance support. That's the right surface for
-                // a future fixture to drive completion.
+                $ctorArgs = empty($args) ? [new StringLit('')] : $args;
+                $this->push(new New_(
+                    '\\PHPJava\\Aot\\Runtime\\java\\lang\\String_Identity',
+                    $ctorArgs,
+                    null
+                ));
+                return;
             }
 
             $this->push(new New_($receiver->classFqn, $args, $this->generatedBinaryName($cls)));
