@@ -133,6 +133,48 @@ final class HashMap
     public function __toString(): string { return $this->toString(); }
 
     /**
+     * keySet / values / entrySet — collection views.
+     *
+     * Java's spec: keySet returns Set<K>, values returns Collection<V>,
+     * entrySet returns Set<Map.Entry<K, V>>. Mutations to the view
+     * propagate back to the map.
+     *
+     * This shim returns a PHP array (snapshot, NOT back-ref). Most
+     * AOT-emitted bb-fill usage iterates the view via Java's enhanced
+     * for-loop, which the IR Lowerer translates to PHP `foreach` on
+     * the array — equivalent. Set-specific operations (.size() on the
+     * keySet, .contains() on the values collection) work by direct
+     * array operations. The Map$Entry-specific shape (entrySet
+     * elements with .getKey() / .getValue()) returns associative
+     * ['key' => ..., 'value' => ...] entries; AOT emit for `e.getKey()`
+     * routes to PHP's `$e['key']` array access.
+     *
+     * Full Java-shape Set/Collection/Iterator/Map.Entry classes ship
+     * when a fixture surfaces Set-specific identity (e.g., passing
+     * keySet to another method that takes Set<K>).
+     */
+    public function keySet(): array
+    {
+        $keys = [];
+        foreach ($this->data as $k => $_) $keys[] = $this->unprefixKey($k);
+        return $keys;
+    }
+
+    public function values(): array
+    {
+        return \array_values($this->data);
+    }
+
+    public function entrySet(): array
+    {
+        $entries = [];
+        foreach ($this->data as $k => $v) {
+            $entries[] = ['key' => $this->unprefixKey($k), 'value' => $v];
+        }
+        return $entries;
+    }
+
+    /**
      * Map a Java key to a PHP array key. PHP coerces "1" and 1 to the
      * same key on bare arrays; type prefix preserves identity.
      */

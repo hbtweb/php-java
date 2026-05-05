@@ -44,36 +44,48 @@ use PHPJava\IO\Standard\Output;
  * @param string $methodName  e.g. "abs"
  * @param array  $args        primitive PHP-typed args
  */
-function runOracle(string $classFqn, string $methodName, array $args): string
+/**
+ * Run the case spec against the PHPJava shim. Two modes:
+ *   - Static: $caseSpec has 'method' and 'args' — invoke static method.
+ *   - Instance: $caseSpec has 'new' (constructor args) and 'ops' (array
+ *     of {call, args} entries) — construct fresh instance, run ops in
+ *     sequence, return the LAST op's return value.
+ */
+function runOracle(string $classFqn, array $caseSpec): string
 {
-    // Ensure a clean output capture surface. PHPJava's PrintStream
-    // shim writes via Output::write to a heapspace buffer; reset
-    // before each invocation so prior call output doesn't leak.
     Output::clearHeapspace();
 
-    $result = [
-        'class'  => $classFqn,
-        'method' => $methodName,
-        'args'   => $args,
-        'result' => null,
-    ];
+    $result = ['class' => $classFqn, 'result' => null];
+    if (isset($caseSpec['method'])) $result['method'] = $caseSpec['method'];
+    if (isset($caseSpec['args']))   $result['args']   = $caseSpec['args'];
 
     \ob_start();
     try {
-        // Two dispatch paths:
-        //   1. JDK shim — class lives at \PHPJava\Aot\Runtime\<...>
-        //      (see Builder::classFqn). Invoke the static method
-        //      directly; no bytecode to compile.
-        //   2. AOT-compiled bytecode — route through Loader::callStatic
-        //      which compiles from .class on first call. Same dispatch
-        //      path AOT-emitted code uses for cross-class invokestatic.
-        // Caller args are PHP-native per CONTRACTS.md §1.
         $runtimeFqn = '\\PHPJava\\Aot\\Runtime\\' . \str_replace('.', '\\', $classFqn);
-        if (\class_exists($runtimeFqn) && \method_exists($runtimeFqn, $methodName)) {
-            $return = $runtimeFqn::$methodName(...$args);
+
+        if (isset($caseSpec['new'])) {
+            // Instance mode — construct, run ops chain, return last.
+            if (!\class_exists($runtimeFqn)) {
+                throw new \RuntimeException("Class not found: $runtimeFqn");
+            }
+            $ctorArgs = $caseSpec['new'] ?? [];
+            $instance = new $runtimeFqn(...$ctorArgs);
+            $return = null;
+            foreach ($caseSpec['ops'] ?? [] as $op) {
+                $methodName = $op['call'] ?? '';
+                $args = $op['args'] ?? [];
+                if (!\method_exists($instance, $methodName)) {
+                    throw new \BadMethodCallException("$runtimeFqn::$methodName");
+                }
+                $return = $instance->$methodName(...$args);
+            }
+        } elseif (\class_exists($runtimeFqn) && \method_exists($runtimeFqn, $caseSpec['method'])) {
+            // Static mode — JDK shim direct dispatch.
+            $return = $runtimeFqn::{$caseSpec['method']}(...($caseSpec['args'] ?? []));
         } else {
+            // Static mode — fall back to AOT-compiled bytecode path.
             $bin = \str_replace('.', '/', $classFqn);
-            $return = \PHPJava\Aot\Loader::callStatic($bin, $methodName, ...$args);
+            $return = \PHPJava\Aot\Loader::callStatic($bin, $caseSpec['method'], ...($caseSpec['args'] ?? []));
         }
         $stdout = \ob_get_clean();
         // Normalise the heapspace-captured Java println output into
@@ -153,11 +165,25 @@ function normaliseReturn($v)
     return ['__unknown__' => \gettype($v)];
 }
 
-// CLI entry — for development without the full Clojure harness.
+// CLI entry. Two forms:
+//   --stdin                 : full case spec as JSON on stdin (driver path)
+//   --class=FQN --method=N --args='[json]' : legacy single-call form
 if (\PHP_SAPI === 'cli' && isset($argv[0]) && \realpath($argv[0]) === __FILE__) {
+    if (\in_array('--stdin', $argv, true)) {
+        $json = \stream_get_contents(\STDIN);
+        $spec = \json_decode($json, true);
+        if (!\is_array($spec) || !isset($spec['class'])) {
+            \fwrite(\STDERR, "stdin JSON must include 'class' key\n");
+            exit(2);
+        }
+        $cls = $spec['class'];
+        unset($spec['class']);
+        echo runOracle($cls, $spec) . "\n";
+        exit(0);
+    }
     $opts = \getopt('', ['class:', 'method:', 'args::']);
     if (!isset($opts['class'], $opts['method'])) {
-        \fwrite(\STDERR, "Usage: php oracle-runner.php --class=FQN --method=name --args='[json]'\n");
+        \fwrite(\STDERR, "Usage: php oracle-runner.php (--stdin | --class=FQN --method=N --args='[json]')\n");
         exit(2);
     }
     $args = isset($opts['args']) ? \json_decode($opts['args'], true) : [];
@@ -165,5 +191,5 @@ if (\PHP_SAPI === 'cli' && isset($argv[0]) && \realpath($argv[0]) === __FILE__) 
         \fwrite(\STDERR, "--args must be a JSON array\n");
         exit(2);
     }
-    echo runOracle($opts['class'], $opts['method'], $args) . "\n";
+    echo runOracle($opts['class'], ['method' => $opts['method'], 'args' => $args]) . "\n";
 }

@@ -529,12 +529,12 @@ prerequisite.
    stubs (`tools/gen-aot-stubs.php` + `src/Aot/Runtime/java/**`); this
    step replaces the stub bodies with real implementations.
 
-   **Progress (2026-05-05): 9/80 shipped + parity-validated. 388/388
-   parity cases for static-method shims; HashMap smoke-validated
-   (instance-method parity testing needs a richer driver — TBD).
-   Profile depth ≥3 fires for 4 methods now (was 1 at session start),
-   including the predicted Arrays::hashCode → Objects::hash →
-   Objects::hashCode → String_::hashCode depth-4 chain.**
+   **Progress (2026-05-05): 9/80 shipped + parity-validated. 412/412
+   parity cases including HashMap via instance-mode dispatch (driver
+   gained constructor + ops-chain support). Profile depth ≥3 fires
+   for 4 methods (was 1 at session start), including the predicted
+   Arrays::hashCode → Objects::hash → Objects::hashCode →
+   String_::hashCode depth-4 chain.**
    - `java.lang.Math` — `src/Aot/Runtime/java/lang/Math.php`. Surface:
      abs/min/max (polymorphic int+long+float+double), sqrt/pow/floor/
      ceil, round (Java half-up semantics, not PHP half-away-from-zero),
@@ -646,11 +646,34 @@ prerequisite.
      equals / hashCode (compositional — Objects::hashCode per key+value,
      depth-3+ chain) / toString. keySet / values / entrySet deferred
      (need Set / Collection / Entry interfaces); compute / merge /
-     forEach / putAll deferred. **No parity battery yet** — the oracle
-     dispatches static methods only; instance-method test support is
-     ~30 LOC of driver extension (instance construction + chained
-     call dispatch). Smoke-validated in PHP including the load-bearing
-     key-identity test.
+     forEach / putAll deferred. **24/24 parity via instance-mode
+     driver dispatch.** keySet / values / entrySet shipped, returning
+     PHP arrays (not Set/Collection objects) — most AOT-emitted bb-fill
+     uses the enhanced for-loop which the IR Lowerer translates to
+     PHP foreach, so PHP-array views suffice. Full Java-shape
+     Set/Iterator/Map.Entry interfaces ship when a fixture surfaces
+     Set-specific identity (e.g., `set.size()` chained on the keySet
+     return). Map.Entry-shape returned as `['key' => ..., 'value' => ...]`
+     associative arrays (AOT emit for `e.getKey()` routes to PHP's
+     `$e['key']`).
+     Arrays.sort + sortRange shipped (in-place via PHP's `\sort`); no
+     parity battery — through-reflection by-reference dispatch is
+     fiddly, sort correctness validated by PHP builtins.
+
+   Driver capability gained — instance-method dispatch
+   (`bench/parity/oracle_driver.clj`):
+   - `find-constructor` resolves a constructor on the target class
+     using the same param-accepts? matcher as find-method.
+   - `invoke-jdk` now branches on case-spec shape: `{method, args}` =
+     static (existing path); `{new: [...], ops: [{call, args}, ...]}`
+     = instance mode. Constructs fresh instance, runs ops in sequence,
+     returns the LAST op's return value.
+   - `invoke-php` switched to JSON-on-stdin (avoids argv length limits
+     on long ops chains; PHP runner's `--stdin` mode mirrors driver's
+     case-spec shape).
+   - Same shape works for ANY instance-bearing class — ArrayList,
+     LinkedList, Iterator-bearing types. Per-class effort drops to
+     just shim + battery, no harness work.
 
    Driver capability gained — `find-method` does name+arity+
    assignable-types lookup with primitive ↔ wrapper unboxing and

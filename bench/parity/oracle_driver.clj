@@ -194,28 +194,89 @@
       (mapv #(normalise-return (java.lang.reflect.Array/get v %)) (range n)))
     :else (str v)))
 
+(defn- find-constructor
+  "Resolve a constructor on `cls` accepting the given args. Same
+   matching rules as find-method but over getConstructors."
+  [^Class cls args]
+  (let [arg-classes (mapv arg-class args)
+        candidates  (->> (.getConstructors cls)
+                         (filter (fn [^java.lang.reflect.Constructor c]
+                                   (and (= (.getParameterCount c) (count args))
+                                        (every? identity
+                                                (map param-accepts?
+                                                     (.getParameterTypes c)
+                                                     arg-classes))))))]
+    (when (empty? candidates)
+      (throw (NoSuchMethodException. (str (.getName cls) ".<init>"))))
+    ;; Constructors don't have getMethods-style ranking; pick the first
+    ;; candidate whose param types best match. Reuse specificity by
+    ;; coercing constructor to a method-like score.
+    (first (sort-by
+            (fn [^java.lang.reflect.Constructor c]
+              (apply +
+                     (map (fn [^Class p ^Class a]
+                            (cond
+                              (= p a) 0
+                              (.isPrimitive p) 1
+                              (= p Object) 50
+                              :else 5))
+                          (.getParameterTypes c) arg-classes)))
+            candidates))))
+
+(defn- invoke-method
+  "Invoke a Method on an optional instance (nil = static). Returns the
+   normalised result. Args are coerced to match the parameter types."
+  [^Method m instance args]
+  (let [params (.getParameterTypes m)
+        boxed  (object-array (map coerce-arg params args))]
+    (.invoke m instance boxed)))
+
 (defn- invoke-jdk
-  "Reflect over `class-fqn`, find `method-name` matching the inferred
-   arg types, invoke. Captures System.out/System.err redirected to
-   ByteArrayOutputStreams. Returns a string-keyed map matching the
-   parity contract:
-     {:kind \"ok\"        :return X :stdout S :stderr E}
-   or
-     {:kind \"exception\" :class C :message M}"
-  [class-fqn method-name args]
-  (let [orig-out  System/out
-        orig-err  System/err
-        baos-out  (ByteArrayOutputStream.)
-        baos-err  (ByteArrayOutputStream.)]
+  "Reflect over `class-fqn`, dispatch per the case-spec shape.
+   Two modes:
+     - Static (default): {:method NAME, :args [...]} → invoke static
+       method, return its value.
+     - Instance: {:new [ctor-args], :ops [{:call NAME, :args [...]}
+       ...]} → construct instance, run each op in sequence, return
+       the LAST op's return value.
+
+   Captures System.out/System.err redirected to ByteArrayOutputStreams
+   across all ops in the session. Returns a string-keyed map matching
+   the parity contract."
+  [class-fqn case-spec]
+  (let [orig-out (System/out)
+        orig-err (System/err)
+        baos-out (ByteArrayOutputStream.)
+        baos-err (ByteArrayOutputStream.)
+        instance-mode? (contains? case-spec "new")]
     (try
       (System/setOut (PrintStream. baos-out))
       (System/setErr (PrintStream. baos-err))
       (try
-        (let [cls       (Class/forName class-fqn)
-              ^Method m (find-method cls method-name args)
-              params    (.getParameterTypes m)
-              boxed     (object-array (map coerce-arg params args))
-              result    (.invoke m nil boxed)]
+        (let [cls (Class/forName class-fqn)
+              result
+              (if instance-mode?
+                ;; Instance mode — construct then run ops chain
+                (let [ctor-args (get case-spec "new" [])
+                      ^java.lang.reflect.Constructor ctor (find-constructor cls ctor-args)
+                      ctor-params (.getParameterTypes ctor)
+                      ctor-boxed (object-array (map coerce-arg ctor-params ctor-args))
+                      instance (.newInstance ctor ctor-boxed)
+                      ops (get case-spec "ops" [])]
+                  (loop [ops ops, last-r nil]
+                    (if (empty? ops)
+                      last-r
+                      (let [op (first ops)
+                            method-name (get op "call")
+                            op-args (get op "args" [])
+                            ^Method m (find-method cls method-name op-args)
+                            r (invoke-method m instance op-args)]
+                        (recur (rest ops) r)))))
+                ;; Static mode (the original path)
+                (let [method-name (get case-spec "method")
+                      args (get case-spec "args" [])
+                      ^Method m (find-method cls method-name args)]
+                  (invoke-method m nil args)))]
           {"kind"   "ok"
            "return" (normalise-return result)
            "stdout" (.toString baos-out)
@@ -232,14 +293,15 @@
 ;; ─── invocation: the PHPJava AOT shim ────────────────────────────────────────
 
 (defn- invoke-php
-  "Subprocess into bench/parity/oracle-runner.php with the case triple,
-   parse its JSON output, return the `result` sub-map (string-keyed)."
-  [repo-root class-fqn method-name args]
-  (let [{:keys [exit out err]}
-        (shell/sh "php" "bench/parity/oracle-runner.php"
-                  (str "--class="  class-fqn)
-                  (str "--method=" method-name)
-                  (str "--args="   (json/write-str args))
+  "Subprocess into bench/parity/oracle-runner.php with the full case
+   spec (as JSON via stdin to avoid argv length limits on long
+   instance-mode op chains). Parse its JSON output, return the
+   `result` sub-map (string-keyed)."
+  [repo-root class-fqn case-spec]
+  (let [spec-json (json/write-str (assoc case-spec "class" class-fqn))
+        {:keys [exit out err]}
+        (shell/sh "php" "bench/parity/oracle-runner.php" "--stdin"
+                  :in spec-json
                   :dir repo-root)]
     (cond
       (not (zero? exit))
@@ -311,17 +373,27 @@
 
 (defn- run-case
   [repo-root class-fqn case-spec]
-  (let [method    (get case-spec "method")
-        args      (get case-spec "args" [])
-        tolerance (get case-spec "tolerance")
-        jdk       (invoke-jdk class-fqn method args)
-        php       (invoke-php repo-root class-fqn method args)
+  (let [tolerance (get case-spec "tolerance")
+        jdk       (invoke-jdk class-fqn case-spec)
+        php       (invoke-php repo-root class-fqn case-spec)
         cmp       (compare-results jdk php tolerance)]
-    (assoc cmp :method method :args args :jdk jdk :php php)))
+    (assoc cmp :case-spec case-spec :jdk jdk :php php)))
 
-(defn- format-case-line [{:keys [status method args]}]
+(defn- format-case-label [case-spec]
+  (if (contains? case-spec "new")
+    (let [ops (get case-spec "ops" [])]
+      (format "new + %s" (str/join " > "
+                                   (map #(format "%s(%s)"
+                                                 (get % "call")
+                                                 (str/join "," (map pr-str (get % "args" []))))
+                                        ops))))
+    (let [m (get case-spec "method")
+          args (get case-spec "args" [])]
+      (format "%s(%s)" m (str/join ", " (map pr-str args))))))
+
+(defn- format-case-line [{:keys [status case-spec]}]
   (let [tag (case status :match "  PASS" :diverge "  FAIL")]
-    (format "%s  %s(%s)" tag method (str/join ", " (map pr-str args)))))
+    (str tag "  " (format-case-label case-spec))))
 
 (defn- format-divergence [{:keys [axis jdk php jdk-value php-value] :as r}]
   (str "         axis: " axis "\n"

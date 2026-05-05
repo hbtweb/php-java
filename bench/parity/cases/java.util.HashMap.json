@@ -1,0 +1,113 @@
+{
+  "class": "java.util.HashMap",
+  "_note": [
+    "9th bb-allowlist battery. First instance-mode parity battery —",
+    "each case constructs a fresh HashMap, runs ops in sequence,",
+    "compares the LAST op's return value. The driver's instance-mode",
+    "extension makes this mechanical for any instance-bearing class."
+  ],
+  "cases": [
+    {"new": [], "ops": [{"call": "size"}]},
+    {"new": [], "ops": [{"call": "isEmpty"}]},
+
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "size"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "put", "args": ["b", 2]},
+      {"call": "put", "args": ["c", 3]},
+      {"call": "size"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "isEmpty"}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "get", "args": ["a"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "get", "args": ["nonexistent"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "put", "args": ["a", 2]},
+      {"call": "get", "args": ["a"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "put", "args": ["a", 2]}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "containsKey", "args": ["a"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "containsKey", "args": ["nonexistent"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "put", "args": ["b", 2]},
+      {"call": "containsValue", "args": [1]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "containsValue", "args": [99]}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "remove", "args": ["a"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "remove", "args": ["nonexistent"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "remove", "args": ["a"]},
+      {"call": "size"}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "getOrDefault", "args": ["a", "fallback"]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "getOrDefault", "args": ["missing", "fallback"]}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "putIfAbsent", "args": ["a", 1]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "putIfAbsent", "args": ["a", 99]}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "putIfAbsent", "args": ["a", 99]},
+      {"call": "get", "args": ["a"]}
+    ]},
+
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "put", "args": ["b", 2]},
+      {"call": "clear"},
+      {"call": "size"}
+    ]},
+    {"new": [], "ops": [
+      {"call": "put", "args": ["a", 1]},
+      {"call": "clear"},
+      {"call": "isEmpty"}
+    ]},
+
+    {"new": [], "ops": [{"call": "size"}]}
+  ]
+}

@@ -162,6 +162,35 @@ final class Arrays
     }
 
     /**
+     * In-place ascending sort. Java's Arrays.sort takes a primitive
+     * array and mutates it; PHP sort() does the same on PHP arrays
+     * with re-indexing. For numeric arrays the order is identical.
+     * For mixed-type / object arrays, Java's sort uses natural-order
+     * comparator; PHP defaults to comparing by value coercion. Stick
+     * to homogeneous-element-type usage to match.
+     *
+     * No parity battery — through-reflection by-reference dispatch is
+     * fiddly to drive cleanly. The implementation is delegation to a
+     * well-tested PHP builtin; correctness via direct PHPUnit if a
+     * fixture surfaces a divergence.
+     */
+    public static function sort(array &$a): void
+    {
+        \sort($a);
+    }
+
+    public static function sortRange(array &$a, int $fromIndex, int $toIndex): void
+    {
+        $len = \count($a);
+        if ($fromIndex < 0 || $toIndex > $len || $fromIndex > $toIndex) {
+            throw new IndexOutOfBoundsException("sortRange [$fromIndex, $toIndex) of length $len");
+        }
+        $slice = \array_slice($a, $fromIndex, $toIndex - $fromIndex);
+        \sort($slice);
+        for ($i = 0; $i < \count($slice); $i++) $a[$fromIndex + $i] = $slice[$i];
+    }
+
+    /**
      * binarySearch(arr, key) — returns idx ≥ 0 if found, else
      * -(insertionPoint + 1). Array assumed sorted ascending.
      */
