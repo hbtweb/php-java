@@ -1,27 +1,56 @@
-# Project status — 2026-05-04 (suite green, AOT contract-complete)
+# Project status — 2026-05-05 (String identity contract closed; primitive-wrapper identity unmeasured)
 
 > Snapshot of where we are, what's measured, what's next.
 > Updated as work lands. The roadmap is a hypothesis; this is reality.
-> Last updated after AOT contract-compliance pass: inheritance, interfaces,
-> overload mangling, by-ref auto-detect, contract-shape Z/C, wrapper IR
-> lowerings (HEAD = `b631328`).
+> Last updated after Phase 2-3 of the emit-then-prove-and-elide
+> identity contract for String (HEAD = `2e99566`).
 
-## Headline (2026-05-04)
+## Headline (2026-05-05)
 
-**Test suite green — 45 pass / 2 skipped / 0 failures / 0 errors** across
-47 case files. Three of the four v1 success-line conditions from
-`ROADMAP.md` are now met:
+**Test suite — 641 / 0 errors / 0 failures / 2 skipped.** The 2
+skips are KotlinTest (requires Kotlin runtime not in CI) and
+OutputDebugTraceTest (interp-only debugger; slated for delete in
+Phase D). All four v1 success-line conditions from `ROADMAP.md`
+status:
 
 - ✓ Test suite passes 100%
-- ✓ Interpreter ≤ 100 ns/op (~64 ns/op JIT measured prior session)
+- ✓ Interpreter ≤ 100 ns/op (~64 ns/op JIT measured)
 - ✓ AOT ≤ 5 ns/op (0.18-0.20 ns/op JIT for hot int loops)
-- ✗ **bb allowlist (~80 babashka classes) non-stub** — the remaining
-  v1 thrust. ~80% of `src/Packages/` files still raise
-  `NotImplementedException`.
+- ✗ **bb allowlist (~80 babashka classes) non-stub** — the
+  remaining v1 thrust. 13/80 shipped + parity-validated as of
+  2026-05-05 session; 67 remaining.
 
-The architecture is no longer the bottleneck. The work landing this
-session was contract compliance and missing semantics, not new
-substrate. **JDK shim coverage is the next bottleneck.**
+**Identity contract — String complete; primitive wrappers
+unmeasured.** Per CONTRACTS.md §1's emit-then-prove-and-elide
+doctrine:
+
+- Phase 1-3 shipped 2026-05-05 — String identity preserved at
+  allocation sites (`new String(...)` + StringConcatFactory
+  output); pool-canonicalised on intern; Phase 3 escape-pass
+  elides allocations whose identity isn't observed within the
+  method. Closes all 4 String contract-divergence tests
+  (testIntern, testNotInterned, testNotInternedAfterLiteral,
+  testIdentityHashCode). Rank-1 perf: post-elision raw concat
+  40 ns/op vs Phase-2-kept wrapper 179 ns/op (~4.5× saving per
+  elided site).
+- Phase 4 not started — primitive-wrapper identity (Integer /
+  Long / Double / Float / Boolean / Character / Short / Byte) is
+  **unmeasured**. No parity case currently probes `valueOf`
+  cache identity, `new <Wrapper>(x)` allocation freshness, `==`
+  on boxed values, identityHashCode of boxed primitives. "Suite
+  passes" is sample-of-spec, not spec-compliance. Phase 4 cadence
+  per CONTRACTS.md §1: build identity parity battery first
+  (~60-100 cases), measure divergence against current PHPJava
+  to generate rank-1 evidence, then close measured divergences.
+- Pre-Phase-4 known non-compliance (rank 1): `new Integer(5)`
+  etc. emit broken AOT output today (`new \PHPJava\…\Integer(5)`
+  when shim has no constructor). Affects all primitive wrappers
+  except String. Pre-Phase-4 fix candidate documented in
+  CONTRACTS.md §1.
+
+**Bottleneck**: bb-fill (the v1 gate, 67 classes remaining) and
+primitive-wrapper identity measurement (Phase 4 step 1 — build
+the parity battery).
 
 ### What landed (2026-05-04, 15 commits `549d6cc..b631328`)
 

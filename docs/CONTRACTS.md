@@ -66,12 +66,7 @@ compiler's slot-type table:
 - Control-flow-merged across primitive types → tagged tuple `['I', $v]` at
   autobox sites only (rare; ~5% of code paths, ~25 ns/op cost)
 
-### Documented divergence — being progressively removed
-
-`Integer.valueOf(200) == Integer.valueOf(200)` returns `false` in Java
-(identity). Returns `true` in PHPJava (value equality) when wrappers
-elide. Affects only Java code that uses `==` on boxed types (every
-style guide forbids this).
+### Identity contract — emit-then-prove-and-elide
 
 **As of 2026-05-05** (per Apollo's directive: "we should never have
 this kind of contractual drift"), the value-representation contract
@@ -79,58 +74,121 @@ shifts from **unconditional elision** to **emit-then-prove-and-elide**.
 Java semantics is the ground truth; the compiler proves locally when
 elision is safe.
 
-Phased migration:
+#### What's measured vs unmeasured
 
-  - **Phase 1 (shipped)** — `new String(s)` allocates a
+Compliance with Java's identity contract is *evidence-tracked* per
+type. "Suite green" is not "compliant" — the suite is a sample of
+the spec, not the spec itself. Per CLAUDE.md ladder rank-1: a claim
+holds when it has measurement backing, not when no test has
+falsified it.
+
+| Type | Value semantics | Identity semantics |
+|---|---|---|
+| `String` | rank-1 (suite + 419 parity cases) | rank-1 (Phase 1-3 shipped; testIntern / testNotInterned / testNotInternedAfterLiteral / testIdentityHashCode green; identity preserved at allocation sites; pool-canonicalised on intern; Phase 3 elides non-observed allocations) |
+| `Integer` / `Long` / `Short` / `Byte` | rank-1 (parity batteries 57+64+0+0 cases — Short/Byte not yet probed) | **unmeasured** — no test or parity case probes `valueOf` cache identity, `new Integer(x)` allocation freshness, `==` on boxed values, identityHashCode of boxed primitive, autobox-cache range crossing. Phase 4 = build the parity battery, measure divergence, close measured divergences. |
+| `Boolean` / `Character` | rank-1 (29+52 parity) | **unmeasured** — `Boolean.TRUE / FALSE` constant identity, Character cache for [0,127), no probes. |
+| `Float` / `Double` | partial (parity probes value methods only) | **unmeasured** — Java 9+ removed Float/Double caching (always fresh); no probes. |
+| `Object` references (user classes) | n/a | rank-1 via PHP's native object identity (`spl_object_id` matches `===`). |
+
+**Rank-1 known non-compliance (just discovered 2026-05-05):**
+`new Integer(5)` etc. emit `new \PHPJava\Aot\Runtime\java\lang\Integer(5)`
+in AOT output, but the Integer shim has no constructor or instance
+methods. Calling `.intValue()` on the result returns the wrapper
+object, not an int → "Object of class … could not be converted to
+string" at runtime. Affects all primitive wrappers except String.
+Pre-Phase-4 fix: extend the `new+dup+invokespecial<init>` peephole
+at `src/Aot/Ir/Builder.php:1349` so `new <PrimitiveWrapper>(x)`
+elides to `x` (matching the existing `Integer.valueOf(x) → x`
+elision). Phase 4 then replaces this elision with allocation-of-
+identity-wrapper as the primitive-identity battery exposes
+divergences.
+
+#### Phased migration
+
+  - **Phase 1 (shipped 2026-05-05)** — `new String(s)` allocates a
     `String_Identity` wrapper preserving Java identity semantics.
     System.identityHashCode / `==` / IdentityHashMap distinguish
     wrapper instances. See `src/Aot/Runtime/java/lang/String_Identity.php`.
-    Closes 2 of 4 contract-divergence tests
-    (testIntern, testIdentityHashCode); 2 remain (testNotInterned,
-    testNotInternedAfterLiteral) pending Phase 2.
+    Closes testIntern + testIdentityHashCode; 2 remain
+    (testNotInterned, testNotInternedAfterLiteral) pending Phase 2.
   - **Phase 2 (shipped 2026-05-05)** — process-global string pool
     (`src/Aot/Runtime/StringPool.php`); StringConcatFactory output
     wrapped in fresh `String_Identity` (IR Builder); `String.intern`
     pool-canonicalises wrapper receivers and registers raw-string
     receivers; `System.identityHashCode` of a raw string routes
-    through pool's lazy-allocated canonical wrapper. Together these
-    give: concat results have distinct per-instance identity;
-    `intern()` round-trips so identityHashCode of the
-    canonicalised concat matches the literal; literals have a
-    stable canonical identity allocated on first observation.
-    **Closes the remaining 4 of 4 contract-divergence tests** —
-    suite 0E / 0F / 2S; the 2 skips are KotlinTest +
-    OutputDebugTraceTest, both pre-existing and unrelated.
-    Parity 419/419 holds (no regressions across 11 case batteries).
-    LDC of String literals stays as raw PHP string (no wrapping at
-    LDC time) — minimises shim-signature blast radius; raw-string
-    transparency works because AOT-emitted PHP is in coercive mode
-    and `String_Identity` implements `Stringable`.
-  - **Phase 3 (deferred)** — `WrapperEscapeAnalysis` IR pass.
-    Per-method dataflow: prove the wrapper isn't observed (no
-    identityHashCode, no `==` against another instance, no escape
-    past method boundary, no IdentityHashMap use). When safe, elide
-    the allocation — emit just the inner value. Restores the
-    perf characteristics of unconditional elision while preserving
-    correctness for cases where identity IS observed. Phase 2's
-    perf cost is bounded to per-concat allocation; Phase 3 elides
-    the common case where the concat result is consumed
-    immediately (println, equals, toUpperCase, etc.) and never
-    identity-checked.
-  - **Phase 4 (deferred)** — extend Phase 1-3 to the other primitive
-    wrappers (Integer, Long, Double, Float, Boolean, Character).
-    Same model; same rationale.
+    through pool's lazy-allocated canonical wrapper. Concat results
+    have distinct per-instance identity; `intern()` round-trips so
+    identityHashCode of the canonicalised concat matches the
+    literal; literals have a stable canonical identity allocated
+    on first observation. **Closes the remaining 4 of 4 String
+    contract-divergence tests** — suite 0E / 0F / 2S
+    (KotlinTest + OutputDebugTraceTest the only skips). Parity
+    419/419 holds. LDC of String literals stays as raw PHP string
+    (no wrapping at LDC time) — raw-string transparency works
+    because AOT-emitted PHP is in coercive mode and
+    `String_Identity` implements `Stringable`.
+  - **Phase 3 (shipped 2026-05-05)** —
+    `src/Aot/Ir/WrapperEscapePass.php`: method-local IR transform.
+    Two-pass: collect slots whose value reaches an
+    identity-observing position; rewrite wrapper allocations in
+    non-observing positions to their inner expression. Wired into
+    `Compiler.php` after InlinePass and AsyncSpecialiserPass.
+    Identity-observing whitelist:
+    System.identityHashCode / String_::intern / `===` / `!==` /
+    Return_ / Throw_ / StoreField / StoreStaticField. Value-only
+    whitelist: shipped JDK shim classes, BinOp `.`,
+    PrintStream.print/println, built-in PHP fns. Conservative
+    default — unrecognised callees keep the wrapper. Rank-1 perf
+    measurement: post-elision raw concat 40 ns/op vs Phase-2-kept
+    wrapper 179 ns/op (~4.5× saving per elided site). Suite +
+    parity unchanged after wiring.
+  - **Phase 4 (compliance-driven; not started)** — extend the
+    emit-then-prove-and-elide model to primitive wrappers
+    (Integer / Long / Double / Float / Boolean / Character /
+    Short / Byte), under measurement-driven cadence:
 
-Until Phase 3, allocations occur for every `new String(...)` site
-**and every StringConcatFactory call site** — perf cost bounded to
-those two surfaces. Phase 3's escape-analysis pass elides the
+      1. Build a primitive-wrapper-identity parity battery
+         (~60-100 cases). Probe `valueOf` cache range identity
+         (`Integer.valueOf(127) == Integer.valueOf(127)` true,
+         `Integer.valueOf(128) == Integer.valueOf(128)` false),
+         `new <Wrapper>(x)` always-fresh identity,
+         `Boolean.TRUE / FALSE` constant identity,
+         `Character.valueOf` cache for [0,127),
+         `System.identityHashCode` of boxed primitives,
+         autobox-cache range crossing,
+         `==` between mixed-source boxed values.
+      2. Run battery against current PHPJava — generate rank-1
+         evidence of how non-compliant the implementation is.
+      3. Build the substrate to close measured divergences:
+         `<Wrapper>_Identity` classes, peephole rewrites for
+         `new <Wrapper>(...)`, escape-pass FQN extension,
+         `valueOf`-cache-range identity for cached values,
+         lowering changes for instance-method calls
+         (`intValue` / `equals` / etc.) when receiver is a
+         wrapper.
+      4. Re-run battery — confirm 0 divergences. Update this
+         table's "unmeasured" cells to rank-1.
+
+     **Doctrine note**: Phase 4 is NOT an unconditional reversal
+     of the existing "wrappers eliminated entirely" model in
+     `docs/BOXING.md`. Value semantics (arithmetic, equals,
+     toString, hashCode) stay PHP-scalar-native — that's the
+     measured 5-9× win. Identity preservation is layered on top
+     for the (much smaller) set of allocation sites that observe
+     it. Phase 3's escape-pass machinery extends to primitive
+     wrappers as part of step 3 above.
+
+Until Phase 3 ran, allocations occurred for every `new String(...)`
+site **and every StringConcatFactory call site** — perf cost bounded
+to those two surfaces. Phase 3's escape-analysis pass now elides the
 allocation when the wrapper's identity is provably never observed
 within the method.
 
 The earlier "boxing-elimination" framing measured 5-9× speedup —
-that's preserved for the elided cases. The new contract makes
-elision a *local optimisation* rather than a *global semantic
-sacrifice*.
+that's preserved for the elided cases (post-Phase-3, the common
+internal-concat pattern emits raw PHP concat). The new contract
+makes elision a *local optimisation backed by measurement* rather
+than a *global semantic sacrifice*.
 
 ### Eliminated: tagged-string conventions for non-string values
 

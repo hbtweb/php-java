@@ -1,10 +1,22 @@
-# Boxing — gut it
+# Boxing — gut it (with identity layered on top, post-2026-05-05)
 
-> Date: 2026-05-01.
+> Date: 2026-05-01; identity-layer addendum 2026-05-05.
 > Source measurements: `bench/validate-boxing.php` (6 patterns × 5 workloads).
-> Conclusion: **don't box.** Eliminate primitive wrapper instances from the
-> runtime entirely. Keep wrapper classes for static methods and reflection
-> metadata only.
+> Conclusion: **don't box for value semantics.** Eliminate primitive
+> wrapper instances from the runtime so PHP scalars carry through every
+> arithmetic / equals / hashCode path (5-9× win, rank 1 measured).
+>
+> **2026-05-05 addendum** (CONTRACTS.md §1's emit-then-prove-and-elide
+> shift): identity semantics is layered ON TOP of value-elision, not
+> instead of it. For String, identity is preserved at allocation sites
+> (`new String(s)`, StringConcatFactory output) via `String_Identity`
+> wrappers; the WrapperEscapePass IR transform elides allocations
+> whose identity isn't observed locally. For primitive wrappers, the
+> identity surface is **unmeasured** — no parity case currently probes
+> `valueOf` cache identity or `new Integer(x)` allocation freshness.
+> Phase 4 will measure and close (per CONTRACTS.md §1 Phase 4
+> description). The elimination doctrine below is correct for
+> *value semantics*; identity divergences are tracked separately.
 
 ## The question
 
@@ -51,13 +63,30 @@ identity comparison; cache only covers -128..127.
 
 Pure unboxed PHP makes this `true` (`200 === 200`).
 
-**This is a documented Java footgun.** Every style guide forbids `==` on
-boxed numeric types. Linters flag it. Real production code uses `.equals()`.
+**Status (2026-05-05): unmeasured, pending Phase 4.** The earlier
+"documented footgun, accept the divergence" framing is retracted —
+"every style guide forbids it" is a rank-5 popularity argument, not
+spec evidence; suite-passes is sample-of-spec, not spec-compliance.
 
-The divergence affects only buggy Java code. **We accept the divergence and
-document it.** A strict-Java-semantics test mode can be added later
-(synthesize unique wrapper objects above the cache range) but production
-ships with value equality.
+The divergence is real per the JLS and observable via
+`System.identityHashCode`, `IdentityHashMap`, and `==`. Whether it
+affects bb-fill-class internals or any user-Java-on-PHPJava workload
+is **unknown** — no parity case probes it. CONTRACTS.md §1 Phase 4
+is the measurement-driven path: build a primitive-wrapper-identity
+parity battery first, run it against current PHPJava to generate
+rank-1 divergence evidence, then close measured divergences via
+the same emit-then-prove-and-elide model used for String (Phase 1-3
+shipped).
+
+Pre-Phase-4 known non-compliance (rank 1): `new Integer(5)` etc.
+emit broken AOT output today (`new \PHPJava\…\Integer(5)` —
+shim has no constructor or instance methods). Fix candidate: extend
+the `new+dup+invokespecial<init>` peephole to elide
+`new <PrimitiveWrapper>(x)` to `x` (matching `valueOf(x) → x`), as
+the temporary correctness alignment with the existing
+"eliminate entirely" doctrine. Phase 4 then replaces the elision
+with allocation-of-identity-wrapper for sites the parity battery
+shows it matters.
 
 ### Concern 2: dynamic instanceof on merged Object slots
 

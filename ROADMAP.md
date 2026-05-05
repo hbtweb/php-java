@@ -28,12 +28,15 @@ than new architecture.
 | F2 | bb allowlist transitive deps > 200 unknowns → narrow goal | open | needs probe after T1 lands |
 | F3 | Concurrency adapter > 2kloc → narrow goal | open | depends on Swoole/FFI work |
 
-## Current state (2026-05-04, HEAD = `b631328`)
+## Current state (2026-05-05, HEAD = `2e99566`)
 
-- **Tests:** **0 errors / 0 failures / 6 skipped (2026-05-05).** 47/47 case files run. Skipped: `KotlinTest` (pre-existing, no Kotlin runtime in CI), `OutputDebugTraceTest` (interp-only bytecode-trace dumper, no AOT analog, marked for Phase D delete), and 4 contract-divergence tests with documented reasons:
-  - `JavaLangStringTest::testIntern / testNotInterned / testNotInternedAfterLiteral` — PHPJava AOT contract (CONTRACTS.md §1) makes PHP string IS Java String value-wise; per-instance identity isn't modelled. Tests assert Java's per-instance distinction which is unreachable by design.
-  - `JavaLangSystemTest::testIdentityHashCode` — same divergence. `System.identityHashCode` of two equal-value `new String(s)` calls returns the same value.
-- **AOT pipeline:** **AOT is the default execution path** since `7f01155` (no env gate). End-to-end coverage now includes inheritance (`extends` + `parent::__construct`), interface compilation (Java interface → PHP `abstract class` with default-method bodies), method overload (descriptor-mangled names + arg-shape dispatcher), array by-ref auto-detect (cljp `aset`-on-param port), contract-shape Z (boolean) and C (char) field/array storage, wrapper-class IR lowerings (BOXING.md inline lowerings — `Integer.MAX_VALUE` → `IntLit`, `i.intValue()` → identity, `i.equals(j)` → `===`, etc.).
+- **Tests:** **641 / 0 errors / 0 failures / 2 skipped.** All 47 case files run. The 2 skips are `KotlinTest` (no Kotlin runtime in CI) and `OutputDebugTraceTest` (interp-only debugger, slated for Phase D delete). The 4 String identity contract-divergence tests (testIntern / testNotInterned / testNotInternedAfterLiteral / testIdentityHashCode) **now pass** following Phase 1-3 of the emit-then-prove-and-elide identity contract (CONTRACTS.md §1).
+- **String identity contract:** Phase 1-3 shipped 2026-05-05.
+  - Phase 1: `new String(s)` allocates `String_Identity` wrapper.
+  - Phase 2: StringConcatFactory output wrapped; `StringPool` runtime; `intern` pool-canonicalises; `System.identityHashCode` of raw strings routes via pool.
+  - Phase 3: `WrapperEscapePass` IR transform elides allocations whose identity isn't observed within the method (rank-1 perf: 40 ns/op post-elision vs 179 ns/op kept-wrapper, ~4.5× saving per elided site).
+- **Primitive-wrapper identity:** **unmeasured.** No parity case currently probes `valueOf` cache identity, `new <Wrapper>(x)` allocation freshness, `==` on boxed values, identityHashCode of boxed primitives. Phase 4 cadence per CONTRACTS.md §1: build identity parity battery first (~60-100 cases), generate rank-1 evidence of divergence, close measured divergences. Pre-Phase-4 known non-compliance: `new Integer(5)` etc. emit broken AOT output (shim has no constructor; `.intValue()` returns wrapper object instead of int).
+- **AOT pipeline:** **AOT is the default execution path** since `7f01155` (no env gate). End-to-end coverage now includes inheritance (`extends` + `parent::__construct`), interface compilation (Java interface → PHP `abstract class` with default-method bodies), method overload (descriptor-mangled names + arg-shape dispatcher), array by-ref auto-detect (cljp `aset`-on-param port), contract-shape Z (boolean) and C (char) field/array storage, wrapper-class IR lowerings (BOXING.md inline lowerings — `Integer.MAX_VALUE` → `IntLit`, `i.intValue()` → identity, `i.equals(j)` → `===`, etc.), String identity preservation (Phase 1-3 above).
 - **Hot-path perf (AOT):** **0.18-0.20 ns/op JIT** for int loops (1.8× of HotSpot JIT, 2.9× faster than HotSpot interpreted); **0.24 ns/op** for invokestatic-heavy code; ~2.2 ns/op for array workloads; ~22 ns/call empty-method dispatch. Unchanged this session — work was correctness, not perf.
 - **Compile-output cache:** **2649× speedup** on repeat compiles (1578 µs → 0.6 µs).
 - **Interpreter perf:** measured 5.22 µs/op (current); 22 ns/op (spike with Phase 2 fixes) — see `bench/`. **Interpreter is now load-bearing-free** — AOT covers the entire test surface; Phase D delete unblocked.
@@ -487,6 +490,47 @@ All seven landed. Total: 32 new tests passing across 6 test files,
 decoding via IEEE754 round-trip), 1 bonus opcode fill (wide-iinc
 parsing in Builder).
 
+### Identity-contract compliance (CONTRACTS.md §1, post-2026-05-05)
+
+The doctrine is emit-then-prove-and-elide; cadence is rank-1
+measurement before substrate work. **String identity** — Phase 1-3
+shipped 2026-05-05 (HEAD `2e99566`). 4 contract-divergence tests
+green, 419/419 parity holds, ~4.5× saving per elided allocation
+site (rank 1).
+
+**Primitive-wrapper identity** — Phase 4 not started. Cadence:
+
+1. **Build identity parity battery** (~60-100 cases, 2-3 days).
+   Probe `valueOf` cache range identity, `new <Wrapper>(x)`
+   always-fresh identity, `Boolean.TRUE / FALSE` constant
+   identity, `Character.valueOf` cache for [0,127),
+   `System.identityHashCode` of boxed primitives, autobox-cache
+   range crossing, `==` between mixed-source boxed values.
+   Target battery files at
+   `bench/parity/cases/identity-Integer.json`,
+   `identity-Long.json`, `identity-Boolean.json`, etc.
+2. **Run battery against current PHPJava** — generate rank-1
+   evidence of how non-compliant the implementation is. The
+   pre-Phase-4 known non-compliance (`new Integer(5).intValue()`
+   broken at runtime) will surface here, plus other divergences.
+3. **Build substrate to close measured divergences** — same
+   pattern as Phase 1-3 for String:
+   `<Wrapper>_Identity` classes, `new+dup+invokespecial<init>`
+   peephole rewrites for `new <Wrapper>(...)`, `valueOf`-cache-range
+   identity for cached values, instance-method lowering changes
+   (`intValue` / `equals` / etc.) when receiver is a wrapper,
+   WrapperEscapePass FQN extension.
+4. **Re-run battery** — confirm 0 divergences. Update
+   CONTRACTS.md §1's "What's measured vs unmeasured" table.
+
+**Pre-Phase-4 fix candidate** (independently shippable, ~5 LOC):
+extend the `new+dup+invokespecial<init>` peephole at
+`src/Aot/Ir/Builder.php:1349` so `new <PrimitiveWrapper>(x)`
+elides to `x` (matching `Integer.valueOf(x) → x`). Aligns broken
+AOT output with the current eliminate-entirely doctrine pending
+Phase 4. Phase 4 then replaces the elision with allocation-of-
+identity-wrapper for sites the parity battery shows it matters.
+
 ### Build — capability extension (~6–8 weeks for v1)
 
 The v1 gate is bb-allowlist non-stub fill. Path D′ oracle is its
@@ -864,6 +908,9 @@ broadly.
 | LambdaMetafactory + altMetafactory (AOT path) | `src/Aot/Ir/Builder.php:1637–1640,1819–1851` |
 | Symfony Console version constraint | `composer.json:20` `^5.4|^6.0|^7.0` |
 | Path C stub generator + 110 stubs | `tools/gen-aot-stubs.php`; `src/Aot/Runtime/java/**` |
+| Phase 1 String identity (`new String(s)` allocates wrapper) | `src/Aot/Runtime/java/lang/String_Identity.php`; commit `828b4ba` |
+| Phase 2 String identity (StringPool + concat-wrap + intern + identityHashCode) | `src/Aot/Runtime/StringPool.php`; commit `b26c01e`; closes 4 contract-divergence tests |
+| Phase 3 WrapperEscapePass (elide non-observed allocations) | `src/Aot/Ir/WrapperEscapePass.php`; commit `2e99566`; ~4.5× saving per elided site (rank 1) |
 
 ## What's not on the roadmap
 
