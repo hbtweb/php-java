@@ -1839,15 +1839,17 @@ final class Builder
         }
 
         // StringConcatFactory: decode recipe + concat with PHP `.`.
-        // Phase 2 (wrap concat result in String_Identity) attempted
-        // and reverted: it fixed testNotInterned/testNotInternedAfterLiteral
-        // but broke testIntern, which depends on intern() updating the
-        // literal pool such that a subsequent LDC of "test" returns
-        // the canonicalised wrapper. PHP has no implicit-pool
-        // mechanism; the proper fix is a real intern-pool (LDC routes
-        // through pool, intern() registers the wrapper, subsequent
-        // literal access returns the registered instance). That's a
-        // mid-sized feature deferred to its own commit.
+        // Wrap the concat result in String_Identity — Phase 2 of the
+        // emit-then-prove-and-elide contract (CONTRACTS.md §1).
+        // Java's spec says `te + st` produces a String distinct from
+        // any literal "test"; that distinction surfaces via
+        // System.identityHashCode and `==`. Wrapping per-allocation
+        // gives every concat result its own per-instance identity
+        // (tracked via spl_object_id), while String_::intern routes
+        // through the pool to canonicalise. Phase 3
+        // (WrapperEscapeAnalysis) elides this allocation when the
+        // method demonstrably never observes the wrapper's
+        // identity, restoring the perf shape for the common case.
         if ($bsmClass === 'java/lang/invoke/StringConcatFactory'
             && $bsmMethod === 'makeConcatWithConstants') {
             $bsmArgs = $bsm->getBootstrapArguments();
@@ -1861,7 +1863,12 @@ final class Builder
             for ($i = $argc - 1; $i >= 0; $i--) $args[$i] = $this->pop();
             ksort($args);
             $args = array_values($args);
-            $this->push($this->buildConcatExpr($recipe, $args));
+            $concatExpr = $this->buildConcatExpr($recipe, $args);
+            $this->push(new New_(
+                '\\PHPJava\\Aot\\Runtime\\java\\lang\\String_Identity',
+                [$concatExpr],
+                null
+            ));
             return;
         }
 

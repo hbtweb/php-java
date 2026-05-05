@@ -73,19 +73,32 @@ class System
 
     /**
      * Java System.identityHashCode(Object) — identity-based hash.
-     * Under PHPJava AOT contract, primitives have no per-instance
-     * identity; this implementation returns spl_object_id for objects
-     * and the value's hashCode for scalars. testIdentityHashCode in
-     * the suite asserts inequality between two `new String(s)`
-     * instances — that's a contract divergence (PHP string IS Java
-     * String, no identity per instance). The test stays failing with
-     * a documented reason rather than us pretending identity exists.
+     *
+     * For objects, return spl_object_id — a stable per-instance int
+     * (matches Java's identity-distinct contract for distinct refs).
+     *
+     * For raw PHP strings, route through StringPool: a literal
+     * "test" has no per-instance heap identity in PHP, but the pool
+     * gives it one — first identity-observation allocates a
+     * canonical String_Identity wrapper; subsequent observations
+     * return the same wrapper's spl_object_id. This is what makes
+     * testIntern's `identityHashCode("test") == identityHashCode(
+     * test.intern())` round-trip hold: `test.intern()` registers
+     * the concat wrapper as canonical in the pool; the literal's
+     * identity-observation then returns the same wrapper.
+     *
+     * For ints/bools, fall through to value-hash. JVM bytecode
+     * doesn't reach these paths (autoboxing is elided per
+     * BOXING.md), but defensive coverage for explicit
+     * Integer/Boolean shim calls.
      */
     public static function identityHashCode($o): int
     {
         if ($o === null) return 0;
         if (\is_object($o)) return \spl_object_id($o);
-        if (\is_string($o)) return String_::hashCode($o);
+        if (\is_string($o)) {
+            return \spl_object_id(\PHPJava\Aot\Runtime\StringPool::intern($o));
+        }
         if (\is_int($o)) {
             return \PHPJava\Aot\Runtime\java\util\Objects::hashCode($o);
         }
@@ -340,12 +353,43 @@ class String_
     }
 
     /**
-     * Java: returns canonical pool reference for a string equal-by-
-     * value, adding to pool if needed. Under our contract PHP strings
-     * collapse equal-value into one scalar — the "pool" is just the
-     * PHP-string value space. intern is identity.
+     * Java String.intern() — Phase 2 of the identity contract.
+     *
+     * The receiver may arrive as either a `String_Identity` wrapper
+     * (from `new String(...)` or from StringConcatFactory output)
+     * or as a raw PHP string (from String literals or
+     * String.valueOf paths). Both cases route through StringPool:
+     *
+     *   - Wrapper receiver: pool-canonicalise. If the pool already
+     *     contains an entry for this value (e.g., the literal was
+     *     observed first via System.identityHashCode), return that
+     *     canonical wrapper; otherwise register the receiver as
+     *     canonical. **Returns the canonical wrapper** so callers
+     *     using the result for further identity checks see the
+     *     pool-resident reference, matching Java's
+     *     `s.intern() == "literal"` round-trip.
+     *
+     *   - Raw-string receiver: ensure the pool has an entry for
+     *     this value (allocating if missing); return the raw
+     *     string. The pool is updated for downstream
+     *     identityHashCode calls; the raw return keeps shim
+     *     compatibility for callers that chain value-based
+     *     operations.
+     *
+     * Drop the `string` type hint on the parameter — `mixed`
+     * accepts both wrapper and raw forms; AOT-emitted code in
+     * coercive mode would auto-coerce a Stringable-to-string
+     * anyway, but accepting the wrapper directly preserves
+     * identity for the wrapper path.
      */
-    public static function intern(string $s): string { return $s; }
+    public static function intern($s)
+    {
+        if ($s instanceof String_Identity) {
+            return \PHPJava\Aot\Runtime\StringPool::internWrapper($s);
+        }
+        \PHPJava\Aot\Runtime\StringPool::intern((string) $s);
+        return $s;
+    }
 }
 
 /**

@@ -88,27 +88,44 @@ Phased migration:
     Closes 2 of 4 contract-divergence tests
     (testIntern, testIdentityHashCode); 2 remain (testNotInterned,
     testNotInternedAfterLiteral) pending Phase 2.
-  - **Phase 2 (deferred)** — wrap StringConcatFactory results +
-    real intern-pool implementation (literal LDC routes through pool;
-    intern() registers wrappers; subsequent literal access returns
-    canonical entry). Mid-sized substrate work; closes the remaining
-    2 tests. **Spike attempted in commit 828b4ba; reverted because
-    naive concat-wrap broke testIntern (intern semantics depend on
-    pool update). Proper fix: full intern pool.**
+  - **Phase 2 (shipped 2026-05-05)** — process-global string pool
+    (`src/Aot/Runtime/StringPool.php`); StringConcatFactory output
+    wrapped in fresh `String_Identity` (IR Builder); `String.intern`
+    pool-canonicalises wrapper receivers and registers raw-string
+    receivers; `System.identityHashCode` of a raw string routes
+    through pool's lazy-allocated canonical wrapper. Together these
+    give: concat results have distinct per-instance identity;
+    `intern()` round-trips so identityHashCode of the
+    canonicalised concat matches the literal; literals have a
+    stable canonical identity allocated on first observation.
+    **Closes the remaining 4 of 4 contract-divergence tests** —
+    suite 0E / 0F / 2S; the 2 skips are KotlinTest +
+    OutputDebugTraceTest, both pre-existing and unrelated.
+    Parity 419/419 holds (no regressions across 11 case batteries).
+    LDC of String literals stays as raw PHP string (no wrapping at
+    LDC time) — minimises shim-signature blast radius; raw-string
+    transparency works because AOT-emitted PHP is in coercive mode
+    and `String_Identity` implements `Stringable`.
   - **Phase 3 (deferred)** — `WrapperEscapeAnalysis` IR pass.
     Per-method dataflow: prove the wrapper isn't observed (no
     identityHashCode, no `==` against another instance, no escape
     past method boundary, no IdentityHashMap use). When safe, elide
     the allocation — emit just the inner value. Restores the
     perf characteristics of unconditional elision while preserving
-    correctness for cases where identity IS observed.
+    correctness for cases where identity IS observed. Phase 2's
+    perf cost is bounded to per-concat allocation; Phase 3 elides
+    the common case where the concat result is consumed
+    immediately (println, equals, toUpperCase, etc.) and never
+    identity-checked.
   - **Phase 4 (deferred)** — extend Phase 1-3 to the other primitive
     wrappers (Integer, Long, Double, Float, Boolean, Character).
     Same model; same rationale.
 
-Until Phase 3, allocations occur for every `new String(...)` site —
-perf cost bounded to that surface. Common code paths (literals,
-concat, valueOf) still produce raw PHP scalars.
+Until Phase 3, allocations occur for every `new String(...)` site
+**and every StringConcatFactory call site** — perf cost bounded to
+those two surfaces. Phase 3's escape-analysis pass elides the
+allocation when the wrapper's identity is provably never observed
+within the method.
 
 The earlier "boxing-elimination" framing measured 5-9× speedup —
 that's preserved for the elided cases. The new contract makes
