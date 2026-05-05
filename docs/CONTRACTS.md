@@ -66,12 +66,54 @@ compiler's slot-type table:
 - Control-flow-merged across primitive types → tagged tuple `['I', $v]` at
   autobox sites only (rare; ~5% of code paths, ~25 ns/op cost)
 
-### Documented divergence
+### Documented divergence — being progressively removed
 
 `Integer.valueOf(200) == Integer.valueOf(200)` returns `false` in Java
-(identity). Returns `true` in PHPJava (value equality). Affects only
-buggy Java code that uses `==` on boxed types (every style guide forbids
-this). We accept the divergence; document it.
+(identity). Returns `true` in PHPJava (value equality) when wrappers
+elide. Affects only Java code that uses `==` on boxed types (every
+style guide forbids this).
+
+**As of 2026-05-05** (per Apollo's directive: "we should never have
+this kind of contractual drift"), the value-representation contract
+shifts from **unconditional elision** to **emit-then-prove-and-elide**.
+Java semantics is the ground truth; the compiler proves locally when
+elision is safe.
+
+Phased migration:
+
+  - **Phase 1 (shipped)** — `new String(s)` allocates a
+    `String_Identity` wrapper preserving Java identity semantics.
+    System.identityHashCode / `==` / IdentityHashMap distinguish
+    wrapper instances. See `src/Aot/Runtime/java/lang/String_Identity.php`.
+    Closes 2 of 4 contract-divergence tests
+    (testIntern, testIdentityHashCode); 2 remain (testNotInterned,
+    testNotInternedAfterLiteral) pending Phase 2.
+  - **Phase 2 (deferred)** — wrap StringConcatFactory results +
+    real intern-pool implementation (literal LDC routes through pool;
+    intern() registers wrappers; subsequent literal access returns
+    canonical entry). Mid-sized substrate work; closes the remaining
+    2 tests. **Spike attempted in commit 828b4ba; reverted because
+    naive concat-wrap broke testIntern (intern semantics depend on
+    pool update). Proper fix: full intern pool.**
+  - **Phase 3 (deferred)** — `WrapperEscapeAnalysis` IR pass.
+    Per-method dataflow: prove the wrapper isn't observed (no
+    identityHashCode, no `==` against another instance, no escape
+    past method boundary, no IdentityHashMap use). When safe, elide
+    the allocation — emit just the inner value. Restores the
+    perf characteristics of unconditional elision while preserving
+    correctness for cases where identity IS observed.
+  - **Phase 4 (deferred)** — extend Phase 1-3 to the other primitive
+    wrappers (Integer, Long, Double, Float, Boolean, Character).
+    Same model; same rationale.
+
+Until Phase 3, allocations occur for every `new String(...)` site —
+perf cost bounded to that surface. Common code paths (literals,
+concat, valueOf) still produce raw PHP scalars.
+
+The earlier "boxing-elimination" framing measured 5-9× speedup —
+that's preserved for the elided cases. The new contract makes
+elision a *local optimisation* rather than a *global semantic
+sacrifice*.
 
 ### Eliminated: tagged-string conventions for non-string values
 

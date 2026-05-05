@@ -1839,6 +1839,15 @@ final class Builder
         }
 
         // StringConcatFactory: decode recipe + concat with PHP `.`.
+        // Phase 2 (wrap concat result in String_Identity) attempted
+        // and reverted: it fixed testNotInterned/testNotInternedAfterLiteral
+        // but broke testIntern, which depends on intern() updating the
+        // literal pool such that a subsequent LDC of "test" returns
+        // the canonicalised wrapper. PHP has no implicit-pool
+        // mechanism; the proper fix is a real intern-pool (LDC routes
+        // through pool, intern() registers the wrapper, subsequent
+        // literal access returns the registered instance). That's a
+        // mid-sized feature deferred to its own commit.
         if ($bsmClass === 'java/lang/invoke/StringConcatFactory'
             && $bsmMethod === 'makeConcatWithConstants') {
             $bsmArgs = $bsm->getBootstrapArguments();
