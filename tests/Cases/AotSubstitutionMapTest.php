@@ -3,14 +3,10 @@ declare(strict_types=1);
 namespace PHPJava\Tests\Cases;
 
 /**
- * Validates the substitution-table API in the AOT compiler — the
- * cljp dual-runtime hook (see `~/GitHub/ClojurePHP/docs/CLJP-POSITIONING.md`
- * §"The substitution table is the load-bearing piece"). When AOT-
- * compiling a JAR that references `clojure.lang.X`, the substitution
- * map redirects the FQN at translate time so the emitted PHP calls
- * `cljp.lang.X` directly — both halves run on the same Zend heap
- * with the same `zval` shape, so cross-runtime invocation is
- * a direct method dispatch with no marshalling cost.
+ * Validates the substitution-table API in the AOT compiler. This is a
+ * generic FQN remap escape hatch for tests and advanced embedding, not a
+ * CLJP `clojure.lang.*` bridge. CLJP owns Clojure semantics directly and
+ * crosses into Java through explicit interop adapters.
  *
  * The probe uses a fixture that calls a well-known
  * `java.util.regex.Pattern` static method; substitution remaps that

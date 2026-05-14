@@ -234,7 +234,7 @@ lift IR coverage to ~99% on commons-lang3.
 
 Full report + reproduction in [`bench/probe-real-library.md`](../bench/probe-real-library.md).
 
-**Compile-output caching landed (2026-05-03):** `Compiler::compileBytes` and `compileClass` cache the rendered PHP per (classPath, bytes-hash). Rank-1 measured: **2649× speedup** on cache hits (1578 µs cold → 0.6 µs warm). For Clojure-boot equivalent (~600 classes per CLOJURE-BOOT-ANALYSIS.md): **947 ms cold → ~0 ms cache replay**. This is the realistic answer to "make compile fast for runtime use" — far bigger lever than any IR-layer micro-optimization.
+**Compile-output caching landed (2026-05-03):** `Compiler::compileBytes` and `compileClass` cache the rendered PHP per (classPath, bytes-hash). Rank-1 measured: **2649× speedup** on cache hits (1578 µs cold → 0.6 µs warm). For a large-classpath stress corpus (~600 classes per CLOJURE-BOOT-ANALYSIS.md): **947 ms cold → ~0 ms cache replay**. This is the realistic answer to "make compile fast for runtime use" — far bigger lever than any IR-layer micro-optimization.
 
 **IR-path is now the production default** in `Compiler::compileFromGenericClass`, with string-path fallback for unsupported opcodes. All 9 fixtures lift through IR with zero fallbacks. The IR Builder's structural stack-erasure produces 30-43% smaller emit than the post-emit peephole on multi-method fixtures (rank-1 verified via contract gate).
 
@@ -350,7 +350,7 @@ Read in this order if landing fresh:
 | 8 | `docs/STATUS.md` | this doc — where we are now |
 | 9 | `ROADMAP.md` | tier ordering, exit criteria |
 | ref | `docs/GAP-JDK.md` | concrete JDK version deltas (Java 19 → 21 → 25) |
-| ref | `docs/CLOJURE-BOOT-ANALYSIS.md` | empirical class-load trace from Clojure boot |
+| ref | `docs/CLOJURE-BOOT-ANALYSIS.md` | historical class-load stress trace; used as JDK-surface input only |
 | ref | `docs/ADJACENT-SHAPES.md` | TeaVM, DoppioJVM, bb, cljp landscape |
 | ref | `bench/README.md` | bench methodology + LD_PRELOAD finding |
 | ref | `bench/profile-c930e2c.md` | xhprof attribution of accidental costs |
@@ -403,7 +403,7 @@ context only.
 |---|---|---|---|
 | T0 — contracts | 3–5 wks | **mostly done** — CONTRACTS.md committed | |
 | T1 — class file format + indy | 3–5 wks | unchanged | |
-| T2 — bb-allowlist core | ~80 classes | **233 classes** | empirical from Clojure boot trace |
+| T2 — bb-allowlist core | ~80 classes | **233 classes** | empirical stress-corpus expansion, not a Clojure runtime goal |
 | T3 — concurrency | ~6 classes | **~50 classes** | full `java.util.concurrent.*` |
 | T4 — bb-allowlist tail | ~300 classes | **150 classes** | smaller than thought |
 | T5 — `Unsafe` + JDK-internal stubs | ~10 surfaces | **~100 stubs + `Unsafe`** | needed for ConcurrentHashMap |
@@ -460,8 +460,8 @@ is capability surface + production hardening.
    `JavaClassAotMethodInvoker`.
 6. Lambda metafactory implementation (`StringConcatFactory` +
    `LambdaMetafactory`). Single biggest capability unlock.
-7. `defineClass(byte[])` extension surface (~3 days). Enables
-   Clojure-on-PHPJava follow-on work.
+7. `defineClass(byte[])` extension surface (~3 days). Supports Java
+   libraries and frameworks that generate classes at runtime.
 8. Long-running soak test in Swoole. Measure cache hit rate, memory,
    latency.
 
@@ -471,8 +471,8 @@ from PHP code with idiomatic types at the boundary, runs in a Swoole
 daemon for 24h without memory growth.**
 
 The longer-tail T2 surface (233 classes from `docs/CLOJURE-BOOT-ANALYSIS.md`)
-runs after this milestone. That tail is mechanical implementation work,
-not architecture.
+runs after this milestone as a broad JDK stress corpus. That tail is
+mechanical implementation work, not architecture.
 
 ## Risk register
 

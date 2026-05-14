@@ -85,9 +85,9 @@ long-running PHP processes**, with the v1 success line being:
 
 > test suite passes 100%, interpreter runs at ≤ 100 ns/op, AOT runs at
 > ≤ 5 ns/op, and the bb allowlist surface (~80 most-used classes from
-> babashka's `src/babashka/impl/classes.clj`) is non-stub. From there,
-> Clojure boot and the long tail are probes against existing
-> infrastructure rather than new architecture. — `ROADMAP.md`
+> babashka's `src/babashka/impl/classes.clj`) is non-stub. That
+> allowlist is a measured JDK-surface stress corpus, not a Clojure
+> runtime goal. — `ROADMAP.md`
 
 Of the four conditions:
 - **Test suite 100%**: ✓ achieved this session (45 pass / 2 skipped /
@@ -148,7 +148,7 @@ the architecture is no longer the bottleneck. **JDK shim coverage is**.
 | Phase D — interpreter delete | Suite-passing prerequisite finally met; the actual delete still pending | All cuts identified in `docs/PATTERNS.md` lines 540-559. ~20 kloc removable. The `OutputDebugTraceTest::testCallMain` skip plus the legacy `Kernel/Mnemonics/_*` are the visible scaffolding. |
 | Phase E — legacy PHP→bytecode stack cut | Independent | `Compiler/Lang/Assembler/`, `Compiler/Builder/`, `Compiler/Emulator/` (~12.5 kloc combined). |
 | Q-future — bidirectional IR pipeline | Strategic | PHP-source → JVM-bytecode via Aot/Ir, sketched in `docs/LAYERS.md`. |
-| **JDK shim T2 surface (~233 classes)** | **The remaining v1 thrust** | ~80% of `src/Packages/` files throw `NotImplementedException`. `docs/CLOJURE-BOOT-ANALYSIS.md` enumerates the bb allowlist subset (~80 classes from babashka). |
+| **JDK shim T2 surface (~233 classes)** | **The remaining v1 thrust** | ~80% of `src/Packages/` files throw `NotImplementedException`. `docs/CLOJURE-BOOT-ANALYSIS.md` is retained as a historical JDK-surface stress trace, not as a product goal. |
 | Path D′ behavioural oracle | Strategic, ~1 week | Per-method JVM-side parity capture, foundation for clean-room shim authoring. Not started. |
 | Stub generator (Path C, ~1 day) | Mechanical | javap-based; emits PHP class declarations with `NotImplementedException` bodies for the 130 stub-only T2 classes. Not started. |
 | Multi-interface implementation | Single-interface impl works (extends-as-abstract-class) | Multi needs PHP traits + interface combo. Not exercised by current tests. |

@@ -154,19 +154,15 @@ final class Builder
     public function setOverloadIndex(array $idx): void { $this->overloadIndex = $idx; }
 
     /**
-     * Substitution table for cross-runtime FQN remapping at AOT
-     * translate time. Keys are JVM binary names (e.g.
-     * `clojure/lang/PersistentHashMap`); values are PHP FQNs to emit
-     * instead of the default `\PHPJava\Aot\Runtime\<binary>` path.
+     * Substitution table for low-level FQN remapping at AOT translate
+     * time. Keys are JVM binary names (for example
+     * `java/util/regex/Pattern`); values are PHP FQNs to emit instead of
+     * the default `\PHPJava\Aot\Runtime\<binary>` path.
      *
-     * Used by the cljp dual-runtime story (per
-     * `~/GitHub/ClojurePHP/docs/CLJP-POSITIONING.md` §"The substitution
-     * table is the load-bearing piece") so emulated `clojure.lang.*`
-     * references resolve to cljp-native `cljp.lang.*` types — both
-     * halves run on the same Zend heap with the same `zval` shape, so
-     * the substituted call lands on objects the cljp side already
-     * produces; no marshalling, no double-allocation, just direct
-     * Zend method dispatch.
+     * This is a generic AOT escape hatch for tests and advanced embedding.
+     * It is not a CLJP `clojure.lang.*` bridge; CLJP owns Clojure
+     * semantics directly and crosses into Java through explicit interop
+     * adapters.
      *
      * @var array<string,string>  binaryName → replacement PHP FQN
      */
@@ -2285,9 +2281,8 @@ final class Builder
     {
         if ($binaryName === $this->currentClassBin) return 'self';
         // Substitution table — runs ahead of JDK / AOT-emitted routing.
-        // Same-Zend-heap FQN remap for cljp dual-runtime. The replacement
-        // is taken verbatim (caller responsibility to use a leading
-        // backslash for absolute FQNs).
+        // Generic FQN remap; the replacement is taken verbatim (caller
+        // responsibility to use a leading backslash for absolute FQNs).
         if (isset($this->substitutionMap[$binaryName])) {
             return $this->substitutionMap[$binaryName];
         }

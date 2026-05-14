@@ -6,9 +6,9 @@ namespace PHPJava\Tests\Cases;
  * Validates the minimum-viable `sun.misc.Unsafe` shim
  * (`src/Aot/Runtime/sun/misc/Unsafe.php`) shipped under
  * ROADMAP §Build #7. The shim is the load-bearing dependency for
- * `java.util.concurrent.atomic.*` and `ConcurrentHashMap` (per
- * `docs/CLOJURE-BOOT-ANALYSIS.md` §"JDK-internal hot paths"); without
- * it, neither family can be implemented.
+ * `java.util.concurrent.atomic.*` and `ConcurrentHashMap` (also flagged
+ * by the historical stress corpus in `docs/CLOJURE-BOOT-ANALYSIS.md`);
+ * without it, neither family can be implemented.
  *
  * These tests exercise the shim directly (no AOT-compiled bytecode
  * yet). They validate the offset-mapping + CAS + atomic-add semantics

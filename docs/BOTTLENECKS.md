@@ -201,9 +201,9 @@ secure; for non-crypto use cases (Java `Math.random()`), use
 
 ### J. Class initialization (`<clinit>`)
 
-Runs once per class, can be expensive. If `clojure.lang.RT.<clinit>`
-loads many classes transitively, this can hit hundreds of milliseconds
-on first access.
+Runs once per class, can be expensive. If a large Java framework's
+static initializer loads many classes transitively, this can hit
+hundreds of milliseconds on first access.
 
 **Mitigation:**
 - Eager AOT compilation: `<clinit>` is just regular PHP code; opcache

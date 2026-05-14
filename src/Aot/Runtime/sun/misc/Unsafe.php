@@ -7,10 +7,9 @@ namespace PHPJava\Aot\Runtime\sun\misc;
  *
  * Used by `java.util.concurrent.atomic.*` (Atomic{Integer,Long,Reference})
  * and the internals of `ConcurrentHashMap` for compare-and-swap operations.
- * Without it, neither family can be implemented; per
- * `docs/CLOJURE-BOOT-ANALYSIS.md` §"JDK-internal hot paths", `Unsafe`
- * is the load-bearing dependency for the entire `j.u.concurrent.*`
- * surface that Clojure boot transitively touches.
+ * Without it, neither family can be implemented; the historical stress
+ * corpus in `docs/CLOJURE-BOOT-ANALYSIS.md` also flags `Unsafe` as the
+ * load-bearing dependency for the broad `j.u.concurrent.*` surface.
  *
  * PHP is effectively single-threaded (Fibers + Swoole coroutines
  * cooperatively schedule; OS threads via `parallel` extension are

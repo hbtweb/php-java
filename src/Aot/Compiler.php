@@ -161,24 +161,24 @@ final class Compiler
     }
 
     /**
-     * @param array<string,string> $substitutionMap  Optional cross-runtime
+     * @param array<string,string> $substitutionMap  Optional low-level
      *        FQN remap consulted at every CP class-ref / Methodref
-     *        resolution. Keys are JVM binary names (e.g.
-     *        `clojure/lang/PersistentHashMap`); values are PHP FQNs to
-     *        emit instead of the default `\PHPJava\Aot\Runtime\…` path.
-     *        Used by the cljp dual-runtime story — see
-     *        `~/GitHub/ClojurePHP/docs/CLJP-POSITIONING.md`
-     *        §"The substitution table is the load-bearing piece". The
-     *        cache key includes a hash of the map so substituted and
-     *        non-substituted compiles don't collide.
+     *        resolution. Keys are JVM binary names (for example
+     *        `java/util/regex/Pattern`); values are PHP FQNs to emit
+     *        instead of the default `\PHPJava\Aot\Runtime\…` path.
+     *        This is a generic AOT escape hatch for tests and advanced
+     *        embedding. It is not a CLJP `clojure.lang.*` bridge; CLJP
+     *        owns Clojure semantics directly. The cache key includes a
+     *        hash of the map so substituted and non-substituted compiles
+     *        don't collide.
      */
     public function compileBytes(string $classPath, string $classBytes, array $substitutionMap = []): string
     {
         // Cache key: hash of (classPath, bytes, substitutionMap).
         // Different class names for the same bytes produce different
         // output (the namespace + class identifier change), and the
-        // substitution map changes every cross-class resolution — both
-        // go into the key.
+        // substitution map changes cross-class resolution — both go into
+        // the key.
         $mapHash = empty($substitutionMap) ? '' : \hash('xxh3', \json_encode($substitutionMap));
         $key = \hash('xxh3', $classPath . "\0" . $classBytes . "\0" . $mapHash);
         if (isset(self::$compileBytesCache[$key])) {

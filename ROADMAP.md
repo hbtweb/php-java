@@ -10,15 +10,14 @@
 
 A JVM-bytecode-to-PHP translator for **long-running PHP processes**
 (Swoole / AMPHP / RoadRunner / FrankenPHP) and request-scoped FPM
-deployments. Run Java libraries from PHP code with idiomatic types at
-the boundary; serve as a JVM substrate for languages that target it.
+deployments. Run Java libraries from PHP and CLJP code with idiomatic
+types at the boundary.
 
 **Concrete success line for v1:** the test suite passes 100%, the
 interpreter runs at ≤ 100 ns/op, AOT runs at ≤ 5 ns/op, and the bb
 allowlist surface (~80 most-used classes from babashka's
-`src/babashka/impl/classes.clj`) is non-stub. From there, Clojure boot
-and the long tail are probes against existing infrastructure rather
-than new architecture.
+`src/babashka/impl/classes.clj`) is non-stub. That allowlist is a
+measured JDK-surface stress corpus, not a Clojure runtime goal.
 
 ## Falsifiers (revised after measurement)
 
@@ -183,7 +182,8 @@ Required by every implementation strategy; written once, used by all.
 | T5 — extension surfaces | `defineClass(byte[])`, `Instrumentation`, `Unsafe` (FFI when available) | 4–8 weeks |
 
 T2 + T3 together unblock most P1 use cases (single Java library called
-from PHP). T5 unblocks Clojure-on-PHPJava and dynamic-language hosting.
+from PHP). T5 supports generated-bytecode and dynamic-class-loading
+cases used by Java frameworks and tools.
 
 Strategy: each shim class gets a focused integration test that exercises
 every method against a JVM-side oracle (real JVM via FFM transport). The
@@ -458,7 +458,7 @@ Each is a question answered by running, not built features.
 | Probe | Question |
 |---|---|
 | Q3.1 — Java library call | Does PDFBox / Tika / iText work end-to-end from PHP? |
-| Q3.2 — Clojure boot | Does `clojure-1.13.0-slim.jar` reach `user=>` REPL? |
+| Q3.2 — CLJP Java interop | Can CLJP import and call a php-java AOT'd Java class end-to-end? |
 | Q3.3 — hot reload | Edit `.java`, re-AOT, callers see new methods? |
 
 ## Next-work hierarchy (post-2026-05-04 audit)

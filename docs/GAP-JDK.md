@@ -271,7 +271,7 @@ Ordering by *enabling other work* + *probability of need*:
 13. **Scoped Values shim.** 1 week.
 14. **Class-File API package — `java.lang.classfile.*`** — only if needed by deps. Defer.
 
-Items 1–11 land us at Java 21 with running lambdas. That's the line where Clojure boot becomes possible (modulo concurrency adapter and stub fill from Phase 4 of the roadmap).
+Items 1–11 land us at Java 21 with running lambdas. That's the line where modern Java libraries become realistic targets (modulo concurrency adapter and stub fill from Phase 4 of the roadmap).
 
 Items 12–13 take us to Java 25 LTS.
 
@@ -280,7 +280,7 @@ Items 12–13 take us to Java 25 LTS.
 ## 10. Caveats and unknowns
 
 - `[rank 4]` All effort estimates are read-from-source intuition, not measured. Each item could be 2–3× larger if reflection, verifier, or class-loading edge cases bite.
-- The 295 unfilled `Packages/` stubs (ROADMAP Phase 4) are orthogonal to this version-gap work but *both* are needed for Clojure boot. Version gap closes the **load-time** door; stub fill closes the **runtime resolution** door.
+- The 295 unfilled `Packages/` stubs (ROADMAP Phase 4) are orthogonal to this version-gap work but *both* are needed for broad Java-library support. Version gap closes the **load-time** door; stub fill closes the **runtime resolution** door.
 - The Java compiler's preview-class-file marker (minor version 65535) is unhandled. Class files with `--enable-preview` use that marker. PHPJava's `SDKVersionResolver` looks at major+minor as a string key (`"65.0"`); a preview file is `"65.65535"`, which won't match. Preview features are out of scope for this roadmap, so this is a tractable-and-explicit-error case rather than a silent miss.
 - `[rank 5 — recalled, not verified against current OpenJDK 25 source]` Some Project Valhalla / value-class preview features use new attributes (`LoadableDescriptors`, `ImplicitCreation`, `Preload`). These are preview and outside this roadmap's target.
 

@@ -77,9 +77,10 @@ specifically the bb allowlist (~80 most-used classes from babashka's
 5. ~12.5 kloc removal of `Compiler/Lang/Assembler/`,
    `Compiler/Builder/`, `Compiler/Emulator/`. Independent of D.
 
-**End-state milestone:** **Clojure boot on PHPJava AOT, in a Swoole
-daemon, sustained.** The AOT pipeline is correctness-complete for this;
-what's left is shim-layer fill.
+**End-state milestone:** **real Java libraries AOT-compile and are
+callable from PHP and CLJP in a Swoole daemon, sustained.** The AOT
+pipeline is correctness-complete for this; what's left is shim-layer
+fill.
 
 ## Document map
 
@@ -99,7 +100,7 @@ Read in this order if landing fresh on the repo:
 - [`docs/BOTTLENECKS.md`](docs/BOTTLENECKS.md) — every measured cost + type emulation guidance
 - [`docs/JVM-PHP-DELTA.md`](docs/JVM-PHP-DELTA.md) — platform/semantic/API differences (rank-1 verified, with PHP and Java behaviors probed locally)
 - [`docs/GAP-JDK.md`](docs/GAP-JDK.md) — Java 19 → 21 → 25 deltas, prioritised work list
-- [`docs/CLOJURE-BOOT-ANALYSIS.md`](docs/CLOJURE-BOOT-ANALYSIS.md) — empirical Clojure class-load trace
+- [`docs/CLOJURE-BOOT-ANALYSIS.md`](docs/CLOJURE-BOOT-ANALYSIS.md) — historical class-load stress trace used only as JDK-surface input
 - [`bench/README.md`](bench/README.md) — benchmark methodology + LD_PRELOAD finding
 - [`bench/profile-c930e2c.md`](bench/profile-c930e2c.md) — xhprof profile attribution
 - [`bench/PATTERN-VALIDATION.md`](bench/PATTERN-VALIDATION.md) — dispatch/array/boxing measurements

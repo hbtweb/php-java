@@ -285,12 +285,11 @@ what's available for a given class.
    Zend). Capability = addition (implement more of the JVM contract).
    Both proceed in parallel, with different success criteria.
 
-This frames Phase 5+ of the roadmap differently. The Clojure-boot
-probe targets the **interpreter path** (Clojure synthesises classes at
-runtime via `defineClass(byte[])` — those CAN'T be eagerly AOT'd).
-Then a per-process lazy AOT cache catches synthesised classes on second
-call onward. Pre-compiled `.class` files in the JAR (most of
-`clojure.core`) AOT eagerly at build time.
+This frames Phase 5+ of the roadmap differently. Runtime-generated
+classes target the **interpreter path** first (`defineClass(byte[])`
+output cannot be eagerly AOT'd before it exists). Then a per-process
+lazy AOT cache catches synthesised classes on second call onward.
+Pre-compiled `.class` files in Java libraries AOT eagerly at build time.
 
 The clean form: **eager AOT for everything we can predict; lazy AOT for
 everything the runtime produces; interpreter for cold and one-shot.**

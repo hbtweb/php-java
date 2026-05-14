@@ -515,8 +515,9 @@ Java regex syntax is mostly PCRE-compatible. Edge cases:
 | `Future`, `CompletableFuture` | Fiber-based async |
 | `ExecutorService` | thin pool of Fibers/coroutines |
 
-This is the largest stdlib chunk to implement (per `docs/CLOJURE-BOOT-ANALYSIS.md`,
-~50 classes from `java.util.concurrent.*` are touched at Clojure boot).
+This is the largest stdlib chunk to implement (per the historical
+stress corpus in `docs/CLOJURE-BOOT-ANALYSIS.md`, ~50 classes from
+`java.util.concurrent.*` are pulled in by a large JVM program).
 
 ---
 
@@ -760,5 +761,5 @@ target. This matches `docs/GAP-JDK.md`'s recommended target.
 - `docs/BOXING.md` — value representation
 - `docs/BOTTLENECKS.md` — what costs what
 - `docs/GAP-JDK.md` — version-by-version JVM gap
-- `docs/CLOJURE-BOOT-ANALYSIS.md` — empirical class-load study
+- `docs/CLOJURE-BOOT-ANALYSIS.md` — historical JDK stress trace
 - `bench/validate-*.php` — measurement harnesses

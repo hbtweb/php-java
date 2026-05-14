@@ -1,14 +1,18 @@
-# Clojure boot — class load analysis
+# Historical JDK stress trace from Clojure boot
 
 > Date: 2026-05-01.
 > Method: `java -verbose:class -cp clojure-1.13.0-slim.jar clojure.main -e '(println "ok")'`
 > Captured 2825 distinct class names; classified below.
+>
+> Status: historical stress trace only. PHPJava's product goal is running
+> Java libraries from PHP/CLJP, not running Clojure or `clojure.lang` on
+> PHPJava. This document remains useful as a broad JDK-surface corpus.
 
 ## Headline numbers
 
 | Set | Count |
 |---|---|
-| All classes loaded during Clojure boot | 2825 |
+| All classes loaded during the trace | 2825 |
 | `java.*` / `javax.*` classes loaded | 985 |
 | `clojure.*` classes loaded | 1458 |
 | Other (`sun.*`, `jdk.*`) | ~382 |
@@ -16,24 +20,24 @@
 | Set | Count |
 |---|---|
 | bb's curated allowlist (`src/babashka/impl/classes.clj`) | 383 |
-| **bb allowlist ∩ Clojure boot loads** | **233** |
-| Clojure boot loads NOT in bb allowlist | **752** |
+| **bb allowlist ∩ traced loads** | **233** |
+| Traced loads NOT in bb allowlist | **752** |
 
 ## What this means
 
-- **The `233` set is the "Clojure-boot-essential" subset of bb's allowlist.** This is the concrete T2 work scope — classes Clojure's `RT.<clinit>` and friends actually touch. 233 classes is roughly 3× bigger than the "~80 bb core" estimate in earlier ROADMAP.md drafts.
+- **The `233` set is a broad JDK stress subset of bb's allowlist.** It is useful T2 input because it touches real `java.*` / `javax.*` surfaces that Java libraries commonly rely on. It is not a commitment to boot Clojure on PHPJava.
 
-- **The `752` set is the gap bb gets free from GraalVM.** When bb is built with `native-image`, Graal bundles full OpenJDK implementations of all these classes — bb's allowlist just declares what's *exposed to user code*. PHPJava has no Graal substrate; every class Clojure transitively touches must either be implemented in PHP or stubbed.
+- **The `752` set shows how quickly a large JVM program pulls in JDK internals.** When bb is built with `native-image`, Graal bundles full OpenJDK implementations of these classes. PHPJava has no Graal substrate; any Java library that touches a similar surface must find either a PHP implementation or a deliberate stub.
 
 - **Many of the `752` are transitively required but never user-visible.** Classes like `java.io.UnixFileSystem`, `java.beans.Introspector`, `java.awt.Image` get loaded as part of static init chains in `java.io.File`, `java.lang.Class`, etc. They don't need full implementations — often a stub class with the right name and one or two methods is enough to satisfy class-loading.
 
-## Categorised gap (`752` classes Clojure loads that bb doesn't allowlist)
+## Categorised gap (`752` traced classes that bb doesn't allowlist)
 
 Hand-grouped from sampling the gap list:
 
 ### Likely-stub-only (load but don't actively use ~400 classes)
 
-- `java.awt.*` — Clojure boot touches `Image`, `FontMetrics`, etc. through reflection-driven introspection of `java.beans`. Never actually used.
+- `java.awt.*` — the trace touches `Image`, `FontMetrics`, etc. through reflection-driven introspection of `java.beans`. Never actually used.
 - `java.beans.*` — Introspector, BeanInfo, etc. Loaded by reflection paths that Clojure rarely takes.
 - `java.io.UnixFileSystem`, `DefaultFileSystem`, `FileCleanable` — internals of File. Never user-visible.
 - `sun.*`, `jdk.internal.*` — internals of OpenJDK. Stub for class-loading; never call.

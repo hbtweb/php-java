@@ -195,9 +195,10 @@ than a *global semantic sacrifice*.
 cljp uses `\x00`-prefixed tagged strings for symbols/keywords/chars.
 **PHPJava does not.** Java's `char` is a single-character PHP string;
 Java's `String` is a plain PHP string; Java has no symbol/keyword
-concept. If Clojure code running on PHPJava needs symbols, that's
-provided by `clojure.lang.Symbol` (a Java class running on PHPJava),
-not by PHPJava's value layer.
+concept. CLJP owns symbols and keywords directly in its runtime; if a
+Java-library interop boundary needs a symbol-like value, the CLJP bridge
+chooses an explicit adapter shape. PHPJava's value layer does not encode
+Clojure values.
 
 ### Rationale (rank 1, measured 2026-05-01)
 

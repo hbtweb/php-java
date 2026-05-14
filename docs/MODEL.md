@@ -118,9 +118,10 @@ executes natively.
                             CPU
 ```
 
-When Clojure code needs to call Java code (or vice versa), they
-**marshal at the language boundary** — a thin `cljp/java/bridge` shim.
-Cost is paid only at the crossing.
+When CLJP code needs to call Java code, or Java code receives a CLJP
+callback/value by explicit interop, they **marshal at the language
+boundary** — a thin `cljp/java/bridge` shim. Cost is paid only at the
+crossing.
 
 This corrects an earlier framing that suggested PHPJava should adopt
 cljp's `$GLOBALS`-as-runtime contract. That was wrong. cljp's runtime
@@ -137,7 +138,7 @@ interop is explicit.
 | P2 | PHP dev wants Clojure | any | cljp serves them — not PHPJava | unaffected |
 | P3 | Educator / curious about JVM internals | any | Readable interpreter / AOT output | bonus, not driver |
 | P4 | Migration project (Java → PHP) | varies | Run Java + gradual rewrite | secondary |
-| P5 | Polyglot dev (Clojure + Java libs) | **long-running (Swoole/AMPHP)** | bb-on-PHP equivalent | served by cljp + PHPJava + bridge |
+| P5 | Polyglot dev (CLJP + Java libs) | **long-running (Swoole/AMPHP)** | CLJP app can call Java libraries | served by cljp + PHPJava + bridge |
 | **P6** | Service developer running PHPJava as a daemon | **long-running (Swoole/AMPHP/RoadRunner/FrankenPHP)** | Lazy AOT; in-process state; long uptime | **primary target for design decisions** |
 
 P1 is the largest *potential* user group; P6 is the **primary
@@ -173,11 +174,10 @@ Clojure provides it on top of HotSpot.
 
 Specifically:
 - Plain Java: static dispatch, no redefinability infrastructure.
-- Clojure on PHPJava: `clojure.lang.Var` (a Java class) provides
-  indirection. PHPJava runs `Var` like any other Java class. Hickey's
-  pattern works on PHPJava unchanged because the JVM extension surfaces
-  it relied on (custom `ClassLoader` + `defineClass(byte[])` + Var
-  classes) are JVM features, not HotSpot-specific.
+- CLJP: redefinability, Vars, protocols, collections, and `clojure.lang`
+  shaped semantics are implemented by CLJP, outside PHPJava. If Java
+  library code needs a CLJP callback or value, the bridge supplies an
+  explicit adapter; PHPJava does not run CLJP's Clojure runtime.
 - Hot-reload tools (JRebel-style): `Instrumentation.redefineClasses` —
   an extension surface PHPJava can implement when needed.
 
@@ -274,7 +274,7 @@ Decision rule (proposal):
 
 ## Capability tier list — what to implement, in priority
 
-Driven by P1's needs and Clojure-on-PHPJava ambition:
+Driven by P1's needs and Java-library interop for PHP/CLJP applications:
 
 **T1 — required for any modern Java code:**
 - Class file format up to Java 21 (`CONSTANT_Dynamic`, `Record`,

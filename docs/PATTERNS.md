@@ -452,8 +452,9 @@ BigInteger arithmetic (RSA, EC point multiplication, factoring) will run
 
 **Architectural recommendation for the JDK shim layer:**
 
-The 233-class T2 surface (per docs/CLOJURE-BOOT-ANALYSIS.md) needs each
-class shimmed in PHP. The bench above tells us which classes have a
+The 233-class T2 surface (per the historical stress corpus in
+docs/CLOJURE-BOOT-ANALYSIS.md) needs each class shimmed in PHP. The
+bench above tells us which classes have a
 "free" shim (extension matches HotSpot perf within 1.5×) vs a "tax"
 shim (extension is 5–10× slower). Tax-shim classes:
 
