@@ -78,16 +78,17 @@ final class Boolean
     public static function logicalXor(bool $a, bool $b): bool { return $a !== $b; }
 
     /**
-     * Java: System.getProperty(name).equalsIgnoreCase("true"). PHP has
-     * no equivalent of JVM system properties; the closest analog is
-     * getenv. Behaviour aligns when env var matches "true"
-     * (case-insensitive). Comparison against JDK from the parity
-     * oracle requires the JVM to be invoked with -D<name>=<val>;
-     * deferred from the oracle case battery.
+     * Java: System.getProperty(name).equalsIgnoreCase("true"). Reads
+     * the system-property table via System::getProperty, not the
+     * environment — the two namespaces are distinct in Java, and the
+     * old getenv route diverged whenever a name existed as an env var
+     * but not a property. With System::setProperty available, the
+     * parity oracle can now exercise this against a JVM run with
+     * -D<name>=<val>.
      */
     public static function getBoolean(string $name): bool
     {
-        $v = \getenv($name);
+        $v = \PHPJava\Aot\Runtime\java\lang\System::getProperty($name);
         return \is_string($v) && \strtolower($v) === 'true';
     }
 

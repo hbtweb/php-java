@@ -107,24 +107,81 @@ class System
     }
 
     /**
-     * Java System.getProperty(name). PHP has no JVM-style system
-     * properties — closest analog is environment variables and a few
-     * synthetic mappings (java.version, line.separator, etc.).
+     * The system-property table. Java keeps system properties and
+     * environment variables in two distinct namespaces; the old
+     * getProperty fell back to getenv, so a key that named an env var
+     * but not a property returned a value where the JDK returns null,
+     * and setProperty didn't exist at all. Both broke getInteger /
+     * getLong / getBoolean, which read this table.
+     *
+     * Seeded lazily with what the JVM guarantees. getenv is reachable
+     * separately via System::getenv, never through getProperty.
+     *
+     * @var array<string,string>|null
+     */
+    private static ?array $properties = null;
+
+    /** @return array<string,string> */
+    private static function &properties(): array
+    {
+        if (self::$properties === null) {
+            self::$properties = [
+                'line.separator'  => \PHP_EOL,
+                'file.separator'  => \DIRECTORY_SEPARATOR,
+                'path.separator'  => \PATH_SEPARATOR,
+                'os.name'         => \PHP_OS,
+                'os.arch'         => \php_uname('m'),
+                'os.version'      => \php_uname('r'),
+                'java.version'    => '21',   // PHPJava's claimed JDK ceiling
+                'java.vendor'     => 'PHPJava',
+                'file.encoding'   => 'UTF-8',
+                'user.dir'        => \getcwd() ?: '',
+                'user.home'       => \getenv('HOME') ?: '',
+                'user.name'       => \get_current_user(),
+                'java.io.tmpdir'  => \sys_get_temp_dir(),
+            ];
+        }
+        return self::$properties;
+    }
+
+    /**
+     * Java System.getProperty(name[, default]). Reads only the property
+     * table — no environment fallback. Returns the default (or null)
+     * for an unknown key, matching the JDK.
      */
     public static function getProperty(string $name, ?string $defaultValue = null): ?string
     {
-        $synthetic = [
-            'line.separator' => \PHP_EOL,
-            'file.separator' => \DIRECTORY_SEPARATOR,
-            'path.separator' => \PATH_SEPARATOR,
-            'os.name'        => \PHP_OS,
-            'java.version'   => '21',  // PHPJava's claimed JDK ceiling
-            'user.dir'       => \getcwd() ?: '',
-            'user.home'      => \getenv('HOME') ?: '',
-        ];
-        if (isset($synthetic[$name])) return $synthetic[$name];
-        $env = \getenv($name);
-        return $env !== false ? $env : $defaultValue;
+        $props = &self::properties();
+        return $props[$name] ?? $defaultValue;
+    }
+
+    /** Java System.setProperty — returns the prior value, or null. */
+    public static function setProperty(string $name, string $value): ?string
+    {
+        $props = &self::properties();
+        $prior = $props[$name] ?? null;
+        $props[$name] = $value;
+        return $prior;
+    }
+
+    /** Java System.clearProperty — returns the prior value, or null. */
+    public static function clearProperty(string $name): ?string
+    {
+        $props = &self::properties();
+        $prior = $props[$name] ?? null;
+        unset($props[$name]);
+        return $prior;
+    }
+
+    /**
+     * Java System.getenv(name) — the environment namespace, kept
+     * distinct from properties. No-arg getenv() (the full map) is not
+     * modelled; no bb-allowlist path needs it yet.
+     */
+    public static function getenv(string $name): ?string
+    {
+        $v = \getenv($name);
+        return $v === false ? null : $v;
     }
 }
 
@@ -184,94 +241,21 @@ class NumberFormatException           extends IllegalArgumentException {}
  */
 class String_
 {
+    // charAt / length / substring / hashCode / indexOf all index by
+    // UTF-16 code unit, which PHP's byte strings don't. The bridge —
+    // including the ASCII fast path and the per-string decode memo that
+    // makes a charAt loop O(n) instead of O(n^2) — lives in one place,
+    // Utf16, so every String operation shares it rather than
+    // re-deriving it. See that class for the measurements.
+
     public static function charAt(string $s, int $i): int
     {
-        if ($i < 0) {
-            throw new StringIndexOutOfBoundsException("String index out of range: {$i}");
-        }
-        // Java String.charAt(i) returns the UTF-16 code unit at index i.
-        // PHP strings are byte sequences; we walk the UTF-8 stream and
-        // return the int code unit value at the i-th UTF-16 position.
-        //
-        // Three encodings to handle (all in one pass):
-        //   1-byte UTF-8 (ASCII)        → 1 code unit (ASCII codepoint)
-        //   2-byte UTF-8 (U+0080..07FF) → 1 code unit (BMP codepoint)
-        //   3-byte UTF-8 (U+0800..FFFF) → 1 code unit (BMP codepoint OR
-        //                                  CESU-8-encoded surrogate from
-        //                                  a Java class file)
-        //   4-byte UTF-8 (U+10000+)     → 2 code units (surrogate pair)
-        //
-        // For the 4-byte form, we synthesise the high+low surrogate
-        // values from the codepoint per the UTF-16 surrogate algorithm
-        // (codepoint - 0x10000, split into top 10 bits | 0xD800 and low
-        // 10 bits | 0xDC00).
-        $n = \strlen($s);
-        $unit = 0;
-        $byte = 0;
-        while ($byte < $n) {
-            $b = \ord($s[$byte]);
-            if ($b < 0x80) {
-                if ($unit === $i) return $b;
-                $byte += 1; $unit += 1;
-            } elseif ($b < 0xE0) {
-                if ($unit === $i) {
-                    $b2 = \ord($s[$byte + 1]);
-                    return (($b & 0x1F) << 6) | ($b2 & 0x3F);
-                }
-                $byte += 2; $unit += 1;
-            } elseif ($b < 0xF0) {
-                if ($unit === $i) {
-                    $b2 = \ord($s[$byte + 1]);
-                    $b3 = \ord($s[$byte + 2]);
-                    return (($b & 0x0F) << 12) | (($b2 & 0x3F) << 6) | ($b3 & 0x3F);
-                }
-                $byte += 3; $unit += 1;
-            } else {
-                if ($unit === $i || $unit + 1 === $i) {
-                    $b2 = \ord($s[$byte + 1]);
-                    $b3 = \ord($s[$byte + 2]);
-                    $b4 = \ord($s[$byte + 3]);
-                    $cp = (($b & 0x07) << 18) | (($b2 & 0x3F) << 12)
-                        | (($b3 & 0x3F) << 6) | ($b4 & 0x3F);
-                    $cp -= 0x10000;
-                    return $unit === $i
-                        ? 0xD800 | ($cp >> 10)
-                        : 0xDC00 | ($cp & 0x3FF);
-                }
-                $byte += 4; $unit += 2;
-            }
-        }
-        throw new StringIndexOutOfBoundsException("String index out of range: {$i}");
+        return \PHPJava\Aot\Runtime\Utf16::charAt($s, $i);
     }
 
     public static function length(string $s): int
     {
-        // Java String.length() returns UTF-16 code unit count, not byte
-        // count. PHP strings are byte sequences. Walk the UTF-8 byte
-        // stream, counting one unit per leading byte except for the
-        // 4-byte (standard UTF-8) form which encodes a supplementary
-        // char and counts as 2 units (surrogate pair in UTF-16).
-        //
-        // Java class files store strings in Modified UTF-8 (CESU-8):
-        // supplementary chars are stored as two 3-byte sequences (one
-        // per surrogate). The 3-byte branch handles both BMP chars and
-        // CESU-8 surrogates as 1 unit each — correct because each
-        // CESU-8 surrogate IS one UTF-16 unit.
-        //
-        // Note: charAt/indexOf/substring/hashCode below still use byte
-        // indexing — they need the same UTF-16 awareness to be Java-
-        // correct. Tracked under ROADMAP §Build "String_ fill".
-        $n = \strlen($s);
-        if ($n === 0) return 0;
-        $units = 0;
-        for ($i = 0; $i < $n; ) {
-            $b = \ord($s[$i]);
-            if ($b < 0x80) { $i += 1; $units += 1; }
-            elseif ($b < 0xE0) { $i += 2; $units += 1; }
-            elseif ($b < 0xF0) { $i += 3; $units += 1; }
-            else { $i += 4; $units += 2; }
-        }
-        return $units;
+        return \PHPJava\Aot\Runtime\Utf16::length($s);
     }
 
     public static function isEmpty(string $s): int { return $s === '' ? 1 : 0; }
@@ -283,36 +267,53 @@ class String_
 
     public static function hashCode(string $s): int
     {
-        // Java String.hashCode: s[0]*31^(n-1) + s[1]*31^(n-2) + ...
-        // Result is a 32-bit signed int; mask + sign-extend for parity.
-        $h = 0;
-        for ($i = 0, $n = \strlen($s); $i < $n; $i++) {
-            $h = (($h * 31) + \ord($s[$i])) & 0xFFFFFFFF;
-        }
-        return ($h & 0x80000000) ? $h - 0x100000000 : $h;
+        // Java String.hashCode: s[0]*31^(n-1) + ... over UTF-16 code
+        // units. On ASCII this equals the byte fold; on non-ASCII it
+        // does not, which is why it routes through Utf16.
+        return \PHPJava\Aot\Runtime\Utf16::hashCode($s);
     }
 
     public static function toString(string $s): string { return $s; }
 
+    /**
+     * indexOf(int ch) / indexOf(int ch, from) / indexOf(String) /
+     * indexOf(String, from). Java's return and fromIndex are UTF-16
+     * unit positions. A single-char needle given as an int may be a
+     * supplementary code POINT (not a unit) — encode it to UTF-8 and
+     * match on bytes, then map the byte hit back to a unit index.
+     */
     public static function indexOf(string $s, $needle, int $fromIndex = 0): int
     {
-        if (\is_int($needle)) $needle = \chr($needle);
-        $p = \strpos($s, (string) $needle, \max(0, $fromIndex));
-        return $p === false ? -1 : $p;
+        $needle = \is_int($needle)
+            ? \PHPJava\Aot\Runtime\Utf16::codePointToUtf8($needle)
+            : (string) $needle;
+
+        if (\PHPJava\Aot\Runtime\Utf16::isAscii($s) && \PHPJava\Aot\Runtime\Utf16::isAscii($needle)) {
+            $p = \strpos($s, $needle, \max(0, $fromIndex));
+            return $p === false ? -1 : $p;
+        }
+        $fromByte = \PHPJava\Aot\Runtime\Utf16::byteOffset($s, \max(0, $fromIndex));
+        $p = \strpos($s, $needle, $fromByte);
+        return $p === false ? -1 : \PHPJava\Aot\Runtime\Utf16::unitIndexOfByte($s, $p);
     }
 
     public static function lastIndexOf(string $s, $needle): int
     {
-        if (\is_int($needle)) $needle = \chr($needle);
-        $p = \strrpos($s, (string) $needle);
-        return $p === false ? -1 : $p;
+        $needle = \is_int($needle)
+            ? \PHPJava\Aot\Runtime\Utf16::codePointToUtf8($needle)
+            : (string) $needle;
+
+        if (\PHPJava\Aot\Runtime\Utf16::isAscii($s) && \PHPJava\Aot\Runtime\Utf16::isAscii($needle)) {
+            $p = \strrpos($s, $needle);
+            return $p === false ? -1 : $p;
+        }
+        $p = \strrpos($s, $needle);
+        return $p === false ? -1 : \PHPJava\Aot\Runtime\Utf16::unitIndexOfByte($s, $p);
     }
 
     public static function substring(string $s, int $beginIndex, ?int $endIndex = null): string
     {
-        return $endIndex === null
-            ? \substr($s, $beginIndex)
-            : \substr($s, $beginIndex, $endIndex - $beginIndex);
+        return \PHPJava\Aot\Runtime\Utf16::substring($s, $beginIndex, $endIndex);
     }
 
     public static function trim(string $s): string { return \trim($s); }
@@ -748,11 +749,8 @@ class Integer
     /**
      * Reads a system property and decodes it. Java swallows both the
      * NPE from a null key and the IAE from an empty one, returning the
-     * default — so getInteger(null) is null, not a throw.
-     *
-     * Known divergence: our System::getProperty falls back to env vars,
-     * which the JDK's does not. A key that names an env var but not a
-     * system property will differ.
+     * default — so getInteger(null) is null, not a throw. Reads only
+     * the property table (System::getProperty), not the environment.
      */
     public static function getInteger(?string $nm, $val = null): ?int
     {
