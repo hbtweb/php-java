@@ -258,11 +258,19 @@ class String_
         return \PHPJava\Aot\Runtime\Utf16::length($s);
     }
 
+    // isEmpty/equals/startsWith/endsWith/contains return int 0/1, not
+    // PHP bool: AOT-emitted bytecode consumes a Z return as an operand-
+    // stack int (a returned bool feeds `ifeq` wrong — FizzBuzz's
+    // `if (out.isEmpty())` regressed when this returned bool). The
+    // parity comparator canonicalises Java's boolean true/false against
+    // int 1/0, so the battery still checks these against the JVM.
+
     public static function isEmpty(string $s): int { return $s === '' ? 1 : 0; }
 
+    /** equals(null) is false in Java, not an NPE. */
     public static function equals(string $s, $other): int
     {
-        return ($s === $other) ? 1 : 0;
+        return $s === $other ? 1 : 0;
     }
 
     public static function hashCode(string $s): int
@@ -282,33 +290,92 @@ class String_
      * supplementary code POINT (not a unit) — encode it to UTF-8 and
      * match on bytes, then map the byte hit back to a unit index.
      */
-    public static function indexOf(string $s, $needle, int $fromIndex = 0): int
+    public static function indexOf(string $s, $needle, int $fromIndex = 0, ?int $toIndex = null): int
     {
+        if ($needle === null) {
+            throw new NullPointerException('str');
+        }
         $needle = \is_int($needle)
             ? \PHPJava\Aot\Runtime\Utf16::codePointToUtf8($needle)
             : (string) $needle;
 
-        if (\PHPJava\Aot\Runtime\Utf16::isAscii($s) && \PHPJava\Aot\Runtime\Utf16::isAscii($needle)) {
-            $p = \strpos($s, $needle, \max(0, $fromIndex));
-            return $p === false ? -1 : $p;
+        $len = \PHPJava\Aot\Runtime\Utf16::length($s);
+
+        // Java 21 indexOf(str, beginIndex, endIndex): range-checked first,
+        // then a search bounded to [beginIndex, endIndex).
+        if ($toIndex !== null) {
+            if ($fromIndex < 0 || $fromIndex > $toIndex || $toIndex > $len) {
+                throw new StringIndexOutOfBoundsException(
+                    "Range [{$fromIndex}, {$toIndex}) out of bounds for length {$len}"
+                );
+            }
+            if ($needle === '') {
+                return $fromIndex;
+            }
+            $fromByte = \PHPJava\Aot\Runtime\Utf16::byteOffset($s, $fromIndex);
+            $toByte   = \PHPJava\Aot\Runtime\Utf16::byteOffset($s, $toIndex);
+            $p = \strpos(\substr($s, $fromByte, $toByte - $fromByte), $needle);
+            if ($p === false) {
+                return -1;
+            }
+            return \PHPJava\Aot\Runtime\Utf16::isAscii($s)
+                ? $fromByte + $p
+                : \PHPJava\Aot\Runtime\Utf16::unitIndexOfByte($s, $fromByte + $p);
         }
-        $fromByte = \PHPJava\Aot\Runtime\Utf16::byteOffset($s, \max(0, $fromIndex));
+
+        $from = \max(0, $fromIndex);
+        // Java: an empty needle matches at min(fromIndex, length); a
+        // non-empty needle can't be found past the end.
+        if ($needle === '') {
+            return \min($from, $len);
+        }
+        if ($from > $len) {
+            return -1;
+        }
+        $fromByte = \PHPJava\Aot\Runtime\Utf16::byteOffset($s, $from);
         $p = \strpos($s, $needle, $fromByte);
-        return $p === false ? -1 : \PHPJava\Aot\Runtime\Utf16::unitIndexOfByte($s, $p);
+        if ($p === false) {
+            return -1;
+        }
+        return \PHPJava\Aot\Runtime\Utf16::isAscii($s)
+            ? $p
+            : \PHPJava\Aot\Runtime\Utf16::unitIndexOfByte($s, $p);
     }
 
-    public static function lastIndexOf(string $s, $needle): int
+    /** lastIndexOf(needle) and the Java lastIndexOf(needle, fromIndex). */
+    public static function lastIndexOf(string $s, $needle, ?int $fromIndex = null): int
     {
+        if ($needle === null) {
+            throw new NullPointerException('tgtStr');
+        }
         $needle = \is_int($needle)
             ? \PHPJava\Aot\Runtime\Utf16::codePointToUtf8($needle)
             : (string) $needle;
 
-        if (\PHPJava\Aot\Runtime\Utf16::isAscii($s) && \PHPJava\Aot\Runtime\Utf16::isAscii($needle)) {
-            $p = \strrpos($s, $needle);
+        $len  = \PHPJava\Aot\Runtime\Utf16::length($s);
+        $from = $fromIndex ?? $len;
+        if ($needle === '') {
+            // Empty needle: rightmost position ≤ fromIndex, clamped to
+            // length; a negative fromIndex has no valid position.
+            return $from < 0 ? -1 : \min($from, $len);
+        }
+        if ($from < 0) {
+            return -1;
+        }
+        // Search the prefix that could still start at or before $from.
+        $ascii = \PHPJava\Aot\Runtime\Utf16::isAscii($s)
+            && \PHPJava\Aot\Runtime\Utf16::isAscii($needle);
+        if ($ascii) {
+            $cut = \min($from + \strlen($needle), \strlen($s));
+            $p   = \strrpos(\substr($s, 0, $cut), $needle);
             return $p === false ? -1 : $p;
         }
         $p = \strrpos($s, $needle);
-        return $p === false ? -1 : \PHPJava\Aot\Runtime\Utf16::unitIndexOfByte($s, $p);
+        if ($p === false) {
+            return -1;
+        }
+        $unit = \PHPJava\Aot\Runtime\Utf16::unitIndexOfByte($s, $p);
+        return $unit <= $from ? $unit : -1;
     }
 
     public static function substring(string $s, int $beginIndex, ?int $endIndex = null): string
@@ -319,38 +386,138 @@ class String_
     public static function trim(string $s): string { return \trim($s); }
     public static function strip(string $s): string { return \trim($s); }
 
-    public static function startsWith(string $s, string $prefix): int
+    /**
+     * startsWith(prefix) and the Java startsWith(prefix, toffset) form.
+     * The offset is a UTF-16 unit index; on non-ASCII it must be mapped
+     * to a byte offset before the byte-level compare. A negative or
+     * past-end offset is false, not an error (matches Java).
+     */
+    public static function startsWith(string $s, ?string $prefix, int $offset = 0): int
     {
-        return \str_starts_with($s, $prefix) ? 1 : 0;
+        if ($prefix === null) {
+            throw new NullPointerException('prefix');
+        }
+        // A negative or past-end offset is false (Java clamps the compare
+        // to the string bounds rather than erroring).
+        if ($offset < 0 || $offset > \PHPJava\Aot\Runtime\Utf16::length($s)) {
+            return 0;
+        }
+        $byte = \PHPJava\Aot\Runtime\Utf16::byteOffset($s, $offset);
+        return \substr($s, $byte, \strlen($prefix)) === $prefix ? 1 : 0;
     }
 
-    public static function endsWith(string $s, string $suffix): int
+    public static function endsWith(string $s, ?string $suffix): int
     {
+        if ($suffix === null) {
+            throw new NullPointerException('suffix');
+        }
         return \str_ends_with($s, $suffix) ? 1 : 0;
     }
 
-    public static function contains(string $s, string $sub): int
+    public static function contains(string $s, ?string $sub): int
     {
+        if ($sub === null) {
+            throw new NullPointerException('s');
+        }
         return \str_contains($s, $sub) ? 1 : 0;
     }
 
     public static function replace(string $s, $target, $repl): string
     {
-        if (\is_int($target)) $target = \chr($target);
-        if (\is_int($repl))   $repl   = \chr($repl);
-        return \str_replace((string) $target, (string) $repl, $s);
+        if (\is_int($target)) $target = \PHPJava\Aot\Runtime\Utf16::codePointToUtf8($target);
+        if (\is_int($repl))   $repl   = \PHPJava\Aot\Runtime\Utf16::codePointToUtf8($repl);
+        $target = (string) $target;
+        // Java's replace with an empty target inserts the replacement
+        // around every character; PHP's str_replace returns the subject
+        // unchanged. Defer that edge to str_replace only when non-empty.
+        if ($target === '') {
+            // Java inserts the replacement at each gap, original chars
+            // between: "abc" -> XaXbXcX, "" -> X. Split by code POINT
+            // (not UTF-16 unit) so a supplementary char stays one valid
+            // UTF-8 sequence — splitting it into surrogate halves would
+            // produce bytes that can't round-trip. Diverges from Java
+            // only when a supplementary char meets an empty target.
+            $chars = \preg_split('//u', $s, -1, \PREG_SPLIT_NO_EMPTY);
+            if ($chars === false || $chars === []) {
+                return (string) $repl;
+            }
+            return $repl . \implode($repl, $chars) . $repl;
+        }
+        return \str_replace($target, (string) $repl, $s);
     }
 
-    public static function toLowerCase(string $s): string { return \strtolower($s); }
-    public static function toUpperCase(string $s): string { return \strtoupper($s); }
-    public static function concat(string $s, string $t): string { return $s . $t; }
+    // Locale-independent case mapping over the full Unicode range, not
+    // ASCII-only strtolower/strtoupper (which left café as CAFé).
+    public static function toLowerCase(string $s): string { return \mb_strtolower($s, 'UTF-8'); }
+    public static function toUpperCase(string $s): string { return \mb_strtoupper($s, 'UTF-8'); }
 
-    public static function valueOf($v): string
+    public static function concat(string $s, ?string $t): string
     {
+        if ($t === null) {
+            throw new NullPointerException('str');
+        }
+        return $s . $t;
+    }
+
+    /**
+     * valueOf(Object|boolean|char|int|long|float|double) and the
+     * char-array forms valueOf(char[]) / valueOf(char[], offset, count).
+     * A PHP array is a char[] (each element a UTF-16 code unit).
+     */
+    public static function valueOf($v, ?int $offset = null, ?int $count = null): string
+    {
+        if (\is_array($v)) {
+            $units = \array_values($v);
+            if ($offset !== null && $count !== null) {
+                $len = \count($units);
+                if ($offset < 0 || $count < 0 || $offset + $count > $len) {
+                    throw new StringIndexOutOfBoundsException(
+                        "Range [{$offset}, {$offset} + {$count}) out of bounds for length {$len}"
+                    );
+                }
+                $units = \array_slice($units, $offset, $count);
+            }
+            return \PHPJava\Aot\Runtime\Utf16::unitsToString($units);
+        }
         if ($v === null) return 'null';
         if ($v === true) return 'true';
         if ($v === false) return 'false';
+        if (\is_float($v)) return self::floatToString($v);
         return (string) $v;
+    }
+
+    /**
+     * Approximates Java's Double.toString for the common cases: NaN,
+     * ±Infinity, signed zero, and integer-valued finites (which Java
+     * always renders with a trailing ".0" — PHP drops it). Values needing
+     * Java's shortest-round-trip decimal or its 1.0E<n> scientific form
+     * are left to PHP's default repr and may still diverge; tracked with
+     * the String bb-fill surface.
+     */
+    private static function floatToString(float $v): string
+    {
+        if (\is_nan($v))  return 'NaN';
+        if ($v === \INF)  return 'Infinity';
+        if ($v === -\INF) return '-Infinity';
+        // Distinguish -0.0 from 0.0 by the sign bit (1/0.0 would raise
+        // DivisionByZeroError in PHP 8).
+        if ($v === 0.0)   return (\pack('E', $v)[0] === "\x80") ? '-0.0' : '0.0';
+        if ($v === \floor($v) && \abs($v) < 1e16) {
+            return \sprintf('%.1f', $v);
+        }
+        // Shortest round-trip mantissa. PHP's default (string) cast uses
+        // precision=14 and truncates (pi -> 3.1415926535898); precision=-1
+        // gives the shortest decimal that round-trips, matching Java's
+        // digit selection. PHP writes a positive exponent as "E+308";
+        // Java omits the plus, so normalise. The THRESHOLD at which each
+        // switches to scientific notation can still differ for values not
+        // in the corpus — folded into the String bb-fill worklist.
+        $old = \ini_set('precision', '-1');
+        try {
+            return \str_replace('E+', 'E', (string) $v);
+        } finally {
+            \ini_set('precision', $old);
+        }
     }
 
     /**

@@ -197,6 +197,33 @@ final class Utf16
              . \chr(0x80 | ($cp & 0x3F));
     }
 
+    /**
+     * Build a string from an array of UTF-16 code units, pairing
+     * adjacent high+low surrogates into their supplementary code point.
+     * The inverse of units(); backs String.valueOf(char[]) and
+     * StringBuilder. A lone surrogate is emitted as its (CESU-8) form.
+     *
+     * @param list<int> $units
+     */
+    public static function unitsToString(array $units): string
+    {
+        $out = '';
+        $n   = \count($units);
+        for ($i = 0; $i < $n; $i++) {
+            $u = $units[$i] & 0xFFFF;
+            if ($u >= 0xD800 && $u <= 0xDBFF && $i + 1 < $n) {
+                $lo = $units[$i + 1] & 0xFFFF;
+                if ($lo >= 0xDC00 && $lo <= 0xDFFF) {
+                    $out .= self::codePointToUtf8(0x10000 + (($u - 0xD800) << 10) + ($lo - 0xDC00));
+                    $i++;
+                    continue;
+                }
+            }
+            $out .= self::codePointToUtf8($u);
+        }
+        return $out;
+    }
+
     /** @return list<int> UTF-16 code units. */
     public static function units(string $s): array
     {
