@@ -1,0 +1,1197 @@
+{
+  "class": "java.lang.Byte",
+  "_generated": {
+    "by": "bench\/parity\/gen.clj",
+    "seed": 20260724,
+    "cap": 24,
+    "jdk": "25.0.3",
+    "methods": 11,
+    "mode": "static-only",
+    "split": "seen",
+    "skipped": []
+  },
+  "cases": [
+    {
+      "method": "compare",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        127
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        -128
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        63
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        -64
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        -1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        127
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        -128
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -1,
+        -64
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -128,
+        -1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -1,
+        127
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -1,
+        1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -1,
+        -128
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        63,
+        0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        -64
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -64,
+        127
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        127,
+        -1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        127,
+        0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -64,
+        -128
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -64,
+        63
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        127
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        -128
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        63
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        -64
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        1,
+        0
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        1,
+        1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        1,
+        -1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        1,
+        127
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        1,
+        -128
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        127,
+        -1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        127,
+        1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -128,
+        63
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -1,
+        -128
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -128,
+        -1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        127,
+        -128
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        127,
+        127
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        63,
+        -64
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        127,
+        63
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -128,
+        -64
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -64,
+        63
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -1,
+        127
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        0
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        1
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        -1
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        2147483647
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        -2147483648
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        2147483646
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        2
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        7
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        10
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        16
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "",
+        255
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "\ud835\udd18",
+        1
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "\u00e9",
+        65536
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "\ud835\udd18",
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "-1",
+        16
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "0",
+        16
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "  x  ",
+        65536
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "abc",
+        1
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "-1",
+        2147483646
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "true",
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "0",
+        0
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "-1",
+        2147483647
+      ]
+    },
+    {
+      "method": "parseByte",
+      "args": [
+        "  x  ",
+        2147483647
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        127
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -128
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        63
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -64
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        127
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        -128
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        63
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        -64
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        127
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        -128
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        63
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        -64
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        127
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -128
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        63
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -64
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        -1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        2147483647
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        -2147483648
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        2147483646
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        -2147483647
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        2
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        7
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        10
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        16
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        255
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "  x  ",
+        255
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "2147483648",
+        -2147483648
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\ud835\udd18",
+        1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "9223372036854775808",
+        1000000
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        null,
+        7
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "1",
+        16
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a",
+        -2147483648
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\u00e9",
+        -2147483647
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "-1",
+        0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "2147483648",
+        65535
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        null,
+        255
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "  x  ",
+        -2147483648
+      ]
+    }
+  ]
+}

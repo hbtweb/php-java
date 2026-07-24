@@ -1,0 +1,1239 @@
+{
+  "class": "java.lang.Short",
+  "_generated": {
+    "by": "bench\/parity\/gen.clj",
+    "seed": 20260724,
+    "cap": 24,
+    "jdk": "25.0.3",
+    "methods": 12,
+    "mode": "static-only",
+    "split": "seen",
+    "skipped": []
+  },
+  "cases": [
+    {
+      "method": "compare",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        32767
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        -32768
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        -256
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        -1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        32767
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        -32768
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -1,
+        -256
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -32768,
+        -1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -1,
+        32767
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -1,
+        1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -1,
+        -32768
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        255,
+        0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        -256
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -256,
+        32767
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        32767,
+        -1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        32767,
+        0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -256,
+        -32768
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -256,
+        255
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        32767
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        -32768
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        -256
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        1,
+        0
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        1,
+        1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        1,
+        -1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        1,
+        32767
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        1,
+        -32768
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        32767,
+        -1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        32767,
+        1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -32768,
+        255
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -1,
+        -32768
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -32768,
+        -1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        32767,
+        -32768
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        32767,
+        32767
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        255,
+        -256
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        32767,
+        255
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -32768,
+        -256
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -256,
+        255
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -1,
+        32767
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        0
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        1
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        -1
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        2147483647
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        -2147483648
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        2147483646
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        2
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        7
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        10
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        16
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "",
+        255
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "\ud835\udd18",
+        1
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "\u00e9",
+        65536
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "\ud835\udd18",
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "-1",
+        16
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "0",
+        16
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "  x  ",
+        65536
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "abc",
+        1
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "-1",
+        2147483646
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "true",
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "0",
+        0
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "-1",
+        2147483647
+      ]
+    },
+    {
+      "method": "parseShort",
+      "args": [
+        "  x  ",
+        2147483647
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        32767
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        -32768
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        -256
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        32767
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -32768
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -256
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        32767
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        -32768
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "toUnsignedInt",
+      "args": [
+        -256
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        32767
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        -32768
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        -256
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        32767
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -32768
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -256
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        -1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        2147483647
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        -2147483648
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        2147483646
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        -2147483647
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        2
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        7
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        10
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        16
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        255
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "  x  ",
+        255
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "2147483648",
+        -2147483648
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\ud835\udd18",
+        1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "9223372036854775808",
+        1000000
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        null,
+        7
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "1",
+        16
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a",
+        -2147483648
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\u00e9",
+        -2147483647
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "-1",
+        0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "2147483648",
+        65535
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        null,
+        255
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "  x  ",
+        -2147483648
+      ]
+    }
+  ]
+}
