@@ -7,31 +7,66 @@
 > §License posture: OpenJDK is used as a *test oracle*, not as a
 > *source*; captured I/O traces aren't copyrightable.
 
-## Scaffold status
+## Status (2026-07-24)
 
-This directory holds the harness infrastructure. As of 2026-05-04
-the PHP-side runner is in place; the Clojure-side driver builds on
-`bench/baseline.clj`'s FFM transport but isn't yet ground out into
-a full per-class battery.
+Shipped and working. Rank 1: 11 hand-written batteries, **428/428
+match** against OpenJDK 25 / PHP 8.5.8.
 
 ```
 bench/parity/
 ├── README.md              ← this doc
-├── oracle-runner.php      ← PHP-side runner; invokes PHPJava AOT
-│                            method, captures (return, exception,
-│                            stdout, side-effect snapshot)
+├── deps.edn
+├── oracle-runner.php      ← PHP side: invokes the PHPJava AOT method,
+│                            captures (return, exception, stdout)
+├── oracle_driver.clj      ← Clojure side: reflects the real JDK, runs
+│                            both, compares per axis, reports
+├── gen.clj                ← generates batteries by reflection (Phase 0a)
 └── cases/                 ← per-class case batteries
-    └── (none yet)
 ```
 
-The Clojure-side oracle driver lives in cljp (or a dedicated `bench/parity-driver/`
-deps.edn project — TBD when the full harness ships) and uses
-`cljp.transport.ffm` to:
+Transport is `clojure.java.shell` into the PHP runner — one subprocess
+per case, ~60 ms. The FFM transport sketched in `bench/baseline.clj` is
+the optimisation for when battery size makes that bite; measured
+2026-07-24, a 791-case generated battery takes 49 s wall.
 
-1. Load a JDK class on real HotSpot, invoke its method, capture I/O.
-2. Invoke `bench/parity/oracle-runner.php`'s entry function via
-   `zend_eval_string` with the same args, capture I/O.
-3. Compare. Emit a parity report per class.
+Run one battery:
+
+```
+clj -Sdeps '{:paths ["bench/parity"] :deps {org.clojure/data.json {:mvn/version "2.5.0"}}}' \
+    -M -m oracle-driver --case bench/parity/cases/java.lang.Math.json
+```
+
+Exit code 0 if all cases match, 1 if any diverged.
+
+## Generating a battery
+
+Hand-authored batteries have a structural weakness: the author of a
+shim is usually the author of its test, so both can be wrong in the
+same direction. `gen.clj` derives the battery from the JDK instead —
+reflects the class, walks every public static method, draws arguments
+from an edge-first per-type corpus.
+
+```
+clj -Sdeps '{:paths ["bench/parity"] :deps {org.clojure/data.json {:mvn/version "2.5.0"}}}' \
+    -M -m gen --class java.lang.Integer [--out DIR] [--cap N] [--seed N]
+```
+
+Emits two files: `<FQN>.gen.json` (**seen** — work against this) and
+`<FQN>.holdout.json` (**holdout** — same corpus, different seed,
+disjoint draw; run at verify time only). The holdout is what stops a
+shim that special-cases the visible inputs from showing green.
+
+Two limits, both reported rather than silent:
+
+- **Static methods only.** Instance-mode generation (the `{new, ops}`
+  shape the driver already supports) is not implemented.
+- **Holdout can come back empty** when the input space is small enough
+  that `seen` exhausts it (e.g. `java.lang.Boolean`). For those classes
+  the verify-stage defence is an adversarial reader, not the holdout.
+
+Methods whose parameters aren't expressible on the wire (`Comparator`,
+`Supplier`, …) and non-deterministic methods (`random`, `nanoTime`, …)
+are skipped **with a printed reason**.
 
 ## Why split into two halves
 
@@ -136,6 +171,30 @@ Each case battery is a JSON file with:
 `expect` is optional — when present, the comparator validates against
 both the JDK oracle output AND the explicit expectation, catching
 JDK-version drift.
+
+### Tagged argument shapes
+
+Raw JSON can't express NaN, ±Infinity, or a typed array, so arguments
+may carry three tagged forms — the same tags the return path already
+normalises to, plus `__arr__`:
+
+```json
+{"method": "abs",    "args": [{"__nan__": true}]}
+{"method": "min",    "args": [{"__inf__": -1}, 1.0]}
+{"method": "equals", "args": [{"__arr__": "double", "v": [0.0]},
+                              {"__arr__": "double", "v": [-0.0]}]}
+```
+
+`__arr__` element tags: `int long double float short byte char boolean
+String Object`. A **bare JSON array keeps its legacy meaning** —
+`Object[]`, for `Object...` varargs — so `Arrays.equals(double[],
+double[])` is only reachable through the tagged form. That distinction
+is load-bearing: it is what exposed the `+0.0` vs `-0.0` divergence the
+37-case hand-written `Arrays` battery could not reach.
+
+Decoding is implemented twice and must stay in lockstep — `decode-arg`
+in `oracle_driver.clj` and `decodeArg()` in `oracle-runner.php`. If the
+two drift, the sides silently compare different inputs.
 
 ## Building it out
 

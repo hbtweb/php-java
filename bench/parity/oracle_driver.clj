@@ -32,14 +32,23 @@
 
 (def ^:private object-array-class (class (object-array [])))
 
+(declare decode-arg)
+
 (defn- arg-class
   "The runtime Class of a decoded JSON arg, for overload resolution.
    JSON arrays decode as Clojure vectors and dispatch to Object[] —
-   matches Java vararg `Object...` declarations after array bundling."
+   matches Java vararg `Object...` declarations after array bundling.
+   Tagged shapes (see `decode-arg`) report the class they decode to, so
+   {\"__arr__\" \"double\" ...} resolves against a double[] parameter."
   [v]
   (cond
     (nil? v)              Object        ; null → Object so resolution treats arg as compatible with any reference param
     (vector? v)           object-array-class
+    (map? v)              (cond
+                            (contains? v "__nan__") Double
+                            (contains? v "__inf__") Double
+                            (contains? v "__arr__") (class (decode-arg v))
+                            :else                   Object)
     (instance? Boolean v) Boolean
     (instance? Long v)    Long
     (instance? Integer v) Integer
@@ -48,15 +57,60 @@
     (string? v)           String
     :else                 Object))
 
+(def ^:private array-ctors
+  "Element-type tag → constructor for a typed Java array. Needed because
+   `Arrays.equals(double[],double[])` and friends resolve on the exact
+   array class; the legacy vector → Object[] path can't reach them."
+  {"int"     #(int-array     (map long   %))
+   "long"    #(long-array    (map long   %))
+   "double"  #(double-array  (map double %))
+   "float"   #(float-array   (map float  %))
+   "short"   #(short-array   (map short  %))
+   "byte"    #(byte-array    (map byte   %))
+   "char"    #(char-array    (map char   %))
+   "boolean" #(boolean-array (map boolean %))
+   "String"  #(into-array String %)
+   "Object"  #(into-array Object %)})
+
+(defn- decode-arg
+  "Decode a JSON-shaped arg into the Java value it denotes.
+
+   Raw JSON can't express NaN, ±Infinity, or a typed array, so the wire
+   format carries three tagged shapes — the same tags `normalise-return`
+   already emits on the way back, plus `__arr__`:
+
+     {\"__nan__\" true}                       → Double/NaN
+     {\"__inf__\" 1} / {\"__inf__\" -1}       → ±Infinity
+     {\"__arr__\" \"double\" \"v\" [1.0 2.0]} → double[]
+
+   Bare vectors keep their legacy meaning (Object[], for `Object...`
+   varargs). Mirrored by decodeArg() in oracle-runner.php — the two
+   must stay in lockstep or the sides compare different inputs."
+  [v]
+  (cond
+    (vector? v) (into-array Object (map decode-arg v))
+    (map? v)    (cond
+                  (contains? v "__nan__") Double/NaN
+                  (contains? v "__inf__") (if (neg? (get v "__inf__"))
+                                            Double/NEGATIVE_INFINITY
+                                            Double/POSITIVE_INFINITY)
+                  (contains? v "__arr__") (let [t     (get v "__arr__")
+                                                elems (map decode-arg (get v "v" []))
+                                                ctor  (get array-ctors t)]
+                                            (when-not ctor
+                                              (throw (IllegalArgumentException.
+                                                      (str "unknown __arr__ element type: " t))))
+                                            (ctor elems))
+                  :else v)
+    :else v))
+
 (defn- box-arg
   "Convert a Clojure-decoded JSON value to the Java reference its
-   reflection invoke needs. Vectors → Object[]; recursive so nested
-   arrays box. Scalars pass through (Long, Double, Boolean, String,
-   nil are already Java references)."
+   reflection invoke needs. Scalars pass through (Long, Double, Boolean,
+   String, nil are already Java references); everything else routes
+   through the tagged-shape decoder."
   [v]
-  (if (vector? v)
-    (into-array Object (map box-arg v))
-    v))
+  (decode-arg v))
 
 (defn- coerce-arg
   "Narrow an arg to match a primitive parameter type. Reflection

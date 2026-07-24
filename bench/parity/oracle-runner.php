@@ -68,12 +68,12 @@ function runOracle(string $classFqn, array $caseSpec): string
             if (!\class_exists($runtimeFqn)) {
                 throw new \RuntimeException("Class not found: $runtimeFqn");
             }
-            $ctorArgs = $caseSpec['new'] ?? [];
+            $ctorArgs = \array_map('decodeArg', $caseSpec['new'] ?? []);
             $instance = new $runtimeFqn(...$ctorArgs);
             $return = null;
             foreach ($caseSpec['ops'] ?? [] as $op) {
                 $methodName = $op['call'] ?? '';
-                $args = $op['args'] ?? [];
+                $args = \array_map('decodeArg', $op['args'] ?? []);
                 if (!\method_exists($instance, $methodName)) {
                     throw new \BadMethodCallException("$runtimeFqn::$methodName");
                 }
@@ -81,11 +81,11 @@ function runOracle(string $classFqn, array $caseSpec): string
             }
         } elseif (\class_exists($runtimeFqn) && \method_exists($runtimeFqn, $caseSpec['method'])) {
             // Static mode — JDK shim direct dispatch.
-            $return = $runtimeFqn::{$caseSpec['method']}(...($caseSpec['args'] ?? []));
+            $return = $runtimeFqn::{$caseSpec['method']}(...\array_map('decodeArg', $caseSpec['args'] ?? []));
         } else {
             // Static mode — fall back to AOT-compiled bytecode path.
             $bin = \str_replace('.', '/', $classFqn);
-            $return = \PHPJava\Aot\Loader::callStatic($bin, $caseSpec['method'], ...($caseSpec['args'] ?? []));
+            $return = \PHPJava\Aot\Loader::callStatic($bin, $caseSpec['method'], ...\array_map('decodeArg', $caseSpec['args'] ?? []));
         }
         $stdout = \ob_get_clean();
         // Normalise the heapspace-captured Java println output into
@@ -125,6 +125,41 @@ function runOracle(string $classFqn, array $caseSpec): string
         $result,
         \JSON_UNESCAPED_SLASHES | \JSON_PRESERVE_ZERO_FRACTION
     );
+}
+
+/**
+ * Decode a JSON-shaped arg into the PHP value it denotes.
+ *
+ * Raw JSON can't express NaN, ±Infinity, or a typed array, so the wire
+ * format carries three tagged shapes — the same tags normaliseReturn()
+ * emits on the way back, plus __arr__:
+ *
+ *   {"__nan__": true}                      → NAN
+ *   {"__inf__": 1} / {"__inf__": -1}       → ±INF
+ *   {"__arr__": "double", "v": [1.0, 2.0]} → [1.0, 2.0]
+ *
+ * PHP has no typed arrays, so __arr__ collapses to a plain PHP array —
+ * which is exactly the shape the AOT shims take. The element-type tag
+ * is load-bearing on the JDK side only, for overload resolution.
+ *
+ * Mirrors decode-arg in oracle_driver.clj — the two must stay in
+ * lockstep or the sides compare different inputs.
+ */
+function decodeArg($v)
+{
+    if (\is_array($v)) {
+        if (\array_key_exists('__nan__', $v)) {
+            return \NAN;
+        }
+        if (\array_key_exists('__inf__', $v)) {
+            return $v['__inf__'] < 0 ? -\INF : \INF;
+        }
+        if (\array_key_exists('__arr__', $v)) {
+            return \array_map('decodeArg', $v['v'] ?? []);
+        }
+        return \array_map('decodeArg', $v);
+    }
+    return $v;
 }
 
 /**
