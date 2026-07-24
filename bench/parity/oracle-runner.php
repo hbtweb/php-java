@@ -51,6 +51,25 @@ use PHPJava\IO\Standard\Output;
  *     of {call, args} entries) — construct fresh instance, run ops in
  *     sequence, return the LAST op's return value.
  */
+/**
+ * Map a dotted Java FQN to its PHPJava runtime class, or null if none
+ * exists. Handles the reserved-word remap the IR Builder applies:
+ * java.lang.String -> ...\String_ (PHP can't name a class `String`),
+ * same for Object / Float / Void. Tries the plain name first, then the
+ * underscore-suffixed shim.
+ */
+function resolveRuntimeClass(string $classFqn): ?string
+{
+    $base = '\\PHPJava\\Aot\\Runtime\\' . \str_replace('.', '\\', $classFqn);
+    if (\class_exists($base)) {
+        return $base;
+    }
+    if (\class_exists($base . '_')) {
+        return $base . '_';
+    }
+    return null;
+}
+
 function runOracle(string $classFqn, array $caseSpec): string
 {
     Output::clearHeapspace();
@@ -61,12 +80,27 @@ function runOracle(string $classFqn, array $caseSpec): string
 
     \ob_start();
     try {
-        $runtimeFqn = '\\PHPJava\\Aot\\Runtime\\' . \str_replace('.', '\\', $classFqn);
+        $runtimeFqn = resolveRuntimeClass($classFqn);
 
-        if (isset($caseSpec['new'])) {
+        if (isset($caseSpec['recv'])) {
+            // Receiver mode — value-type instance method. Java dispatches
+            // recv.method(args); PHPJava carries the receiver as a bare
+            // value and calls Shim::method(recv, ...args) statically.
+            $recv = decodeArg($caseSpec['recv']);
+            $args = \array_map('decodeArg', $caseSpec['args'] ?? []);
+            if ($runtimeFqn === null || !\method_exists($runtimeFqn, $caseSpec['method'])) {
+                // Clean not-implemented rather than a TypeError out of the
+                // bytecode fallback — keeps the battery output readable and
+                // marks the method as bb-fill surface.
+                throw new \PHPJava\Aot\Runtime\java\lang\UnsupportedOperationException(
+                    "{$classFqn}::{$caseSpec['method']}"
+                );
+            }
+            $return = $runtimeFqn::{$caseSpec['method']}($recv, ...$args);
+        } elseif (isset($caseSpec['new'])) {
             // Instance mode — construct, run ops chain, return last.
-            if (!\class_exists($runtimeFqn)) {
-                throw new \RuntimeException("Class not found: $runtimeFqn");
+            if ($runtimeFqn === null) {
+                throw new \RuntimeException("Class not found for: $classFqn");
             }
             $ctorArgs = \array_map('decodeArg', $caseSpec['new'] ?? []);
             $instance = new $runtimeFqn(...$ctorArgs);
@@ -79,7 +113,7 @@ function runOracle(string $classFqn, array $caseSpec): string
                 }
                 $return = $instance->$methodName(...$args);
             }
-        } elseif (\class_exists($runtimeFqn) && \method_exists($runtimeFqn, $caseSpec['method'])) {
+        } elseif ($runtimeFqn !== null && \method_exists($runtimeFqn, $caseSpec['method'])) {
             // Static mode — JDK shim direct dispatch.
             $return = $runtimeFqn::{$caseSpec['method']}(...\array_map('decodeArg', $caseSpec['args'] ?? []));
         } else {

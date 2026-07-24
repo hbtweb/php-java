@@ -287,12 +287,17 @@
 
 (defn- invoke-jdk
   "Reflect over `class-fqn`, dispatch per the case-spec shape.
-   Two modes:
+   Three modes:
      - Static (default): {:method NAME, :args [...]} → invoke static
        method, return its value.
      - Instance: {:new [ctor-args], :ops [{:call NAME, :args [...]}
        ...]} → construct instance, run each op in sequence, return
        the LAST op's return value.
+     - Receiver: {:recv VALUE, :method NAME, :args [...]} → invoke an
+       instance method on VALUE directly. This is the value-type shape:
+       Java's String.charAt is an instance method, but PHPJava carries a
+       String as a bare PHP string and dispatches String_::charAt(recv,
+       ...) statically. On the JDK side the receiver IS the instance.
 
    Captures System.out/System.err redirected to ByteArrayOutputStreams
    across all ops in the session. Returns a string-keyed map matching
@@ -302,14 +307,23 @@
         orig-err (System/err)
         baos-out (ByteArrayOutputStream.)
         baos-err (ByteArrayOutputStream.)
-        instance-mode? (contains? case-spec "new")]
+        instance-mode? (contains? case-spec "new")
+        receiver-mode? (contains? case-spec "recv")]
     (try
       (System/setOut (PrintStream. baos-out))
       (System/setErr (PrintStream. baos-err))
       (try
         (let [cls (Class/forName class-fqn)
               result
-              (if instance-mode?
+              (cond
+                receiver-mode?
+                (let [recv        (decode-arg (get case-spec "recv"))
+                      method-name (get case-spec "method")
+                      args        (get case-spec "args" [])
+                      ^Method m   (find-method cls method-name args)]
+                  (invoke-method m recv args))
+
+                instance-mode?
                 ;; Instance mode — construct then run ops chain
                 (let [ctor-args (get case-spec "new" [])
                       ^java.lang.reflect.Constructor ctor (find-constructor cls ctor-args)
@@ -326,6 +340,8 @@
                             ^Method m (find-method cls method-name op-args)
                             r (invoke-method m instance op-args)]
                         (recur (rest ops) r)))))
+
+                :else
                 ;; Static mode (the original path)
                 (let [method-name (get case-spec "method")
                       args (get case-spec "args" [])
@@ -379,19 +395,31 @@
 
 ;; ─── comparator ──────────────────────────────────────────────────────────────
 
+(defn- canon-bool
+  "Map booleans onto int 0/1. Under the AOT contract a Java boolean IS a
+   PHP int on the operand stack (0/1), and Z-returning shims return int
+   0/1 accordingly — so a shim's 1 must compare equal to the JDK's true.
+   Value-returning boolean methods on either side normalise through here
+   before comparison."
+  [v]
+  (cond (true? v) 1 (false? v) 0 :else v))
+
 (defn- numeric-eq?
   "Compare two normalised return values. Floats compared with strict
    eq because the contract preserves Double bit-equality (NaN/INF are
    wrapped). For float pairs whose representation may legitimately
-   diverge (transcendentals), case spec carries an explicit `tolerance`."
+   diverge (transcendentals), case spec carries an explicit `tolerance`.
+   Java boolean and PHP int 0/1 are the same value under the contract."
   [a b tolerance]
-  (cond
-    (and (number? a) (number? b))
-    (if tolerance
-      (<= (Math/abs (- (double a) (double b))) (double tolerance))
-      (= a b))
-    :else
-    (= a b)))
+  (let [a (canon-bool a)
+        b (canon-bool b)]
+    (cond
+      (and (number? a) (number? b))
+      (if tolerance
+        (<= (Math/abs (- (double a) (double b))) (double tolerance))
+        (= a b))
+      :else
+      (= a b))))
 
 (defn- compare-results
   "Per-axis equality. Returns {:status :match} or
@@ -434,13 +462,22 @@
     (assoc cmp :case-spec case-spec :jdk jdk :php php)))
 
 (defn- format-case-label [case-spec]
-  (if (contains? case-spec "new")
+  (cond
+    (contains? case-spec "recv")
+    (format "%s.%s(%s)"
+            (pr-str (get case-spec "recv"))
+            (get case-spec "method")
+            (str/join ", " (map pr-str (get case-spec "args" []))))
+
+    (contains? case-spec "new")
     (let [ops (get case-spec "ops" [])]
       (format "new + %s" (str/join " > "
                                    (map #(format "%s(%s)"
                                                  (get % "call")
                                                  (str/join "," (map pr-str (get % "args" []))))
                                         ops))))
+
+    :else
     (let [m (get case-spec "method")
           args (get case-spec "args" [])]
       (format "%s(%s)" m (str/join ", " (map pr-str args))))))

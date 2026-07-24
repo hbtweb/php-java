@@ -162,6 +162,42 @@
                       (not (contains? nondeterministic (.getName m))))))
        (sort-by (juxt #(.getName ^Method %) #(.getParameterCount ^Method %)))))
 
+(def ^:private value-types
+  "Classes PHPJava carries as a bare PHP value and dispatches statically
+   through a receiver-first shim (String_::charAt(recv, ...)). Their
+   INSTANCE methods are generated in receiver mode: the receiver is drawn
+   from a small corpus, the JDK invokes recv.method(args), and PHPJava
+   calls Shim::method(recv, ...args)."
+  #{"java.lang.String"})
+
+(def ^:private receiver-corpus
+  "Receivers for value-type instance methods. Chosen to exercise the
+   encoding forms where PHP byte-indexing and Java UTF-16-indexing
+   diverge: empty, ASCII, ASCII with space/punct, 2-byte, a 4-byte
+   surrogate pair mid-string, and padding for trim/strip."
+  ["" "abc" "Hello, World!" "café" "a𝔘b" "  pad  "])
+
+(def ^:private receiver-skip
+  "Instance methods excluded from receiver-mode generation — identity /
+   thread / lifecycle methods that can't compare across runtimes. Note
+   String.hashCode / equals / compareTo are NOT here: unlike Object's,
+   they are value-based and spec-locked."
+  #{"getClass" "clone" "wait" "notify" "notifyAll" "finalize"})
+
+(defn- instance-methods
+  "Public instance methods reachable on the class, for receiver-mode
+   generation. Includes inherited (getMethods) so e.g. CharSequence
+   defaults surface, minus the identity/lifecycle set."
+  [^Class cls]
+  (->> (.getMethods cls)
+       (filter (fn [^Method m]
+                 (and (not (Modifier/isStatic (.getModifiers m)))
+                      (Modifier/isPublic (.getModifiers m))
+                      (not (.isSynthetic m))
+                      (not (.isBridge m))
+                      (not (contains? receiver-skip (.getName m))))))
+       (sort-by (juxt #(.getName ^Method %) #(.getParameterCount ^Method %)))))
+
 (defn- gen-method
   "{:cases [...]} or {:skip {...}} for one method."
   [^Method m cap ^java.util.Random rng]
@@ -176,28 +212,53 @@
       {:cases (mapv (fn [args] {"method" (.getName m) "args" args})
                     (sample-tuples corpora cap rng))})))
 
+(defn- gen-receiver-method
+  "{:cases [...]} or {:skip {...}} for one instance method, one entry per
+   (receiver, arg-tuple). The per-method arg cap is smaller because it
+   multiplies by the receiver count."
+  [^Method m receivers cap ^java.util.Random rng]
+  (let [params  (vec (.getParameterTypes m))
+        corpora (mapv param-corpus params)]
+    (if (some nil? corpora)
+      {:skip {"method" (str (.getName m) "/recv")
+              "reason" (str "receiver-mode parameter type not on the wire: "
+                            (str/join ", " (map #(.getName ^Class %)
+                                                (keep-indexed (fn [i p] (when (nil? (nth corpora i)) p))
+                                                              params))))}}
+      {:cases (vec (for [recv receivers
+                         args (sample-tuples corpora cap rng)]
+                     {"recv" recv "method" (.getName m) "args" args}))})))
+
 (defn generate
-  "Generate {:seen [...] :holdout [...] :skipped [...] :methods n} for a class."
+  "Generate {:seen [...] :holdout [...] :skipped [...] :methods n :mode s}
+   for a class. Value-type classes (String) additionally emit receiver-
+   mode cases for their instance methods."
   [^String fqn {:keys [cap seed holdout-cap]
                 :or   {cap 24 seed 20260724 holdout-cap 12}}]
-  (let [cls     (Class/forName fqn)
-        methods (candidate-methods cls)
-        rng-a   (java.util.Random. seed)
-        rng-b   (java.util.Random. (+ seed 977))
-        results (mapv #(gen-method % cap rng-a) methods)
-        seen    (vec (mapcat :cases results))
-        seen-set (set seen)
-        ;; Holdout draws from the same corpora with a different seed and
-        ;; is filtered against `seen` — same distribution, disjoint draw.
-        hold    (->> methods
-                     (mapv #(gen-method % holdout-cap rng-b))
-                     (mapcat :cases)
-                     (remove seen-set)
-                     vec)]
+  (let [cls          (Class/forName fqn)
+        value-type?  (contains? value-types fqn)
+        statics      (candidate-methods cls)
+        instances    (if value-type? (instance-methods cls) [])
+        rng-a        (java.util.Random. seed)
+        rng-b        (java.util.Random. (+ seed 977))
+        ;; receiver arg-cap is per-method, before the receiver fan-out
+        rcap         (max 1 (quot cap 3))
+        rcap-h       (max 1 (quot holdout-cap 3))
+        static-res   (mapv #(gen-method % cap rng-a) statics)
+        recv-res     (mapv #(gen-receiver-method % receiver-corpus rcap rng-a) instances)
+        seen         (vec (concat (mapcat :cases static-res) (mapcat :cases recv-res)))
+        seen-set     (set seen)
+        ;; Holdout: same corpora, different seed, filtered against seen.
+        hold         (->> (concat
+                           (mapcat :cases (mapv #(gen-method % holdout-cap rng-b) statics))
+                           (mapcat :cases (mapv #(gen-receiver-method % receiver-corpus rcap-h rng-b) instances)))
+                          (remove seen-set)
+                          vec)]
     {:seen    seen
      :holdout hold
-     :skipped (vec (keep :skip results))
-     :methods (count methods)}))
+     :skipped (vec (concat (keep :skip static-res) (keep :skip recv-res)))
+     :methods (+ (count statics) (count instances))
+     :mode    (if value-type? "static+receiver" "static-only")}))
 
 ;; ─── emit ────────────────────────────────────────────────────────────────────
 
@@ -225,20 +286,20 @@
       (binding [*out* *err*]
         (println "Usage: -m gen --class <FQN> [--out DIR] [--cap N] [--seed N]"))
       (System/exit 2))
-    (let [{:keys [seen holdout skipped methods]} (generate fqn opts)
+    (let [{:keys [seen holdout skipped methods mode]} (generate fqn opts)
           base (str (:out opts) "/" fqn)
           meta-base {"by"      "bench/parity/gen.clj"
                      "seed"    (:seed opts)
                      "cap"     (:cap opts)
                      "jdk"     (System/getProperty "java.version")
                      "methods" methods
-                     "mode"    "static-only"}]
+                     "mode"    mode}]
       (write-battery! (str base ".gen.json") fqn seen
                       (assoc meta-base "split" "seen" "skipped" skipped))
       (write-battery! (str base ".holdout.json") fqn holdout
                       (assoc meta-base "split" "holdout"))
-      (println (format "%s — %d static methods, %d seen cases, %d holdout cases, %d methods skipped"
-                       fqn methods (count seen) (count holdout) (count skipped)))
+      (println (format "%s [%s] — %d methods, %d seen cases, %d holdout cases, %d methods skipped"
+                       fqn mode methods (count seen) (count holdout) (count skipped)))
       (doseq [s skipped]
         (println (format "  SKIP %-24s %s" (get s "method") (get s "reason"))))
       (println (format "  wrote %s.gen.json + %s.holdout.json" base base)))))

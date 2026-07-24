@@ -178,6 +178,30 @@ Each case battery is a JSON file with:
 both the JDK oracle output AND the explicit expectation, catching
 JDK-version drift.
 
+### Dispatch modes
+
+A case spec takes one of three shapes:
+
+- **Static** (default): `{method, args}` → `Class.method(args)`. JDK
+  invokes the static method; PHP calls the shim statically.
+- **Instance**: `{new: [...], ops: [{call, args}, ...]}` → construct,
+  then run the op chain, comparing the last op's return. For
+  instance-bearing classes (HashMap, ArrayList).
+- **Receiver**: `{recv, method, args}` → an instance method on a value
+  type. Java dispatches `recv.method(args)`; PHPJava carries the value
+  as a bare PHP value and calls `Shim::method(recv, ...args)` — e.g.
+  `"hello".charAt(1)` on the JDK side, `String_::charAt("hello", 1)` on
+  ours. `gen.clj` emits these automatically for classes in its
+  `value-types` set (currently `java.lang.String`), drawing the receiver
+  from a small corpus of encoding-relevant strings.
+
+The runner maps a dotted FQN to its shim, applying the reserved-word
+remap the IR Builder uses (`java.lang.String` → `...\String_`, likewise
+Object / Float / Void). An absent shim method in receiver mode surfaces
+as a clean `UnsupportedOperationException` rather than a raw TypeError
+out of the bytecode fallback, so battery output stays readable and marks
+the method as bb-fill surface.
+
 ### Tagged argument shapes
 
 Raw JSON can't express NaN, ±Infinity, or a typed array, so arguments
