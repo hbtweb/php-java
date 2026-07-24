@@ -1,19 +1,23 @@
 {
     "R2_nie_files": 89,
     "R3_packages_coupling": 21,
-    "R4_batteries": 13,
+    "R4_batteries": 15,
     "R5_depth3": {
-        "deep": 19,
-        "total": 2071,
-        "pct": 0.9174311926605505
+        "deep": 25,
+        "total": 2090,
+        "pct": 1.1961722488038278
     },
     "R1_parity": {
-        "green": 3420,
-        "total": 3876,
+        "green": 3789,
+        "total": 4245,
         "perBattery": {
             "java.lang.Boolean.json": {
                 "green": 29,
                 "total": 29
+            },
+            "java.lang.Byte.gen.json": {
+                "green": 181,
+                "total": 181
             },
             "java.lang.Character.json": {
                 "green": 52,
@@ -38,6 +42,10 @@
             "java.lang.Math.json": {
                 "green": 53,
                 "total": 53
+            },
+            "java.lang.Short.gen.json": {
+                "green": 188,
+                "total": 188
             },
             "java.lang.String.gen.json": {
                 "green": 1926,
