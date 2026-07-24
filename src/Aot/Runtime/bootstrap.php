@@ -811,42 +811,10 @@ class String_
         if ($v === null) return 'null';
         if ($v === true) return 'true';
         if ($v === false) return 'false';
-        if (\is_float($v)) return self::floatToString($v);
+        // String.valueOf(double) delegates to Double.toString in the JDK;
+        // the shortest-round-trip algorithm lives there as the single home.
+        if (\is_float($v)) return Double::toString($v);
         return (string) $v;
-    }
-
-    /**
-     * Approximates Java's Double.toString for the common cases: NaN,
-     * ±Infinity, signed zero, and integer-valued finites (which Java
-     * always renders with a trailing ".0" — PHP drops it). Values needing
-     * Java's shortest-round-trip decimal or its 1.0E<n> scientific form
-     * are left to PHP's default repr and may still diverge; tracked with
-     * the String bb-fill surface.
-     */
-    private static function floatToString(float $v): string
-    {
-        if (\is_nan($v))  return 'NaN';
-        if ($v === \INF)  return 'Infinity';
-        if ($v === -\INF) return '-Infinity';
-        // Distinguish -0.0 from 0.0 by the sign bit (1/0.0 would raise
-        // DivisionByZeroError in PHP 8).
-        if ($v === 0.0)   return (\pack('E', $v)[0] === "\x80") ? '-0.0' : '0.0';
-        if ($v === \floor($v) && \abs($v) < 1e16) {
-            return \sprintf('%.1f', $v);
-        }
-        // Shortest round-trip mantissa. PHP's default (string) cast uses
-        // precision=14 and truncates (pi -> 3.1415926535898); precision=-1
-        // gives the shortest decimal that round-trips, matching Java's
-        // digit selection. PHP writes a positive exponent as "E+308";
-        // Java omits the plus, so normalise. The THRESHOLD at which each
-        // switches to scientific notation can still differ for values not
-        // in the corpus — folded into the String bb-fill worklist.
-        $old = \ini_set('precision', '-1');
-        try {
-            return \str_replace('E+', 'E', (string) $v);
-        } finally {
-            \ini_set('precision', $old);
-        }
     }
 
     /**

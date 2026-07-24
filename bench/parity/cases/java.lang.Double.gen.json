@@ -1,0 +1,1839 @@
+{
+  "class": "java.lang.Double",
+  "_generated": {
+    "by": "bench\/parity\/gen.clj",
+    "seed": 20260724,
+    "cap": 24,
+    "jdk": "25.0.3",
+    "methods": 15,
+    "mode": "static-only",
+    "split": "seen",
+    "skipped": []
+  },
+  "cases": [
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        -0.0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        -1.0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        0.5
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        -0.5
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        2.5
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        -2.5
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        3.5
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        1.0E308
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.0,
+        -1.0E308
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.5,
+        -1.0E308
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        2.5,
+        -1.0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        3.141592653589793,
+        -2.5
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        2.5,
+        -2.5
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -2.5,
+        {
+          "__inf__": 1
+        }
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1.0E308,
+        4.9E-324
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        3.141592653589793,
+        1.0E308
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        3.141592653589793,
+        {
+          "__inf__": 1
+        }
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        3.5,
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -2.5,
+        1.0E308
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        {
+          "__inf__": 1
+        },
+        -2.5
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0.5,
+        2.5
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        0.0
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        -0.0
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        1.0
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        -1.0
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        0.5
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        -0.5
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        2.5
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        -2.5
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        3.5
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        1.0E308
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        -1.0E308
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        4.9E-324
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        {
+          "__nan__": true
+        }
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        {
+          "__inf__": 1
+        }
+      ]
+    },
+    {
+      "method": "doubleToLongBits",
+      "args": [
+        {
+          "__inf__": -1
+        }
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        0.0
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        -0.0
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        1.0
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        -1.0
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        0.5
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        -0.5
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        2.5
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        -2.5
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        3.5
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        1.0E308
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        -1.0E308
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        4.9E-324
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        {
+          "__nan__": true
+        }
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        {
+          "__inf__": 1
+        }
+      ]
+    },
+    {
+      "method": "doubleToRawLongBits",
+      "args": [
+        {
+          "__inf__": -1
+        }
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        0.0
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        -0.0
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        1.0
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        -1.0
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        0.5
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        -0.5
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        2.5
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        -2.5
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        3.5
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        1.0E308
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        -1.0E308
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        4.9E-324
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        {
+          "__nan__": true
+        }
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        {
+          "__inf__": 1
+        }
+      ]
+    },
+    {
+      "method": "isFinite",
+      "args": [
+        {
+          "__inf__": -1
+        }
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        0.0
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        -0.0
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        1.0
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        -1.0
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        0.5
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        -0.5
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        2.5
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        -2.5
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        3.5
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        1.0E308
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        -1.0E308
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        4.9E-324
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        {
+          "__nan__": true
+        }
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        {
+          "__inf__": 1
+        }
+      ]
+    },
+    {
+      "method": "isInfinite",
+      "args": [
+        {
+          "__inf__": -1
+        }
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        0.0
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        -0.0
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        1.0
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        -1.0
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        0.5
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        -0.5
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        2.5
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        -2.5
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        3.5
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        1.0E308
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        -1.0E308
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        4.9E-324
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        {
+          "__nan__": true
+        }
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        {
+          "__inf__": 1
+        }
+      ]
+    },
+    {
+      "method": "isNaN",
+      "args": [
+        {
+          "__inf__": -1
+        }
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        9223372036854775807
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        -9223372036854775808
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        9223372036854775806
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        -9223372036854775807
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        4294967296
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "longBitsToDouble",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        -0.0
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        -1.0
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        0.5
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        -0.5
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        2.5
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        -2.5
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        3.5
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        1.0E308
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0.0,
+        -1.0E308
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        3.5,
+        3.5
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        2.5,
+        -0.5
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        3.5,
+        -2.5
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        -1.0E308,
+        -2.5
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        -1.0,
+        -0.0
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        -1.0E308,
+        1.0E308
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        4.9E-324,
+        -1.0
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        {
+          "__inf__": -1
+        },
+        -0.0
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        {
+          "__inf__": 1
+        },
+        -1.0E308
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        1.0E308,
+        -0.5
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        {
+          "__inf__": -1
+        },
+        -1.0
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        -1.0,
+        -2.5
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        -0.0
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        -1.0
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        0.5
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        -0.5
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        2.5
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        -2.5
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        3.5
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        1.0E308
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0.0,
+        -1.0E308
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        -2.5,
+        -0.5
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        4.9E-324,
+        -0.0
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        -1.0,
+        -0.5
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        {
+          "__inf__": -1
+        },
+        4.9E-324
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        1.0,
+        {
+          "__nan__": true
+        }
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        {
+          "__nan__": true
+        },
+        2.5
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        {
+          "__inf__": -1
+        },
+        1.0E308
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        {
+          "__inf__": 1
+        },
+        1.0E308
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        3.5,
+        {
+          "__nan__": true
+        }
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        -2.5,
+        -0.0
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        -0.5,
+        -0.5
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        -1.0E308,
+        2.5
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "parseDouble",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        0.0
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        -0.0
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        1.0
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        -1.0
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        0.5
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        -0.5
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        2.5
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        -2.5
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        3.5
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        1.0E308
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.0,
+        -1.0E308
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        {
+          "__inf__": -1
+        },
+        0.0
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        4.9E-324,
+        -1.0
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        {
+          "__inf__": -1
+        },
+        -1.0
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        -0.5,
+        -1.0E308
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        1.0E308,
+        0.5
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        1.0,
+        -0.0
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        3.5,
+        {
+          "__inf__": -1
+        }
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        -1.0,
+        3.5
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        4.9E-324,
+        1.0E308
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.5,
+        2.5
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0.5,
+        4.9E-324
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        -1.0,
+        -1.0E308
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        0.0
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        -0.0
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        1.0
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        -1.0
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        0.5
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        -0.5
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        2.5
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        -2.5
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        3.5
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        1.0E308
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        -1.0E308
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        4.9E-324
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        {
+          "__nan__": true
+        }
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        {
+          "__inf__": 1
+        }
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        {
+          "__inf__": -1
+        }
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0.0
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -0.0
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        1.0
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -1.0
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0.5
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -0.5
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        2.5
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -2.5
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        3.5
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        1.0E308
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -1.0E308
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        4.9E-324
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        {
+          "__nan__": true
+        }
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        {
+          "__inf__": 1
+        }
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        {
+          "__inf__": -1
+        }
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        0.0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -0.0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        1.0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -1.0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        0.5
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -0.5
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        2.5
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -2.5
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        3.5
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        3.141592653589793
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        1.0E308
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -1.0E308
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        4.9E-324
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        {
+          "__nan__": true
+        }
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        {
+          "__inf__": 1
+        }
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        {
+          "__inf__": -1
+        }
+      ]
+    }
+  ]
+}
