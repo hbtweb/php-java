@@ -1383,28 +1383,117 @@ class StringBuilder
     public function __construct($initial = '')
     {
         // Java overloads: StringBuilder(), (int capacity), (CharSequence/String).
-        // Ints are capacity hints — irrelevant for PHP — start empty.
-        $this->buf = \is_string($initial) ? $initial : '';
+        if (\is_int($initial)) {
+            // Capacity form: PHP strings auto-grow, so the hint itself is a
+            // no-op — but Java validates it, and the parity battery checks
+            // both failure modes. Negative capacity is an immediate throw;
+            // a length past the JVM's hard array cap (Integer.MAX_VALUE-2)
+            // fails allocation before touching the heap (so it's a
+            // deterministic OOM, not a heap-size-dependent one).
+            if ($initial < 0) {
+                throw new NegativeArraySizeException((string) $initial);
+            }
+            if ($initial > 2147483645) {
+                throw new OutOfMemoryError('Requested array size exceeds VM limit');
+            }
+            $this->buf = '';
+            return;
+        }
+        // CharSequence/String form. Java NPEs on a null argument (it reads
+        // .length() to size the buffer); PHP would silently coerce to ''.
+        if ($initial === null) {
+            throw new NullPointerException('CharSequence');
+        }
+        $this->buf = (string) $initial;
     }
 
-    public function append($x): self
+    /**
+     * Render an append/insert argument the way Java's String conversion
+     * does. Routes floats through Double::toString so integer-valued
+     * doubles keep their ".0" (PHP's (string) cast drops it), and a char[]
+     * (a PHP array of code units on the wire) through the UTF-16 decoder.
+     */
+    private function stringify($x): string
     {
-        // Java's many append() overloads collapse to one PHP path. char
-        // (passed as int per the raw-scalar contract) appends the
-        // single character; everything else uses string conversion.
-        if (\is_int($x) && $x >= 0 && $x <= 0x10FFFF && \func_num_args() === 1) {
-            // Disambiguate append(int) from append(char): the JVM bytecode
-            // is the same — both push an int. Without a way to tell them
-            // apart from the AOT call site, prefer the integer-as-decimal
-            // form (more common). The test fixtures here use it that way
-            // (`text.append(i)` where i is an int counter).
-            $this->buf .= (string) $x;
+        if ($x === null)     return 'null';
+        if ($x === true)     return 'true';
+        if ($x === false)    return 'false';
+        if (\is_float($x))   return Double::toString($x);
+        if (\is_array($x))   return \PHPJava\Aot\Runtime\Utf16::unitsToString($x);
+        return (string) $x;
+    }
+
+    /**
+     * All of Java's append() overloads. char (passed as int per the
+     * raw-scalar contract) collapses onto the int form — the JVM bytecode
+     * is identical, and the AOT fixtures use the integer-as-decimal shape.
+     * The 3-arg forms are append(char[], offset, len) and
+     * append(CharSequence, start, end); they're told apart by whether the
+     * first argument arrives as a PHP array (char[]) or a string.
+     */
+    public function append($x, ...$rest): self
+    {
+        if (\count($rest) === 2) {
+            [$a, $b] = $rest;
+            if (\is_array($x)) {
+                // append(char[] c, int offset, int len)
+                $n = \count($x);
+                if ($a < 0 || $b < 0 || $a + $b > $n) {
+                    throw new IndexOutOfBoundsException("offset {$a}, len {$b}, array.length {$n}");
+                }
+                $this->buf .= \PHPJava\Aot\Runtime\Utf16::unitsToString(\array_slice($x, $a, $b));
+                return $this;
+            }
+            // append(CharSequence s, int start, int end) — null reads as "null".
+            $s   = $x === null ? 'null' : (string) $x;
+            $len = \PHPJava\Aot\Runtime\Utf16::length($s);
+            if ($a < 0 || $b > $len || $a > $b) {
+                throw new IndexOutOfBoundsException("start {$a}, end {$b}, length {$len}");
+            }
+            $this->buf .= \PHPJava\Aot\Runtime\Utf16::substring($s, $a, $b);
             return $this;
         }
-        if ($x === null)        $this->buf .= 'null';
-        elseif ($x === true)    $this->buf .= 'true';
-        elseif ($x === false)   $this->buf .= 'false';
-        else                    $this->buf .= (string) $x;
+        $this->buf .= $this->stringify($x);
+        return $this;
+    }
+
+    /** Append the UTF-16 encoding of a Unicode code point. */
+    public function appendCodePoint(int $codePoint): self
+    {
+        if ($codePoint < 0 || $codePoint > 0x10FFFF) {
+            throw new IllegalArgumentException("Not a valid Unicode code point: {$codePoint}");
+        }
+        $this->buf .= \PHPJava\Aot\Runtime\Utf16::codePointToUtf8($codePoint);
+        return $this;
+    }
+
+    /**
+     * Java 21 repeat(): repeat(CharSequence, count) appends the sequence
+     * count times; repeat(int codePoint, count) appends the code point's
+     * chars count times. Disambiguated by the first arg's PHP type.
+     */
+    public function repeat($x, int $count): self
+    {
+        if ($count < 0) {
+            throw new IllegalArgumentException("count is negative: {$count}");
+        }
+        if (\is_int($x)) {
+            if ($x < 0 || $x > 0x10FFFF) {
+                throw new IllegalArgumentException("Not a valid Unicode code point: {$x}");
+            }
+            $unit  = \PHPJava\Aot\Runtime\Utf16::codePointToUtf8($x);
+            $units = $x > 0xFFFF ? 2 : 1;
+        } else {
+            $unit  = $x === null ? 'null' : (string) $x;
+            $units = \PHPJava\Aot\Runtime\Utf16::length($unit);
+        }
+        // Java rejects a result past the JVM array cap before allocating,
+        // as an OutOfMemoryError. Guard here too — str_repeat() at that size
+        // would fatally exhaust the PHP process rather than throw.
+        if ($units * $count > 2147483645) {
+            throw new OutOfMemoryError('Required length exceeds implementation limit');
+        }
+        $this->buf .= \str_repeat($unit, $count);
         return $this;
     }
 
@@ -1433,13 +1522,39 @@ class StringBuilder
 
     // ── extended surface ──
 
-    public function insert(int $offset, $x): self
+    /**
+     * insert(int, X) plus the 4-arg forms insert(int, char[], offset, len)
+     * and insert(int, CharSequence, start, end) — same array-vs-string
+     * disambiguation as append(). Value rendering goes through stringify()
+     * so floats and char[] arguments are handled the Java way.
+     */
+    public function insert(int $offset, $x, ...$rest): self
     {
         $cur = \strlen($this->buf);
         if ($offset < 0 || $offset > $cur) {
             throw new StringIndexOutOfBoundsException("offset $offset, length $cur");
         }
-        $s = $x === null ? 'null' : ($x === true ? 'true' : ($x === false ? 'false' : (string) $x));
+        if (\count($rest) === 2) {
+            [$a, $b] = $rest;
+            if (\is_array($x)) {
+                // insert(int index, char[] str, int offset, int len)
+                $n = \count($x);
+                if ($a < 0 || $b < 0 || $a + $b > $n) {
+                    throw new StringIndexOutOfBoundsException("offset {$a}, len {$b}, array.length {$n}");
+                }
+                $s = \PHPJava\Aot\Runtime\Utf16::unitsToString(\array_slice($x, $a, $b));
+            } else {
+                // insert(int dstOffset, CharSequence s, int start, int end)
+                $seq = $x === null ? 'null' : (string) $x;
+                $len = \PHPJava\Aot\Runtime\Utf16::length($seq);
+                if ($a < 0 || $b > $len || $a > $b) {
+                    throw new IndexOutOfBoundsException("start {$a}, end {$b}, length {$len}");
+                }
+                $s = \PHPJava\Aot\Runtime\Utf16::substring($seq, $a, $b);
+            }
+        } else {
+            $s = $this->stringify($x);
+        }
         $this->buf = \substr($this->buf, 0, $offset) . $s . \substr($this->buf, $offset);
         return $this;
     }
@@ -1495,19 +1610,24 @@ class StringBuilder
         return \substr($this->buf, $start, $end - $start);
     }
 
-    public function indexOf(string $str, int $fromIndex = 0): int
+    /**
+     * Delegate to String_ so the UTF-16 index semantics, empty-needle
+     * clamping, and out-of-range fromIndex handling match String.indexOf
+     * exactly — and so a null needle NPEs (Java reads the target's fields)
+     * rather than raising a PHP TypeError.
+     */
+    public function indexOf(?string $str, int $fromIndex = 0): int
     {
-        if ($fromIndex < 0) $fromIndex = 0;
-        $r = \strpos($this->buf, $str, $fromIndex);
-        return $r === false ? -1 : $r;
+        if ($str === null) throw new NullPointerException('str');
+        return String_::indexOf($this->buf, $str, $fromIndex);
     }
 
-    public function lastIndexOf(string $str, ?int $fromIndex = null): int
+    public function lastIndexOf(?string $str, ?int $fromIndex = null): int
     {
-        $r = $fromIndex === null
-            ? \strrpos($this->buf, $str)
-            : \strrpos($this->buf, $str, $fromIndex - \strlen($this->buf));
-        return $r === false ? -1 : $r;
+        if ($str === null) throw new NullPointerException('str');
+        return $fromIndex === null
+            ? String_::lastIndexOf($this->buf, $str)
+            : String_::lastIndexOf($this->buf, $str, $fromIndex);
     }
 
     /**

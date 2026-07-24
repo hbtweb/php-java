@@ -1,0 +1,6608 @@
+{
+  "class": "java.lang.StringBuilder",
+  "_generated": {
+    "by": "bench\/parity\/gen.clj",
+    "seed": 20260724,
+    "cap": 24,
+    "jdk": "25.0.3",
+    "methods": 43,
+    "mode": "instance",
+    "split": "seen",
+    "skipped": [
+      {
+        "method": "append",
+        "reason": "parameter type not on the wire"
+      },
+      {
+        "method": "compareTo",
+        "reason": "parameter type not on the wire"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        ""
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "a"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "abc"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        " "
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "  x  "
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "0"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        null
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "TRUE"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "\t"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "1"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "a\nb"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "9223372036854775808"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        ""
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "a"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "abc"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        " "
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "  x  "
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "0"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "1"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "9223372036854775808"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "true"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "\t"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "\u00e9"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        "\u65e5\u672c\u8a9e"
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        0
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        1
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        -1
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        2147483647
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        -2147483648
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        2147483646
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        10
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        16
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        -65536
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        7
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        2
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [
+        -2147483647
+      ],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            ""
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "a"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "abc"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            " "
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "  x  "
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "0"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "\ud835\udd18"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "true"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "0.5"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "2147483648"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "9223372036854775808"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "TRUE"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": []
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                32
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                48
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                57
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                0,
+                32,
+                48
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                48,
+                32,
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            ""
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "a"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "abc"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            " "
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "  x  "
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "0"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "2147483648"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "0.5"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "\t"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "\u65e5\u672c\u8a9e"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "-1"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "a\nb"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            null
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "x"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            true
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            0.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            32
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            48
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            57
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            65
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            90
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            122
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            56320
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            128
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            233
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            65535
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            57343
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -65536
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            16
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            7
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            65536
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            2
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            255
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            9223372036854775807
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -9223372036854775808
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            9223372036854775806
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            4294967296
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            255
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            2
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            10
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -9223372036854775807
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            0.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -0.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            1.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -1.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            0.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -0.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            2.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -2.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            3.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__nan__": true
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__inf__": 1
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__inf__": -1
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            0.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -0.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            1.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -1.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            0.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -0.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            2.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__inf__": -1
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            4.9E-324
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            -1.0E308
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            3.141592653589793
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            1.0E308
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            true
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            false
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "",
+            0,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "",
+            0,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "",
+            0,
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "",
+            0,
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "",
+            0,
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "",
+            0,
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "true",
+            0,
+            10
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "0.5",
+            7,
+            7
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "",
+            -1,
+            2
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "",
+            -2147483647,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "\ud835\udd18",
+            -2147483647,
+            -65536
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            "0",
+            2,
+            2
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                48
+              ]
+            },
+            10,
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                57
+              ]
+            },
+            16,
+            -65536
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                0
+              ]
+            },
+            255,
+            2
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                48
+              ]
+            },
+            1,
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                0
+              ]
+            },
+            -2147483648,
+            1000000
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "append",
+          "args": [
+            {
+              "__arr__": "char",
+              "v": [
+                48,
+                32,
+                0
+              ]
+            },
+            255,
+            255
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            10
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            -2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            65536
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            7
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            16
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "appendCodePoint",
+          "args": [
+            1000000
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            0,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            0,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            0,
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            0,
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            0,
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            0,
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            2147483647,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            1000000,
+            2
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            65536,
+            1000000
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            16,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            1,
+            1000000
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "delete",
+          "args": [
+            65535,
+            -2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            16
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            -65536
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            65536
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            65535
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            7
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "deleteCharAt",
+          "args": [
+            -2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "a"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "abc"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            " "
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "  x  "
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "0"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "9223372036854775808"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "\t"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "0.5"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "a\nb"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "1"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "2147483648"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "",
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "",
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "",
+            -1
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "",
+            2147483647
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "",
+            -2147483648
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "",
+            2147483646
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "true",
+            -1
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "9223372036854775808",
+            -2147483648
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "a\nb",
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            null,
+            10
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "TRUE",
+            7
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "indexOf",
+          "args": [
+            "\u65e5\u672c\u8a9e",
+            2147483647
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            ""
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "a"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "abc"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            " "
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "  x  "
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "0"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            2,
+            "\u65e5\u672c\u8a9e"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            255,
+            "a"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            7,
+            "1"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            255,
+            "\u00e9"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -2147483648,
+            "TRUE"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            7,
+            null
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            ""
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "a"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "abc"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            " "
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "  x  "
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "0"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            10,
+            "abc"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            255,
+            "true"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            2,
+            "a\nb"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            2,
+            "1"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            2147483646,
+            ""
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            2147483646,
+            "\u00e9"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": []
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": [
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": [
+                32
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": [
+                48
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": [
+                57
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": [
+                0,
+                32,
+                48
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            2,
+            {
+              "__arr__": "char",
+              "v": [
+                48
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            255,
+            {
+              "__arr__": "char",
+              "v": [
+                0
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -65536,
+            {
+              "__arr__": "char",
+              "v": [
+                0,
+                32,
+                48
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            16,
+            {
+              "__arr__": "char",
+              "v": []
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            10,
+            {
+              "__arr__": "char",
+              "v": [
+                48
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            255,
+            {
+              "__arr__": "char",
+              "v": [
+                32
+              ]
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            null
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "x"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            true
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            0.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            16,
+            "x"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            65536,
+            "x"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -1,
+            null
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            10,
+            null
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            10,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            255,
+            "x"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            65535
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            -2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -2147483647,
+            7
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            2147483647,
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            255,
+            1000000
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -2147483647,
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            0.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            -0.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            1.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            -1.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            0.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            -0.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -2147483647,
+            3.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            2147483647,
+            3.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            3.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            7,
+            1.0E308
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            16,
+            -1.0E308
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -2147483647,
+            1.0E308
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            0.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            -0.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            1.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            -1.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            0.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            -0.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            1,
+            {
+              "__nan__": true
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -2147483647,
+            -0.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            1000000,
+            {
+              "__inf__": -1
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            2147483646,
+            {
+              "__inf__": 1
+            }
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            10,
+            -1.0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            255,
+            -0.5
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            9223372036854775807
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            -9223372036854775808
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            9223372036854775806
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            7,
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -65536,
+            2
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -2147483648,
+            10
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -1,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            2,
+            9223372036854775807
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            65536,
+            4294967296
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            32
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            48
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            57
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            65
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            90
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            16,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -2147483648,
+            97
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -1,
+            97
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            255,
+            57
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            10,
+            233
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            7,
+            57
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            true
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            false
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            1,
+            true
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            1,
+            false
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -1,
+            true
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -1,
+            false
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            16,
+            true
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -2147483648,
+            true
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -65536,
+            false
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            255,
+            false
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            16,
+            false
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            7,
+            false
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            0,
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            2147483646,
+            {
+              "__arr__": "char",
+              "v": [
+                0
+              ]
+            },
+            65536,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -2147483648,
+            {
+              "__arr__": "char",
+              "v": [
+                32
+              ]
+            },
+            2147483647,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            7,
+            {
+              "__arr__": "char",
+              "v": [
+                0,
+                32,
+                48
+              ]
+            },
+            2147483646,
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            10,
+            {
+              "__arr__": "char",
+              "v": [
+                57
+              ]
+            },
+            -2147483648,
+            7
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            1,
+            {
+              "__arr__": "char",
+              "v": [
+                48,
+                32,
+                0
+              ]
+            },
+            255,
+            16
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            255,
+            {
+              "__arr__": "char",
+              "v": []
+            },
+            1,
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "",
+            0,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "",
+            0,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "",
+            0,
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "",
+            0,
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "",
+            0,
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "",
+            0,
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            16,
+            " ",
+            1000000,
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            0,
+            "",
+            65535,
+            2
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            10,
+            "abc",
+            -1,
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            1,
+            "true",
+            -65536,
+            7
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            65536,
+            "-1",
+            -1,
+            65535
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "insert",
+          "args": [
+            -1,
+            "a",
+            2,
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "isEmpty",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            ""
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "a"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "abc"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            " "
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "  x  "
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "0"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            null
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "TRUE"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "true"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "\ud835\udd18"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "2147483648"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "9223372036854775808"
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "",
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "",
+            1
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "",
+            -1
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "",
+            2147483647
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "",
+            -2147483648
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "",
+            2147483646
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "a\nb",
+            1000000
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "-1",
+            0
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "\t",
+            1000000
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "\ud835\udd18",
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "abc",
+            255
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "lastIndexOf",
+          "args": [
+            "1",
+            2
+          ]
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "",
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "",
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "",
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "",
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "",
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "",
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "-1",
+            -65536
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "-1",
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "\t",
+            255
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "a\nb",
+            65535
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "true",
+            65536
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            "TRUE",
+            16
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            0,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            0,
+            1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            0,
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            0,
+            2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            0,
+            -2147483648
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            0,
+            2147483646
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            1,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            -2147483648,
+            -2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            1000000,
+            -1
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            7,
+            65535
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            2147483646,
+            -2147483647
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "repeat",
+          "args": [
+            1000000,
+            0
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            0,
+            0,
+            ""
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            0,
+            0,
+            "a"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            0,
+            0,
+            "abc"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            0,
+            0,
+            " "
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            0,
+            0,
+            "  x  "
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            0,
+            0,
+            "0"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            65536,
+            1,
+            "0.5"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            2147483646,
+            10,
+            "true"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            255,
+            2147483647,
+            "9223372036854775808"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            2147483646,
+            65535,
+            "a"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            -1,
+            1000000,
+            "\u65e5\u672c\u8a9e"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "replace",
+          "args": [
+            10,
+            65536,
+            "a"
+          ]
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "reverse",
+          "args": []
+        },
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    },
+    {
+      "new": [],
+      "ops": [
+        {
+          "call": "toString",
+          "args": []
+        }
+      ]
+    }
+  ]
+}
