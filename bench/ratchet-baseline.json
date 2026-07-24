@@ -4,12 +4,12 @@
     "R4_batteries": 15,
     "R5_depth3": {
         "deep": 25,
-        "total": 2090,
-        "pct": 1.1961722488038278
+        "total": 2093,
+        "pct": 1.1944577161968466
     },
     "R1_parity": {
-        "green": 3789,
-        "total": 4245,
+        "green": 4216,
+        "total": 4672,
         "perBattery": {
             "java.lang.Boolean.json": {
                 "green": 29,
@@ -50,6 +50,10 @@
             "java.lang.String.gen.json": {
                 "green": 1926,
                 "total": 2382
+            },
+            "java.lang.StringBuilder.gen.json": {
+                "green": 427,
+                "total": 427
             },
             "java.lang.StringBuilder.json": {
                 "green": 19,
