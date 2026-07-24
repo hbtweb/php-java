@@ -599,12 +599,20 @@ parallel within (cap 8 concurrent).
 | **W3** | `java.io` (File, streams, readers, writers), `java.nio.file` | independent of W2; runs concurrently with it. `java/io` currently holds 1 file (`IOException`) |
 | **W4** | `java.time`, `java.text`, `java.math`, remaining `java.util.stream` | where the 89 NIE-bearing files concentrate; mostly stub-replacement rather than greenfield |
 
-**W1 progress.** `Double` landed 2026-07-24 (`0649cce6`): generator-derived
-battery green vs OpenJDK 25 (275/275 seen + 19/19 holdout), R4 12→13. It is
-the canonical home for Java's shortest-round-trip float→string —
-`String.valueOf(double)` now delegates to `Double::toString`, retiring the
-String battery's documented denormal divergence. Remaining W1: `Object`,
-`Class`, `Throwable`, `Number`, the collection interfaces, `Short`, `Byte`.
+**W1 progress (2026-07-24).** Wrapper sub-wave complete — all three
+generator-derived batteries green vs OpenJDK 25:
+
+- `Double` (`0649cce6`): 275/275 seen + 19/19 holdout, R4 12→13. Canonical
+  home for Java's shortest-round-trip float→string — `String.valueOf(double)`
+  now delegates to `Double::toString`, retiring the String battery's
+  documented denormal divergence.
+- `Short` + `Byte` (`c9093875`): 188/188 + 181/181 seen, 21/21 each holdout,
+  R4 13→15. Both delegate parsing to `Integer` (one parser, three wrappers).
+  The battery caught `Short`/`Byte`.`compare` returning the difference
+  (`x - y`), not the `-1/0/1` sign — fixed before landing.
+
+Remaining W1: `Object`, `Class`, `Throwable`, `Number`, the collection
+interfaces (`Comparable`, `Iterable`, `Iterator`).
 
 **Phase 4 identity rides W1.** Once the generator exists, the
 primitive-wrapper identity battery is a config flag rather than a
