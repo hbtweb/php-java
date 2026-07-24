@@ -434,6 +434,11 @@ class String_
 
     public static function replace(string $s, $target, $repl): string
     {
+        // The CharSequence overload NPEs on a null target or replacement;
+        // the char overload passes ints.
+        if ($target === null || $repl === null) {
+            throw new NullPointerException($target === null ? 'target' : 'replacement');
+        }
         if (\is_int($target)) $target = \PHPJava\Aot\Runtime\Utf16::codePointToUtf8($target);
         if (\is_int($repl))   $repl   = \PHPJava\Aot\Runtime\Utf16::codePointToUtf8($repl);
         $target = (string) $target;
@@ -656,6 +661,131 @@ class String_
             $b = \mb_strtolower($b, 'UTF-8');
         }
         return $a === $b ? 1 : 0;
+    }
+
+    // ── regex methods, delegating to the java.util.regex.Pattern shim ──
+    //
+    // The generated "regex" args are simple literals in practice, so the
+    // Java-regex-vs-PCRE dialect gap is minimal here. Two known dialect
+    // divergences are left for the Pattern shim to own, not re-solved:
+    // Java's replacement-string escaping (\$ / \\ vs PCRE) and its
+    // zero-width-match split rules.
+
+    public static function matches(string $s, ?string $regex): int
+    {
+        if ($regex === null) {
+            throw new NullPointerException('regex');
+        }
+        return \PHPJava\Aot\Runtime\java\util\regex\Pattern::matches($regex, $s) ? 1 : 0;
+    }
+
+    /**
+     * split(regex) / split(regex, limit). Java's trailing-empty rule:
+     * limit == 0 drops trailing empty strings, limit < 0 keeps them,
+     * limit > 0 caps the piece count (and keeps trailing empties). An
+     * empty input always yields [""] — Java never returns a zero-length
+     * array for it, whatever the regex.
+     */
+    public static function split(string $s, ?string $regex, int $limit = 0): array
+    {
+        if ($regex === null) {
+            throw new NullPointerException('regex');
+        }
+        if ($s === '') {
+            return [''];
+        }
+        if ($regex === '') {
+            // Java 8+: an empty pattern splits into individual chars, no
+            // leading empty; limit<0 keeps a trailing empty (the end
+            // zero-width match), limit==0 doesn't, limit>0 caps piece
+            // count with the remainder joined into the last. Split by code
+            // point (not byte) to keep multibyte chars whole — matches
+            // Java on the BMP, shares the surrogate divergence above it.
+            $chars = \preg_split('//u', $s, -1, \PREG_SPLIT_NO_EMPTY);
+            if ($chars === false) {
+                return [$s];
+            }
+            // The end zero-width match yields a trailing empty piece.
+            // It's kept for any non-zero limit and dropped only for
+            // limit == 0 (Java's trailing-empty rule applies to both
+            // positive and negative limits).
+            $raw = $chars;
+            $raw[] = '';
+            if ($limit > 0 && \count($raw) > $limit) {
+                $head = \array_slice($raw, 0, $limit - 1);
+                $head[] = \implode('', \array_slice($raw, $limit - 1));
+                return $head;
+            }
+            if ($limit === 0) {
+                return $chars; // == $raw minus its single trailing empty
+            }
+            return $raw;
+        }
+        $delim = \PHPJava\Aot\Runtime\java\util\regex\Pattern::buildDelim($regex);
+        $parts = \preg_split($delim, $s, $limit > 0 ? $limit : -1);
+        if ($parts === false) {
+            return [$s];
+        }
+        if ($limit === 0) {
+            while ($parts !== [] && \end($parts) === '') {
+                \array_pop($parts);
+            }
+            $parts = \array_values($parts);
+        }
+        return $parts;
+    }
+
+    public static function replaceAll(string $s, ?string $regex, ?string $replacement): string
+    {
+        // regex null NPEs eagerly (Pattern.compile(null)); replacement
+        // null only NPEs if a match is actually reached — Java never
+        // dereferences the replacement when nothing matches.
+        if ($regex === null) {
+            throw new NullPointerException('regex');
+        }
+        $delim = self::regexDelim($regex);
+        if ($replacement === null) {
+            if (\preg_match($delim, $s)) {
+                throw new NullPointerException('replacement');
+            }
+            return $s;
+        }
+        $r = \preg_replace($delim, $replacement, $s);
+        return $r ?? $s;
+    }
+
+    public static function replaceFirst(string $s, ?string $regex, ?string $replacement): string
+    {
+        if ($regex === null) {
+            throw new NullPointerException('regex');
+        }
+        $delim = self::regexDelim($regex);
+        if ($replacement === null) {
+            if (\preg_match($delim, $s)) {
+                throw new NullPointerException('replacement');
+            }
+            return $s;
+        }
+        $r = \preg_replace($delim, $replacement, $s, 1);
+        return $r ?? $s;
+    }
+
+    /**
+     * PCRE-delimited form of a Java regex. An empty pattern gets the /u
+     * modifier so a zero-width match lands on code-point boundaries, not
+     * bytes — otherwise replaceAll("", x) would split multibyte chars
+     * mid-sequence and emit invalid UTF-8.
+     */
+    private static function regexDelim(string $regex): string
+    {
+        $delim = \PHPJava\Aot\Runtime\java\util\regex\Pattern::buildDelim($regex);
+        return $regex === '' ? $delim . 'u' : $delim;
+    }
+
+    /** copyValueOf is valueOf(char[]) / valueOf(char[], offset, count). */
+    public static function copyValueOf($data, ?int $offset = null, ?int $count = null): string
+    {
+        return self::valueOf($data, $offset, $count);
     }
 
     /**
