@@ -398,30 +398,377 @@ class String_
  */
 class Integer
 {
-    public static function parseInt(string $s, int $radix = 10): int
+    /** Narrow a PHP int to Java's signed 32-bit int. */
+    private static function i32(int $v): int
     {
-        $s = \trim($s);
-        if ($s === '' || !\preg_match('/^-?[0-9a-zA-Z]+$/', $s)) {
-            throw new NumberFormatException("For input string: \"{$s}\"");
-        }
-        $n = \intval($s, $radix);
-        $rt = $n < 0 ? '-' . \base_convert((string) -$n, 10, $radix) : \base_convert((string) $n, 10, $radix);
-        if (\strtolower($rt) !== \strtolower($s)) {
-            throw new NumberFormatException("For input string: \"{$s}\"");
-        }
-        return $n;
+        $v &= 0xFFFFFFFF;
+        return ($v & 0x80000000) ? ($v - 0x100000000) : $v;
     }
 
-    public static function valueOf($v): int
+    /**
+     * Character.digit for the ASCII range; -1 when the byte isn't a
+     * digit in this radix. Non-ASCII bytes return -1, which matches
+     * the JDK for every character outside its Unicode digit tables —
+     * Unicode decimal digits (Arabic-Indic etc.) are not yet honoured.
+     */
+    private static function digitOf(string $c, int $radix): int
     {
-        if (\is_string($v)) return self::parseInt($v);
-        return (int) $v;
+        $o = \ord($c);
+        if ($o >= 0x30 && $o <= 0x39)     { $d = $o - 0x30; }
+        elseif ($o >= 0x61 && $o <= 0x7A) { $d = $o - 0x61 + 10; }
+        elseif ($o >= 0x41 && $o <= 0x5A) { $d = $o - 0x41 + 10; }
+        else                              { return -1; }
+        return $d < $radix ? $d : -1;
     }
 
+    private static function checkRadix(int $radix): void
+    {
+        if ($radix < 2) {
+            throw new NumberFormatException("radix {$radix} less than Character.MIN_RADIX");
+        }
+        if ($radix > 36) {
+            throw new NumberFormatException("radix {$radix} greater than Character.MAX_RADIX");
+        }
+    }
+
+    private static function nfe(string $s, int $radix): NumberFormatException
+    {
+        return new NumberFormatException(
+            $radix === 10
+                ? "For input string: \"{$s}\""
+                : "For input string: \"{$s}\" under radix {$radix}"
+        );
+    }
+
+    /**
+     * Digit-walk with a per-step magnitude guard. Java's parseInt
+     * rejects anything outside int range rather than truncating, and
+     * the guard also keeps the running value inside PHP's 64-bit int
+     * for arbitrarily long input.
+     */
+    private static function parseDigits(
+        string $s,
+        int $radix,
+        int $from,
+        int $to,
+        bool $negative,
+        string $whole
+    ): int {
+        $limit  = $negative ? 2147483648 : 2147483647;
+        $result = 0;
+        for ($i = $from; $i < $to; $i++) {
+            $d = self::digitOf($s[$i], $radix);
+            if ($d < 0) {
+                throw self::nfe($whole, $radix);
+            }
+            $result = $result * $radix + $d;
+            if ($result > $limit) {
+                throw self::nfe($whole, $radix);
+            }
+        }
+        return $negative ? -$result : $result;
+    }
+
+    private static function parseSigned(string $s, int $radix): int
+    {
+        if ($s === '') {
+            throw self::nfe($s, $radix);
+        }
+        $i        = 0;
+        $negative = false;
+        if ($s[0] === '-')      { $negative = true; $i = 1; }
+        elseif ($s[0] === '+')  { $i = 1; }
+        $len = \strlen($s);
+        if ($i >= $len) {
+            throw self::nfe($s, $radix);
+        }
+        return self::parseDigits($s, $radix, $i, $len, $negative, $s);
+    }
+
+    /**
+     * parseInt(s), parseInt(s, radix), and the Java 9+
+     * parseInt(CharSequence, beginIndex, endIndex, radix). PHP has no
+     * overloading, so arity dispatch happens here.
+     *
+     * Java does NOT trim: " 1" is a NumberFormatException, not 1.
+     */
+    public static function parseInt(?string $s, int ...$rest): int
+    {
+        if (\count($rest) === 3) {
+            [$begin, $end, $radix] = $rest;
+            if ($s === null) {
+                throw new NullPointerException('s');
+            }
+            $len = \strlen($s);
+            // Objects.checkFromToIndex — range is validated before radix.
+            if ($begin < 0 || $begin > $end || $end > $len) {
+                throw new IndexOutOfBoundsException(
+                    "Range [{$begin}, {$end}) out of bounds for length {$len}"
+                );
+            }
+            self::checkRadix($radix);
+            return self::parseSigned(\substr($s, $begin, $end - $begin), $radix);
+        }
+
+        $radix = $rest[0] ?? 10;
+        if ($s === null) {
+            throw new NumberFormatException('Cannot parse null string');
+        }
+        self::checkRadix($radix);
+        return self::parseSigned($s, $radix);
+    }
+
+    /**
+     * Java's parseUnsignedInt accepts 0..4294967295 and returns the
+     * value reinterpreted as a signed int.
+     */
+    public static function parseUnsignedInt(?string $s, int ...$rest): int
+    {
+        if (\count($rest) === 3) {
+            [$begin, $end, $radix] = $rest;
+            if ($s === null) {
+                throw new NullPointerException('s');
+            }
+            $len = \strlen($s);
+            if ($begin < 0 || $begin > $end || $end > $len) {
+                throw new IndexOutOfBoundsException(
+                    "Range [{$begin}, {$end}) out of bounds for length {$len}"
+                );
+            }
+            self::checkRadix($radix);
+            return self::parseUnsignedBody(\substr($s, $begin, $end - $begin), $radix);
+        }
+
+        $radix = $rest[0] ?? 10;
+        if ($s === null) {
+            throw new NumberFormatException('Cannot parse null string');
+        }
+        self::checkRadix($radix);
+        return self::parseUnsignedBody($s, $radix);
+    }
+
+    /**
+     * Note: the index arithmetic above is byte-based, while Java's is
+     * over UTF-16 code units. They agree on ASCII and diverge on
+     * anything else — the same String_ byte-vs-UTF-16 gap tracked in
+     * ROADMAP §Phase 1 (W1). Only the bounds check and the message are
+     * affected; digit parsing rejects non-ASCII either way.
+     */
+    private static function parseUnsignedBody(string $s, int $radix): int
+    {
+        if ($s === '') {
+            throw self::nfe($s, $radix);
+        }
+        if ($s[0] === '-') {
+            throw new NumberFormatException(
+                "Illegal leading minus sign on unsigned string {$s}."
+            );
+        }
+        $i   = $s[0] === '+' ? 1 : 0;
+        $len = \strlen($s);
+        if ($i >= $len) {
+            throw self::nfe($s, $radix);
+        }
+        $result = 0;
+        for (; $i < $len; $i++) {
+            $d = self::digitOf($s[$i], $radix);
+            if ($d < 0) {
+                throw self::nfe($s, $radix);
+            }
+            $result = $result * $radix + $d;
+            if ($result > 4294967295) {
+                throw new NumberFormatException(
+                    "String value {$s} exceeds range of unsigned int."
+                );
+            }
+        }
+        return self::i32($result);
+    }
+
+    /**
+     * Integer.decode — optional sign, then one of the 0x / 0X / # / 0
+     * radix prefixes.
+     */
+    public static function decode(?string $nm): int
+    {
+        if ($nm === null) {
+            throw new NullPointerException('nm');
+        }
+        $len = \strlen($nm);
+        if ($len === 0) {
+            throw new NumberFormatException('Zero length string');
+        }
+        $i        = 0;
+        $negative = false;
+        if ($nm[0] === '-')     { $negative = true; $i = 1; }
+        elseif ($nm[0] === '+') { $i = 1; }
+
+        $radix = 10;
+        if ($i + 1 < $len && $nm[$i] === '0' && ($nm[$i + 1] === 'x' || $nm[$i + 1] === 'X')) {
+            $i += 2;
+            $radix = 16;
+        } elseif ($i < $len && $nm[$i] === '#') {
+            $i += 1;
+            $radix = 16;
+        } elseif ($i + 1 < $len && $nm[$i] === '0') {
+            $i += 1;
+            $radix = 8;
+        }
+        if ($i < $len && ($nm[$i] === '-' || $nm[$i] === '+')) {
+            throw new NumberFormatException('Sign character in wrong position');
+        }
+        if ($i >= $len) {
+            throw self::nfe($nm, $radix);
+        }
+        return self::parseDigits($nm, $radix, $i, $len, $negative, $nm);
+    }
+
+    /** valueOf(int), valueOf(String), valueOf(String, radix). */
+    public static function valueOf($v, ?int $radix = null): int
+    {
+        if ($v === null || \is_string($v)) {
+            return self::parseInt($v, $radix ?? 10);
+        }
+        return self::i32((int) $v);
+    }
+
+    /** Java falls back to radix 10 when the radix is out of range. */
     public static function toString(int $v, int $radix = 10): string
     {
-        if ($radix === 10) return (string) $v;
-        return $v < 0 ? '-' . \base_convert((string) -$v, 10, $radix) : \base_convert((string) $v, 10, $radix);
+        $v = self::i32($v);
+        if ($radix < 2 || $radix > 36) {
+            $radix = 10;
+        }
+        if ($radix === 10) {
+            return (string) $v;
+        }
+        return $v < 0
+            ? '-' . \base_convert((string) -$v, 10, $radix)
+            : \base_convert((string) $v, 10, $radix);
+    }
+
+    public static function toUnsignedString(int $v, int $radix = 10): string
+    {
+        $u = $v & 0xFFFFFFFF;
+        if ($radix < 2 || $radix > 36) {
+            $radix = 10;
+        }
+        return $radix === 10 ? (string) $u : \base_convert((string) $u, 10, $radix);
+    }
+
+    /** PHP int is 64-bit, so the zero-extended value is exact. */
+    public static function toUnsignedLong(int $v): int
+    {
+        return $v & 0xFFFFFFFF;
+    }
+
+    public static function compareUnsigned(int $a, int $b): int
+    {
+        return ($a & 0xFFFFFFFF) <=> ($b & 0xFFFFFFFF);
+    }
+
+    public static function divideUnsigned(int $dividend, int $divisor): int
+    {
+        $d = $divisor & 0xFFFFFFFF;
+        if ($d === 0) {
+            throw new ArithmeticException('/ by zero');
+        }
+        return self::i32(\intdiv($dividend & 0xFFFFFFFF, $d));
+    }
+
+    public static function remainderUnsigned(int $dividend, int $divisor): int
+    {
+        $d = $divisor & 0xFFFFFFFF;
+        if ($d === 0) {
+            throw new ArithmeticException('/ by zero');
+        }
+        return self::i32(($dividend & 0xFFFFFFFF) % $d);
+    }
+
+    /**
+     * Rotations use only the low 5 bits of the distance, matching the
+     * JVM's shift semantics for int. PHP's & on a negative distance
+     * yields the same low bits as Java's.
+     */
+    public static function rotateLeft(int $v, int $distance): int
+    {
+        $u = $v & 0xFFFFFFFF;
+        $d = $distance & 31;
+        if ($d === 0) {
+            return self::i32($u);
+        }
+        return self::i32((($u << $d) | ($u >> (32 - $d))) & 0xFFFFFFFF);
+    }
+
+    public static function rotateRight(int $v, int $distance): int
+    {
+        $u = $v & 0xFFFFFFFF;
+        $d = $distance & 31;
+        if ($d === 0) {
+            return self::i32($u);
+        }
+        return self::i32((($u >> $d) | ($u << (32 - $d))) & 0xFFFFFFFF);
+    }
+
+    /**
+     * Java 19+ Integer.compress / expand (the scalar analogue of the
+     * PEXT / PDEP instructions). Bit-at-a-time is fine at 32 iterations;
+     * a SWAR form buys nothing at this width.
+     */
+    public static function compress(int $v, int $mask): int
+    {
+        $u = $v & 0xFFFFFFFF;
+        $m = $mask & 0xFFFFFFFF;
+        $r = 0;
+        $k = 0;
+        for ($b = 0; $b < 32; $b++) {
+            if (($m >> $b) & 1) {
+                $r |= ((($u >> $b) & 1) << $k);
+                $k++;
+            }
+        }
+        return self::i32($r);
+    }
+
+    public static function expand(int $v, int $mask): int
+    {
+        $u = $v & 0xFFFFFFFF;
+        $m = $mask & 0xFFFFFFFF;
+        $r = 0;
+        $k = 0;
+        for ($b = 0; $b < 32; $b++) {
+            if (($m >> $b) & 1) {
+                $r |= ((($u >> $k) & 1) << $b);
+                $k++;
+            }
+        }
+        return self::i32($r);
+    }
+
+    /**
+     * Reads a system property and decodes it. Java swallows both the
+     * NPE from a null key and the IAE from an empty one, returning the
+     * default — so getInteger(null) is null, not a throw.
+     *
+     * Known divergence: our System::getProperty falls back to env vars,
+     * which the JDK's does not. A key that names an env var but not a
+     * system property will differ.
+     */
+    public static function getInteger(?string $nm, $val = null): ?int
+    {
+        $default = $val === null ? null : (int) $val;
+        if ($nm === null || $nm === '') {
+            return $default;
+        }
+        $prop = System::getProperty($nm);
+        if ($prop === null || $prop === '') {
+            return $default;
+        }
+        try {
+            return self::decode($prop);
+        } catch (\Throwable $e) {
+            return $default;
+        }
     }
 
     public static function toBinaryString(int $v): string  { return \decbin($v & 0xFFFFFFFF); }
@@ -436,12 +783,16 @@ class Integer
     public const SIZE      = 32;
     public const BYTES     = 4;
 
+    /**
+     * Java: a + b with int wraparound. The wrap has to happen HERE —
+     * the previous version deferred it to the caller's bytecode-level
+     * narrowing, which meant a direct shim call (parity harness, or
+     * any AOT path that doesn't store through an int slot) returned
+     * 2147483656 where the JDK returns -2147483640.
+     */
     public static function sum(int $a, int $b): int
     {
-        // Java: a + b with int wraparound. PHP int is 64-bit; the
-        // caller's bytecode-level narrowing handles the int-32 wrap
-        // at storage points, so we just add.
-        return $a + $b;
+        return self::i32($a + $b);
     }
 
     public static function compare(int $a, int $b): int

@@ -1,0 +1,5318 @@
+{
+  "class": "java.lang.Integer",
+  "_generated": {
+    "by": "bench\/parity\/gen.clj",
+    "seed": 20260724,
+    "cap": 24,
+    "jdk": "25.0.3",
+    "methods": 40,
+    "mode": "static-only",
+    "split": "seen",
+    "skipped": [
+      {
+        "method": "getInteger",
+        "reason": "parameter type not expressible on the wire: java.lang.Integer"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "method": "bitCount",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "bitCount",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -2147483648,
+        255
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -2147483647,
+        2147483647
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        10,
+        2
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        -2147483647,
+        2
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        2
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        2147483646
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        2,
+        -65536
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        1,
+        -1
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        16,
+        65535
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        10,
+        16
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        10,
+        -65536
+      ]
+    },
+    {
+      "method": "compare",
+      "args": [
+        7,
+        10
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        2,
+        16
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -65536,
+        2
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -2147483648,
+        -2147483647
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        7,
+        7
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -2147483647,
+        2147483646
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        7,
+        2
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        255,
+        2
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        2147483647,
+        1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        255,
+        16
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        65535,
+        2147483647
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        1000000,
+        1
+      ]
+    },
+    {
+      "method": "compareUnsigned",
+      "args": [
+        -65536,
+        255
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        1,
+        16
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        16,
+        2147483646
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        1000000,
+        2147483647
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        2147483647,
+        2
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        2,
+        2147483646
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        65535,
+        1
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        2147483647,
+        2147483646
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        1000000,
+        65535
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        1,
+        1
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        -1,
+        65536
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        65536,
+        -2147483647
+      ]
+    },
+    {
+      "method": "compress",
+      "args": [
+        1000000,
+        16
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "decode",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        -65536,
+        16
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        7,
+        65536
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        2,
+        1
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        2147483646,
+        2147483646
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        255,
+        -2147483647
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        1000000,
+        0
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        65535,
+        2147483647
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        1000000,
+        2147483647
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        2147483646,
+        255
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        16,
+        -2147483648
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        -1,
+        1
+      ]
+    },
+    {
+      "method": "divideUnsigned",
+      "args": [
+        7,
+        1000000
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        2147483647,
+        7
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        65535,
+        16
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        16,
+        -2147483648
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        -2147483648,
+        -2147483647
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        1000000,
+        0
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        -2147483648,
+        65535
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        2147483647,
+        255
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        0,
+        1000000
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        65535,
+        -2147483648
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        10,
+        255
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        1,
+        255
+      ]
+    },
+    {
+      "method": "expand",
+      "args": [
+        255,
+        65535
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        0
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        1
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        -1
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        2147483647
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        -2147483648
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        2147483646
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        -2147483647
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        2
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        7
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        10
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        16
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        255
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "2147483648",
+        -65536
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "0.5",
+        7
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "1",
+        2
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "\ud835\udd18",
+        2
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "abc",
+        -2147483648
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "",
+        -65536
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "0",
+        2
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "\u00e9",
+        -1
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "1",
+        2147483647
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "\ud835\udd18",
+        16
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        "\ud835\udd18",
+        10
+      ]
+    },
+    {
+      "method": "getInteger",
+      "args": [
+        " ",
+        2
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "highestOneBit",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "lowestOneBit",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        -2147483647,
+        1
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        -2147483648,
+        16
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        -2147483648,
+        1000000
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        7,
+        255
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        255,
+        10
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        2147483647,
+        -1
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        -2147483647,
+        65536
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        7,
+        16
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        -1,
+        -2147483647
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        -1,
+        -1
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        -2147483648,
+        10
+      ]
+    },
+    {
+      "method": "max",
+      "args": [
+        16,
+        0
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        1000000,
+        2147483647
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        1,
+        1000000
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        2,
+        65536
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        1000000,
+        16
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        1000000,
+        65535
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        -2147483647,
+        2147483646
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        -1,
+        2147483647
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        16,
+        -65536
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        -1,
+        16
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        -1,
+        65536
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        65535,
+        1
+      ]
+    },
+    {
+      "method": "min",
+      "args": [
+        2147483647,
+        0
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "numberOfLeadingZeros",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "numberOfTrailingZeros",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        1
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        -1
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        2147483647
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        -2147483648
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        2147483646
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        2
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        7
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        10
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        16
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        255
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "\u65e5\u672c\u8a9e",
+        16
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "abc",
+        65535
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "TRUE",
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "9223372036854775808",
+        -1
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        65535
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "0.5",
+        -1
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "a\nb",
+        1000000
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "2147483648",
+        -65536
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "true",
+        -65536
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "9223372036854775808",
+        10
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        null,
+        7
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "TRUE",
+        65536
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        2
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        7
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        10
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        16
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        0,
+        0,
+        255
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "a",
+        -2147483648,
+        2147483647,
+        2
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "\u65e5\u672c\u8a9e",
+        255,
+        65535,
+        7
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "1",
+        255,
+        16,
+        -2147483648
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "TRUE",
+        7,
+        0,
+        10
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "abc",
+        255,
+        -2147483648,
+        2
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "a\nb",
+        2,
+        1000000,
+        2147483646
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "",
+        2147483646,
+        255,
+        2
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        " ",
+        255,
+        10,
+        -65536
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "\u65e5\u672c\u8a9e",
+        16,
+        2147483647,
+        10
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "\u00e9",
+        255,
+        2147483646,
+        16
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "1",
+        65536,
+        10,
+        -1
+      ]
+    },
+    {
+      "method": "parseInt",
+      "args": [
+        "TRUE",
+        10,
+        10,
+        10
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        1
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        -1
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        2147483647
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        -2147483648
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        2147483646
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        2
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        7
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        10
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        16
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        255
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "\ud835\udd18",
+        255
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "9223372036854775808",
+        0
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "true",
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "2147483648",
+        2147483647
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "1",
+        255
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        null,
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        " ",
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "\u65e5\u672c\u8a9e",
+        2147483647
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "1",
+        0
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "-1",
+        7
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "1",
+        16
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "a",
+        1
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        0
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        2
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        7
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        10
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        16
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "",
+        0,
+        0,
+        255
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "a\nb",
+        -2147483647,
+        65536,
+        1000000
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "9223372036854775808",
+        2147483646,
+        -2147483648,
+        10
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "TRUE",
+        255,
+        10,
+        7
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "\ud835\udd18",
+        -65536,
+        255,
+        -2147483648
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "TRUE",
+        -1,
+        -65536,
+        2
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "true",
+        65536,
+        1000000,
+        16
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        " ",
+        -2147483648,
+        -2147483648,
+        -1
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "0",
+        255,
+        0,
+        10
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        " ",
+        7,
+        65536,
+        16
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        " ",
+        -2147483648,
+        2147483646,
+        -65536
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "a",
+        255,
+        -65536,
+        -1
+      ]
+    },
+    {
+      "method": "parseUnsignedInt",
+      "args": [
+        "\t",
+        16,
+        10,
+        7
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        1000000,
+        2147483646
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        1000000,
+        65536
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        1,
+        -2147483648
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        65536,
+        2147483647
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        1,
+        7
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        7,
+        2147483646
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        -2147483648,
+        10
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        -2147483648,
+        -2147483648
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        7,
+        1
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        16,
+        255
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        65536,
+        1
+      ]
+    },
+    {
+      "method": "remainderUnsigned",
+      "args": [
+        2147483646,
+        16
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "reverse",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "reverseBytes",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        65536,
+        1000000
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        2147483647,
+        0
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        -65536,
+        65535
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        2,
+        10
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        1,
+        -1
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        -2147483648,
+        1
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        -2147483648,
+        -65536
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        7,
+        65536
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        65535,
+        -1
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        1000000,
+        2
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        2147483647,
+        2
+      ]
+    },
+    {
+      "method": "rotateLeft",
+      "args": [
+        7,
+        255
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        10,
+        7
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        -2147483648,
+        0
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        1,
+        1000000
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        -65536,
+        0
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        2147483647,
+        1000000
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        65535,
+        2
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        -1,
+        255
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        -2147483647,
+        2
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        16,
+        -65536
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        1000000,
+        255
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        -2147483647,
+        65535
+      ]
+    },
+    {
+      "method": "rotateRight",
+      "args": [
+        -65536,
+        65536
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "signum",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        7,
+        16
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        1,
+        0
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        -2147483648,
+        -2147483647
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        1000000,
+        -1
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        7,
+        65535
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        2147483646,
+        -2147483647
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        1000000,
+        0
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        65536,
+        1
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        10,
+        2147483646
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        10,
+        2
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        255,
+        2147483647
+      ]
+    },
+    {
+      "method": "sum",
+      "args": [
+        16,
+        2147483646
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "toBinaryString",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "toHexString",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "toOctalString",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        65535,
+        255
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -1,
+        1000000
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        7,
+        10
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        65536,
+        2147483647
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        255,
+        1
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        1,
+        255
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        65535,
+        -65536
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        -65536,
+        2
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        65536,
+        1000000
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        2,
+        16
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        255,
+        -65536
+      ]
+    },
+    {
+      "method": "toString",
+      "args": [
+        1,
+        -2147483648
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "toUnsignedLong",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        0
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        1
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        -1
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        2147483647
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        -2147483648
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        2147483646
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        -2147483647
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        2
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        7
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        10
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        16
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        0,
+        255
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        1,
+        65536
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        -2147483647,
+        2147483646
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        16,
+        0
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        255,
+        16
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        65536,
+        10
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        -2147483647,
+        16
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        255,
+        -1
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        10,
+        255
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        2147483647,
+        7
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        -2147483647,
+        1000000
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        -2147483647,
+        -65536
+      ]
+    },
+    {
+      "method": "toUnsignedString",
+      "args": [
+        2147483646,
+        -65536
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        ""
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "abc"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        " "
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "  x  "
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "0"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "1"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "-1"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "true"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "TRUE"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "0.5"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "2147483648"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "9223372036854775808"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\u00e9"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\u65e5\u672c\u8a9e"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\ud835\udd18"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a\nb"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\t"
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        null
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        2147483647
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -2147483648
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        2147483646
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -2147483647
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        2
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        7
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        10
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        16
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        255
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        65535
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        65536
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        -65536
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        1000000
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        -1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        2147483647
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        -2147483648
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        2147483646
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        -2147483647
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        2
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        7
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        10
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        16
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        255
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "9223372036854775808",
+        2147483647
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        " ",
+        0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "true",
+        -1
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "  x  ",
+        16
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a\nb",
+        7
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        " ",
+        2147483646
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\ud835\udd18",
+        65535
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "-1",
+        255
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        null,
+        -65536
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "\t",
+        2147483646
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "a\nb",
+        0
+      ]
+    },
+    {
+      "method": "valueOf",
+      "args": [
+        "",
+        1000000
+      ]
+    }
+  ]
+}

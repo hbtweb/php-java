@@ -11,3 +11,8 @@ tests/Cases/caches/
 tools/*
 !tools/gen-aot-stubs.php
 cghooks.lock
+
+# Parity holdout batteries are regenerated at verify time from the
+# seed recorded in the matching .gen.json. Committing one would put it
+# in the implementer's reach and silently disable the holdout.
+bench/parity/cases/*.holdout.json

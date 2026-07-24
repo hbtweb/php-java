@@ -56,6 +56,12 @@ Emits two files: `<FQN>.gen.json` (**seen** — work against this) and
 disjoint draw; run at verify time only). The holdout is what stops a
 shim that special-cases the visible inputs from showing green.
 
+**Only `.gen.json` is committed.** `.holdout.json` is gitignored and
+regenerated at verify time — generation is deterministic, and the seed
+is recorded in the `_generated` block of the committed seen battery, so
+the holdout is reproducible without ever being in the implementer's
+reach. A committed holdout is a holdout that no longer tests anything.
+
 Two limits, both reported rather than silent:
 
 - **Static methods only.** Instance-mode generation (the `{new, ops}`
