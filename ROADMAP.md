@@ -542,6 +542,20 @@ Instance-bearing classes emit op-sequences (`{new: [...], ops: [...]}`)
 — the driver already supports that shape (see §Landed record, driver
 instance-mode dispatch).
 
+**Phase 0 status — COMPLETE (2026-07-24).** Static + receiver generation
+shipped earlier; instance-mode generation (`--instance`, `73343037`) closes
+the last gap. Construction cases (each constructor over its corpus →
+terminal `toString`) plus method-op cases (wire-returning methods direct;
+fluent methods + terminal `toString`). Static path refactored behind the
+same `generate` entry — `java.lang.Integer` regenerates byte-identical, so
+no static regression. First validation: `StringBuilder` instance battery,
+427 cases, 294/427 vs OpenJDK 25 — the 133 reds are real shim gaps the
+hand-authored battery never probed (null/negative-capacity constructors,
+`append(char[])→"Array"`, unimplemented `insert`/`delete`/`setLength`/
+`getChars` overloads). **Next increment: fill `StringBuilder` to green off
+the generated battery**, converting it from hand-authored — the first
+instance-class fill, and the template for W2 collections.
+
 The generator is the reuse multiplier. One artifact serves the 67 bb
 classes, the Phase-4 identity battery, the T4 tail, and regression.
 
