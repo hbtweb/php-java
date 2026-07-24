@@ -113,11 +113,23 @@ function runOracle(string $classFqn, array $caseSpec): string
                 }
                 $return = $instance->$methodName(...$args);
             }
-        } elseif ($runtimeFqn !== null && \method_exists($runtimeFqn, $caseSpec['method'])) {
-            // Static mode — JDK shim direct dispatch.
+        } elseif ($runtimeFqn !== null) {
+            // Static mode — a JDK shim class exists. Dispatch if the
+            // method is there; otherwise it's an unimplemented method on a
+            // known class — surface a clean UnsupportedOperationException,
+            // not the raw TypeError the bytecode fallback throws for a
+            // class with no .class file. (This is the static-path analogue
+            // of the receiver-mode guard above; without it every absent
+            // static method on a partly-filled shim reads as a harness
+            // crash instead of bb-fill surface.)
+            if (!\method_exists($runtimeFqn, $caseSpec['method'])) {
+                throw new \PHPJava\Aot\Runtime\java\lang\UnsupportedOperationException(
+                    "{$classFqn}::{$caseSpec['method']}"
+                );
+            }
             $return = $runtimeFqn::{$caseSpec['method']}(...\array_map('decodeArg', $caseSpec['args'] ?? []));
         } else {
-            // Static mode — fall back to AOT-compiled bytecode path.
+            // No shim class — genuine AOT-compiled user bytecode path.
             $bin = \str_replace('.', '/', $classFqn);
             $return = \PHPJava\Aot\Loader::callStatic($bin, $caseSpec['method'], ...\array_map('decodeArg', $caseSpec['args'] ?? []));
         }
