@@ -49,9 +49,19 @@ final class Arrays
         if (\count($a) !== \count($b)) return false;
         foreach ($a as $k => $v) {
             $w = $b[$k] ?? null;
+            if (\is_float($v) && \is_float($w)) {
+                // Java compares double[]/float[] elements via
+                // doubleToLongBits, not ==, so BOTH of these hold:
+                // NaN equals NaN, and +0.0 does NOT equal -0.0. PHP's
+                // === gets both backwards, so compare IEEE754 bit
+                // patterns after canonicalising NaN the way
+                // doubleToLongBits does.
+                if (\is_nan($v) && \is_nan($w)) continue;
+                if (\is_nan($v) || \is_nan($w)) return false;
+                if (\pack('E', $v) === \pack('E', $w)) continue;
+                return false;
+            }
             if ($v === $w) continue;
-            // NaN-NaN special case for floats — Java treats as equal.
-            if (\is_float($v) && \is_float($w) && \is_nan($v) && \is_nan($w)) continue;
             return false;
         }
         return true;

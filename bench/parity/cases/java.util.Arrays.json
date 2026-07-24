@@ -51,6 +51,25 @@
     {"method": "toString", "args": [[1, 2, 3]]},
     {"method": "toString", "args": [["a", "b"]]},
     {"method": "toString", "args": [[true, false, null]]},
-    {"method": "toString", "args": [null]}
+    {"method": "toString", "args": [null]},
+
+    {"method": "equals", "args": [{"__arr__": "double", "v": [0.0]},
+                                  {"__arr__": "double", "v": [-0.0]}]},
+    {"method": "equals", "args": [{"__arr__": "double", "v": [-0.0]},
+                                  {"__arr__": "double", "v": [-0.0]}]},
+    {"method": "equals", "args": [{"__arr__": "double", "v": [{"__nan__": true}]},
+                                  {"__arr__": "double", "v": [{"__nan__": true}]}]},
+    {"method": "equals", "args": [{"__arr__": "double", "v": [{"__nan__": true}]},
+                                  {"__arr__": "double", "v": [1.0]}]},
+    {"method": "equals", "args": [{"__arr__": "double", "v": [{"__inf__": 1}]},
+                                  {"__arr__": "double", "v": [{"__inf__": 1}]}]},
+    {"method": "equals", "args": [{"__arr__": "double", "v": [{"__inf__": 1}]},
+                                  {"__arr__": "double", "v": [{"__inf__": -1}]}]},
+    {"method": "equals", "args": [{"__arr__": "int", "v": [1, 2, 3]},
+                                  {"__arr__": "int", "v": [1, 2, 3]}]},
+    {"method": "equals", "args": [{"__arr__": "int", "v": [1, 2, 3]},
+                                  {"__arr__": "int", "v": [1, 2, 4]}]},
+    {"method": "equals", "args": [{"__arr__": "long", "v": [9223372036854775807]},
+                                  {"__arr__": "long", "v": [9223372036854775807]}]}
   ]
 }
