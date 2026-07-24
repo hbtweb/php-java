@@ -22,13 +22,14 @@
    verify time. Without it, a shim that special-cases the visible
    inputs shows green.
 
-   Scope: static methods. Instance-mode generation (constructor +
-   op-chain, the `{new, ops}` shape the driver already supports) is not
-   implemented; classes needing it are reported, not silently skipped."
+   Scope: static methods (default) and instance methods (--instance).
+   Instance mode emits the `{new, ops}` shape the driver already supports:
+   construction cases (each constructor over its corpus, read back via a
+   terminal toString) plus method-op cases against a canonical receiver."
   (:require [clojure.data.json :as json]
             [clojure.java.io :as io]
             [clojure.string :as str])
-  (:import [java.lang.reflect Method Modifier])
+  (:import [java.lang.reflect Constructor Method Modifier])
   (:gen-class))
 
 ;; ─── argument corpus ─────────────────────────────────────────────────────────
@@ -229,10 +230,163 @@
                          args (sample-tuples corpora cap rng)]
                      {"recv" recv "method" (.getName m) "args" args}))})))
 
+;; ─── instance mode ───────────────────────────────────────────────────────────
+;;
+;; The `{new, ops}` shape: construct a fresh instance, run an op chain, and
+;; compare the LAST op's return. Two case families are generated —
+;;
+;;   construction : {new: ctor-args, ops: [{call toString}]} — validates each
+;;                  constructor by reading its state back as a string.
+;;   method-op    : {new: canonical, ops: [{call M, args}]} for a method that
+;;                  returns a wire type; for a fluent method (returns the class
+;;                  itself), a terminal toString is appended so the mutation's
+;;                  effect is observed as a string.
+;;
+;; Impl-dependent readers (capacity hints, hashes, stack traces) and
+;; identity/lifecycle methods are skipped — their value isn't spec-fixed
+;; across two runtimes.
+
+(def ^:private instance-skip
+  #{"getClass" "clone" "wait" "notify" "notifyAll" "finalize"
+    "hashCode" "equals"
+    ;; impl-dependent state not fixed by the spec
+    "capacity" "ensureCapacity" "trimToSize"
+    ;; stack traces / cause chains: non-deterministic or object-returning
+    "getStackTrace" "fillInStackTrace" "setStackTrace" "printStackTrace"
+    "addSuppressed" "getSuppressed" "initCause"})
+
+(defn- wire-return?
+  "Return types the comparator can deep-equal off the JSON wire: every
+   primitive (including void), plus String / CharSequence."
+  [^Class rt]
+  (or (.isPrimitive rt) (= rt String) (= rt CharSequence)))
+
+(defn- overrides-tostring?
+  "True when the class declares its own toString (value-based), rather than
+   inheriting Object's identity form — the precondition for using toString
+   as a deterministic terminal reader."
+  [^Class cls]
+  (not= Object (.getDeclaringClass (.getMethod cls "toString" (into-array Class [])))))
+
+(defn- candidate-constructors
+  "Public constructors, fewest-params first (so the canonical receiver
+   prefers the simplest form)."
+  [^Class cls]
+  (->> (.getConstructors cls)
+       (filter #(Modifier/isPublic (.getModifiers ^Constructor %)))
+       (sort-by #(.getParameterCount ^Constructor %))))
+
+(defn- instance-decl-methods
+  "Public instance methods reachable on the class (inherited included, so
+   e.g. CharSequence defaults surface), minus the instance-skip set."
+  [^Class cls]
+  (->> (.getMethods cls)
+       (filter (fn [^Method m]
+                 (and (not (Modifier/isStatic (.getModifiers m)))
+                      (Modifier/isPublic (.getModifiers m))
+                      (not (.isSynthetic m))
+                      (not (.isBridge m))
+                      (not (contains? instance-skip (.getName m))))))
+       (sort-by (juxt #(.getName ^Method %) #(.getParameterCount ^Method %)))))
+
+(defn- canonical-receiver
+  "Constructor-arg tuple that seeds method-op cases: the first
+   wire-expressible constructor's first sampled tuple (no-arg → [])."
+  [ctors ^java.util.Random rng]
+  (some (fn [^Constructor c]
+          (let [corpora (mapv param-corpus (.getParameterTypes c))]
+            (when-not (some nil? corpora)
+              (first (sample-tuples corpora 1 rng)))))
+        ctors))
+
+(defn- gen-construction
+  "[cases skips] — one construction case per (constructor, arg-tuple)."
+  [ctors cap ^java.util.Random rng terminal]
+  (reduce
+   (fn [[cases skips] ^Constructor c]
+     (let [params  (vec (.getParameterTypes c))
+           corpora (mapv param-corpus params)]
+       (if (some nil? corpora)
+         [cases (conj skips {"ctor"   (mapv #(.getName ^Class %) params)
+                             "reason" "constructor param not on the wire"})]
+         [(into cases (map (fn [args] {"new" args
+                                       "ops" [{"call" terminal "args" []}]})
+                           (sample-tuples corpora cap rng)))
+          skips])))
+   [[] []] ctors))
+
+(defn- gen-instance-op
+  "{:cases [...]} or {:skip {...}} for one instance method against a fixed
+   canonical receiver."
+  [^Class cls ^Method m canonical cap ^java.util.Random rng terminal]
+  (let [corpora (mapv param-corpus (.getParameterTypes m))
+        rt      (.getReturnType m)
+        name    (.getName m)]
+    (cond
+      (some nil? corpora)
+      {:skip {"method" name "reason" "parameter type not on the wire"}}
+
+      (wire-return? rt)
+      {:cases (mapv (fn [args] {"new" canonical
+                                "ops" [{"call" name "args" args}]})
+                    (sample-tuples corpora cap rng))}
+
+      (= rt cls)                         ; fluent — observe via terminal
+      {:cases (mapv (fn [args] {"new" canonical
+                                "ops" [{"call" name "args" args}
+                                       {"call" terminal "args" []}]})
+                    (sample-tuples corpora cap rng))}
+
+      :else
+      {:skip {"method" name
+              "reason" (str "return type not comparable: " (.getName rt))}})))
+
+(defn- generate-instance
+  "Instance-mode battery for a class the driver constructs and drives.
+   Same seen/holdout split as static mode."
+  [^Class cls {:keys [cap seed holdout-cap] :or {cap 24 seed 20260724 holdout-cap 12}}]
+  (let [ctors     (candidate-constructors cls)
+        methods   (instance-decl-methods cls)
+        terminal  "toString"
+        rng-a     (java.util.Random. seed)
+        rng-b     (java.util.Random. (+ seed 977))
+        rcap      (max 1 (quot cap 2))
+        rcap-h    (max 1 (quot holdout-cap 2))
+        canonical (canonical-receiver ctors rng-a)]
+    (when-not (overrides-tostring? cls)
+      (binding [*out* *err*]
+        (println "  WARN: toString is Object-inherited; construction/fluent cases may be non-deterministic")))
+    (let [[ctor-seen ctor-skips] (gen-construction ctors rcap rng-a terminal)
+          op-seen  (mapv #(gen-instance-op cls % canonical rcap rng-a terminal) methods)
+          seen     (vec (concat ctor-seen (mapcat :cases op-seen)))
+          seen-set (set seen)
+          [ctor-hold _] (gen-construction ctors rcap-h rng-b terminal)
+          hold     (->> (concat ctor-hold
+                                (mapcat :cases (mapv #(gen-instance-op cls % canonical rcap-h rng-b terminal) methods)))
+                        (remove seen-set)
+                        vec)]
+      {:seen    seen
+       :holdout hold
+       :skipped (vec (concat ctor-skips (keep :skip op-seen)))
+       :methods (+ (count ctors) (count methods))
+       :mode    "instance"})))
+
+(declare generate-static)
+
 (defn generate
   "Generate {:seen [...] :holdout [...] :skipped [...] :methods n :mode s}
    for a class. Value-type classes (String) additionally emit receiver-
-   mode cases for their instance methods."
+   mode cases for their instance methods; --instance switches to the
+   constructor + op-chain families instead."
+  [^String fqn {:keys [cap seed holdout-cap instance?]
+                :or   {cap 24 seed 20260724 holdout-cap 12}
+                :as   opts}]
+  (if instance?
+    (generate-instance (Class/forName fqn) opts)
+    (generate-static fqn opts)))
+
+(defn- generate-static
+  "Static (+ receiver for value types) battery — the default mode."
   [^String fqn {:keys [cap seed holdout-cap]
                 :or   {cap 24 seed 20260724 holdout-cap 12}}]
   (let [cls          (Class/forName fqn)
@@ -279,12 +433,13 @@
                  (= "--out"   (first a)) (recur (drop 2 a) (assoc o :out (second a)))
                  (= "--cap"   (first a)) (recur (drop 2 a) (assoc o :cap (parse-long (second a))))
                  (= "--seed"  (first a)) (recur (drop 2 a) (assoc o :seed (parse-long (second a))))
+                 (= "--instance" (first a)) (recur (drop 1 a) (assoc o :instance? true))
                  :else (do (binding [*out* *err*] (println "unknown arg:" (first a)))
                            (System/exit 2))))
         fqn  (:class opts)]
     (when-not fqn
       (binding [*out* *err*]
-        (println "Usage: -m gen --class <FQN> [--out DIR] [--cap N] [--seed N]"))
+        (println "Usage: -m gen --class <FQN> [--out DIR] [--cap N] [--seed N] [--instance]"))
       (System/exit 2))
     (let [{:keys [seen holdout skipped methods mode]} (generate fqn opts)
           base (str (:out opts) "/" fqn)
@@ -301,5 +456,7 @@
       (println (format "%s [%s] — %d methods, %d seen cases, %d holdout cases, %d methods skipped"
                        fqn mode methods (count seen) (count holdout) (count skipped)))
       (doseq [s skipped]
-        (println (format "  SKIP %-24s %s" (get s "method") (get s "reason"))))
+        (println (format "  SKIP %-24s %s"
+                         (or (get s "method") (str "<init>" (get s "ctor")))
+                         (get s "reason"))))
       (println (format "  wrote %s.gen.json + %s.holdout.json" base base)))))
