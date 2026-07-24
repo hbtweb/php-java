@@ -224,6 +224,10 @@ class ArrayIndexOutOfBoundsException  extends IndexOutOfBoundsException {}
 class NegativeArraySizeException      extends RuntimeException {}
 class StringIndexOutOfBoundsException extends IndexOutOfBoundsException {}
 class NumberFormatException           extends IllegalArgumentException {}
+// java.lang.OutOfMemoryError is an Error, but PHP matches catches by
+// class and we don't model the Error/Exception split — anchor it to the
+// Throwable root so `catch (\Throwable)` still works.
+class OutOfMemoryError                extends \PHPJava\Packages\java\lang\Throwable {}
 
 /**
  * Raw-scalar adapter for `java.lang.String`. AOT-emitted code receives
@@ -383,8 +387,14 @@ class String_
         return \PHPJava\Aot\Runtime\Utf16::substring($s, $beginIndex, $endIndex);
     }
 
-    public static function trim(string $s): string { return \trim($s); }
-    public static function strip(string $s): string { return \trim($s); }
+    /**
+     * Java trim() strips code points <= U+0020 (not the wider Unicode
+     * whitespace set that strip() uses — see strip()/WS below).
+     */
+    public static function trim(string $s): string
+    {
+        return \preg_replace('/^[\x00-\x20]+|[\x00-\x20]+$/', '', $s);
+    }
 
     /**
      * startsWith(prefix) and the Java startsWith(prefix, toffset) form.
@@ -457,6 +467,195 @@ class String_
             throw new NullPointerException('str');
         }
         return $s . $t;
+    }
+
+    // Java's whitespace for strip()/isBlank() is Character.isWhitespace:
+    // ASCII controls + space, the file/group/record/unit separators, and
+    // Unicode space separators EXCEPT the no-break forms (00A0/2007/202F).
+    // The corpus is ASCII, so exotic Unicode spaces are untested; the
+    // class below matches Java for everything the battery exercises.
+    private const WS = '\x09\x0A\x0B\x0C\x0D\x1C\x1D\x1E\x1F\x20'
+        . '\x{1680}\x{2000}-\x{2006}\x{2008}-\x{200A}\x{2028}\x{2029}\x{205F}\x{3000}';
+
+    public static function strip(string $s): string
+    {
+        return \preg_replace('/^[' . self::WS . ']+|[' . self::WS . ']+$/u', '', $s);
+    }
+
+    public static function stripLeading(string $s): string
+    {
+        return \preg_replace('/^[' . self::WS . ']+/u', '', $s);
+    }
+
+    public static function stripTrailing(string $s): string
+    {
+        return \preg_replace('/[' . self::WS . ']+$/u', '', $s);
+    }
+
+    public static function isBlank(string $s): int
+    {
+        return \preg_match('/^[' . self::WS . ']*$/u', $s) ? 1 : 0;
+    }
+
+    public static function repeat(string $s, int $count): string
+    {
+        if ($count < 0) {
+            throw new IllegalArgumentException("count is negative: {$count}");
+        }
+        if ($count === 0 || $s === '') {
+            return '';
+        }
+        // Java caps a String at Integer.MAX_VALUE bytes; a repeat past
+        // that throws OutOfMemoryError rather than attempting the alloc.
+        if (\intdiv(2147483647, $count) < \strlen($s)) {
+            throw new OutOfMemoryError('Required length exceeds implementation limit');
+        }
+        return \str_repeat($s, $count);
+    }
+
+    public static function equalsIgnoreCase(string $s, ?string $other): int
+    {
+        if ($other === null) {
+            return 0;
+        }
+        return \mb_strtolower($s, 'UTF-8') === \mb_strtolower($other, 'UTF-8') ? 1 : 0;
+    }
+
+    /**
+     * Lexicographic comparison by UTF-16 code unit, per Java: the
+     * difference of the first differing unit, else the length difference.
+     * NOT clamped to -1/0/1 (String.compareTo returns the raw delta).
+     */
+    public static function compareTo(string $s, ?string $other): int
+    {
+        if ($other === null) {
+            throw new NullPointerException('anotherString');
+        }
+        $a = \PHPJava\Aot\Runtime\Utf16::units($s);
+        $b = \PHPJava\Aot\Runtime\Utf16::units($other);
+        $n = \min(\count($a), \count($b));
+        for ($i = 0; $i < $n; $i++) {
+            if ($a[$i] !== $b[$i]) {
+                return $a[$i] - $b[$i];
+            }
+        }
+        return \count($a) - \count($b);
+    }
+
+    public static function compareToIgnoreCase(string $s, ?string $other): int
+    {
+        if ($other === null) {
+            throw new NullPointerException('str');
+        }
+        return self::compareTo(\mb_strtolower($s, 'UTF-8'), \mb_strtolower($other, 'UTF-8'));
+    }
+
+    /** char[] — the string's UTF-16 code units. */
+    public static function toCharArray(string $s): array
+    {
+        return \PHPJava\Aot\Runtime\Utf16::units($s);
+    }
+
+    /** subSequence is substring, returning a CharSequence (a raw string here). */
+    public static function subSequence(string $s, int $begin, int $end): string
+    {
+        return \PHPJava\Aot\Runtime\Utf16::substring($s, $begin, $end);
+    }
+
+    /**
+     * The code point at UTF-16 index i — a high surrogate followed by a
+     * low surrogate combines into one supplementary code point.
+     */
+    public static function codePointAt(string $s, int $index): int
+    {
+        $u = \PHPJava\Aot\Runtime\Utf16::units($s);
+        if ($index < 0 || $index >= \count($u)) {
+            throw new StringIndexOutOfBoundsException("index {$index}, length " . \count($u));
+        }
+        $c1 = $u[$index];
+        if ($c1 >= 0xD800 && $c1 <= 0xDBFF && $index + 1 < \count($u)) {
+            $c2 = $u[$index + 1];
+            if ($c2 >= 0xDC00 && $c2 <= 0xDFFF) {
+                return 0x10000 + (($c1 - 0xD800) << 10) + ($c2 - 0xDC00);
+            }
+        }
+        return $c1;
+    }
+
+    /** The code point BEFORE UTF-16 index i (pairs a preceding surrogate). */
+    public static function codePointBefore(string $s, int $index): int
+    {
+        $u = \PHPJava\Aot\Runtime\Utf16::units($s);
+        if ($index < 1 || $index > \count($u)) {
+            throw new StringIndexOutOfBoundsException("index {$index}, length " . \count($u));
+        }
+        $c2 = $u[$index - 1];
+        if ($c2 >= 0xDC00 && $c2 <= 0xDFFF && $index - 2 >= 0) {
+            $c1 = $u[$index - 2];
+            if ($c1 >= 0xD800 && $c1 <= 0xDBFF) {
+                return 0x10000 + (($c1 - 0xD800) << 10) + ($c2 - 0xDC00);
+            }
+        }
+        return $c2;
+    }
+
+    /** Number of code points in the UTF-16 unit range [begin, end). */
+    public static function codePointCount(string $s, int $begin, int $end): int
+    {
+        $u   = \PHPJava\Aot\Runtime\Utf16::units($s);
+        $len = \count($u);
+        if ($begin < 0 || $end > $len || $begin > $end) {
+            throw new IndexOutOfBoundsException("begin {$begin}, end {$end}, length {$len}");
+        }
+        $count = 0;
+        for ($i = $begin; $i < $end; $i++) {
+            $count++;
+            if ($u[$i] >= 0xD800 && $u[$i] <= 0xDBFF && $i + 1 < $end
+                && $u[$i + 1] >= 0xDC00 && $u[$i + 1] <= 0xDFFF) {
+                $i++; // skip the paired low surrogate
+            }
+        }
+        return $count;
+    }
+
+    /**
+     * Java regionMatches(toffset, other, ooffset, len) and the
+     * ignoreCase-flag overload (5 args). Out-of-range offsets are false,
+     * not errors.
+     */
+    public static function regionMatches(string $s, $arg1, $arg2, $arg3, $arg4 = null, $arg5 = null): int
+    {
+        // Two Java overloads, distinguished by arity:
+        //   regionMatches(int toffset, String other, int ooffset, int len)
+        //   regionMatches(boolean ignoreCase, int toffset, String other, int ooffset, int len)
+        if ($arg5 === null) {
+            [$ignore, $toffset, $other, $ooffset, $len] = [false, $arg1, $arg2, $arg3, $arg4];
+        } else {
+            [$ignore, $toffset, $other, $ooffset, $len] = [$arg1, $arg2, $arg3, $arg4, $arg5];
+        }
+        $ignore   = (bool) $ignore;
+        $toffset  = (int) $toffset;
+        $ooffset  = (int) $ooffset;
+        $len      = (int) $len;
+        $slen = \PHPJava\Aot\Runtime\Utf16::length($s);
+        $olen = \PHPJava\Aot\Runtime\Utf16::length((string) $other);
+        // Java's exact bounds test. Written as `toffset > len - n` (not
+        // `toffset + n > len`) so a negative n passes rather than wraps:
+        // a negative-length region compares zero chars and matches.
+        if ($toffset < 0 || $ooffset < 0
+            || $toffset > $slen - $len || $ooffset > $olen - $len) {
+            return 0;
+        }
+        if ($len <= 0) {
+            return 1;
+        }
+        $a = \PHPJava\Aot\Runtime\Utf16::substring($s, $toffset, $toffset + $len);
+        $b = \PHPJava\Aot\Runtime\Utf16::substring((string) $other, $ooffset, $ooffset + $len);
+        if ($ignore) {
+            $a = \mb_strtolower($a, 'UTF-8');
+            $b = \mb_strtolower($b, 'UTF-8');
+        }
+        return $a === $b ? 1 : 0;
     }
 
     /**
