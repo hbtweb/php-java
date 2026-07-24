@@ -388,7 +388,7 @@ Plus 7 measurement harnesses in `bench/`:
 ## What's open
 
 Forward-work priority moved to
-[ROADMAP.md §Next-work hierarchy](../ROADMAP.md#next-work-hierarchy-post-2026-05-04-audit)
+[ROADMAP.md §Next-work plan](../ROADMAP.md#next-work-plan--validation-loops-2026-07-24)
 as of the 2026-05-04 audit pass. The duplicated effort table that
 previously lived here drifted between sessions; ROADMAP is canonical.
 
@@ -412,10 +412,10 @@ context only.
 ~130 stubs). Bigger than the earlier "~383" estimate but a meaningful
 fraction is generator-amenable stubs.
 
-## Ranked next steps (HISTORICAL — superseded by ROADMAP §Next-work hierarchy)
+## Ranked next steps (HISTORICAL — superseded by ROADMAP §Next-work plan)
 
 > Preserved for prior context. Forward-work priority lives in
-> [ROADMAP.md §Next-work hierarchy](../ROADMAP.md#next-work-hierarchy-post-2026-05-04-audit)
+> [ROADMAP.md §Next-work plan](../ROADMAP.md#next-work-plan--validation-loops-2026-07-24)
 > as of the 2026-05-04 audit pass. Several items below are now done:
 > ObjectMethods/SwitchBootstraps detection, LRU eviction, dead
 > string-path emitter removal, sub-step 1c-β.

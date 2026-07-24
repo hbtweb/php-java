@@ -230,10 +230,10 @@ The honest call is that **Java 21 LTS is the right target** for the project's st
 
 ---
 
-## 9. Prioritized work list (HISTORICAL — superseded by ROADMAP §Next-work hierarchy)
+## 9. Prioritized work list (HISTORICAL — superseded by ROADMAP §Next-work plan)
 
 > Preserved for prior context. Forward-work priority lives in
-> [ROADMAP.md §Next-work hierarchy](../ROADMAP.md#next-work-hierarchy-post-2026-05-04-audit)
+> [ROADMAP.md §Next-work plan](../ROADMAP.md#next-work-plan--validation-loops-2026-07-24)
 > as of the 2026-05-04 audit pass. Updates against this list:
 >
 > - Item 1 (version table) — **DONE** through Java 25 (class file 69.0).

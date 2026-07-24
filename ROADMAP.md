@@ -27,7 +27,14 @@ measured JDK-surface stress corpus, not a Clojure runtime goal.
 | F2 | bb allowlist transitive deps > 200 unknowns → narrow goal | open | needs probe after T1 lands |
 | F3 | Concurrency adapter > 2kloc → narrow goal | open | depends on Swoole/FFI work |
 
-## Current state (2026-05-05, HEAD = `2e99566`)
+## Current state (2026-05-05, HEAD = `2e99566`; re-verified 2026-07-24 at HEAD `e878764`)
+
+> **Re-verification 2026-07-24 (rank 1):** suite still **641 / 0E / 0F /
+> 2S** in 38 s, now on **PHP 8.5.8** (was measured on 8.4.20) — the
+> runtime moved under the fork and nothing broke. Working tree clean,
+> branch `roadmap` in sync with `origin/roadmap`, 158 commits ahead of
+> `master`. Perf figures below are **not** re-measured; they remain
+> rank 1 as of 2026-05-05. Forward work: §Next-work plan.
 
 - **Tests:** **641 / 0 errors / 0 failures / 2 skipped.** All 47 case files run. The 2 skips are `KotlinTest` (no Kotlin runtime in CI) and `OutputDebugTraceTest` (interp-only debugger, slated for Phase D delete). The 4 String identity contract-divergence tests (testIntern / testNotInterned / testNotInternedAfterLiteral / testIdentityHashCode) **now pass** following Phase 1-3 of the emit-then-prove-and-elide identity contract (CONTRACTS.md §1).
 - **String identity contract:** Phase 1-3 shipped 2026-05-05.
@@ -166,7 +173,7 @@ both wrapped and raw shapes dynamically.
 IUSHR/LUSHR (`:814–831`), MULTIANEWARRAY (`:836–847`).
 
 For canonical priority/ordering of remaining work, see
-[Next-work hierarchy](#next-work-hierarchy-post-2026-05-04-audit) below.
+[Next-work plan](#next-work-plan--validation-loops-2026-07-24) below.
 
 ### Tier 2 — surface coverage (shared by all Tier 1 strategies)
 
@@ -177,7 +184,7 @@ Required by every implementation strategy; written once, used by all.
 |---|---|---|
 | T1 — class file format up to Java 21 | `CONSTANT_Dynamic`, `Record`, `PermittedSubclasses`, `NestHost`, `Module` attrs; lambda metafactory + StringConcatFactory | 3–5 weeks |
 | T2 — bb allowlist core (~80 classes) | `String`, `Class`, `Object`, `Throwable`, `Thread`, `java.io.*`, `java.util.regex.Pattern` | 2–4 months |
-| T3 — concurrency adapter | `java.util.concurrent.atomic.*`, `locks.*`, `Thread.ofVirtual`. Boot-provider strategy: AMPHP/Revolt (pure-PHP default) ↔ Swoole (when present, for Tier-2 shared-memory). See T3 detail below. | 4–6 weeks |
+| T3 — concurrency adapter | **LARGELY SHIPPED** (rank 3, 2026-07-24): 5,507 LOC across `src/Aot/Runtime/java/util/concurrent/**` (42 files) + `locks/` (8) + `atomic/` (3) + `Async/` (InlineExecutor, VirtualThreadExecutor), commits `2d671ee`..`bd1b195`; 7 test files incl. `AsyncSpecialiserPassTest`. Design rationale in T3 detail below is now record, not proposal. **Open:** Swoole shared-memory atomics; may-suspend analysis coverage; no parity battery. | shipped; remainder untracked |
 | T4 — bb allowlist tail (~300 classes) | `java.util.concurrent.*`, `javax.crypto`, `java.net.http`, etc. | 4–8 months |
 | T5 — extension surfaces | `defineClass(byte[])`, `Instrumentation`, `Unsafe` (FFI when available) | 4–8 weeks |
 
@@ -461,14 +468,272 @@ Each is a question answered by running, not built features.
 | Q3.2 — CLJP Java interop | Can CLJP import and call a php-java AOT'd Java class end-to-end? |
 | Q3.3 — hot reload | Edit `.java`, re-AOT, callers see new methods? |
 
-## Next-work hierarchy (post-2026-05-04 audit)
+## Next-work plan — validation loops (2026-07-24)
 
-The 2026-05-04 audit verified all open-work claims across the docs
-against the code; many items previously listed as TODO had already
-landed. The remaining surface, organised by kind. Correctness gaps
-sit ahead of new build because bb-fill (the v1 gate) will exercise
-broader semantic surface, and substrate bugs will surface as
-implementation bugs in shim code rather than at their actual site.
+> **Rank 5 — plan, not measured.** Supersedes the 2026-05-04 next-work
+> hierarchy for *ordering and method*; that hierarchy's landed record is
+> preserved verbatim below under §Landed record. Written 2026-07-24
+> against HEAD `e878764` after a ~10-week gap. The plan carries its own
+> falsifier (§Phase 0d) — run it before spending any fanout budget.
+
+### The organising claim
+
+The v1 gate is 67 remaining bb-allowlist classes. The naive reading is
+that this is 2–4 months of shim authoring. It isn't — shim authoring is
+the cheap half. Each shim needs an oracle battery to be trusted, the
+batteries are hand-authored today (12 of them, `bench/parity/cases/`),
+and **whoever authors both the shim and its battery can be wrong in the
+same direction twice.** That coupling is what makes the work serial and
+un-delegable.
+
+Break it by deriving batteries from the JVM rather than from the author.
+Then each class becomes an independently verifiable unit, the work fans
+out, and the same generator also produces the Phase-4 identity battery
+and the T4 tail for free.
+
+**Corollary on shape:** correctness fans out, performance does not.
+Perf numbers here are 0.2 ns/op, where concurrent agents contending for
+cache and cores dominate the signal. Correctness is a pipeline;
+performance is a barrier between waves. Do not fan out §Phase 2.
+
+### The ratchet — five numbers, monotone
+
+Status lives in numbers a command prints, not in prose. Every one of
+these is measurable today; a merge that moves any in the wrong direction
+fails. This exists because prose status drifts: T3 concurrency shipped
+(5,507 LOC, 7 test files, commits `2d671ee`..`bd1b195`) while the Tier-2
+table above still described it as 4–6 weeks of future work.
+
+| # | Metric | 2026-07-24 | Target | Measured by |
+|---|---|---|---|---|
+| R1 | bb-allowlist classes non-stub | 13 / 80 | 80 | parity battery green per class |
+| R2 | Files under `src/Aot/Runtime` carrying `NotImplementedException` | 89 / 164 | 0 within allowlist scope | `grep -rl NotImplementedException src/Aot/Runtime \| wc -l` |
+| R3 | `src/Packages` imports reachable from `src/Aot/Runtime` | > 0 (`bootstrap.php:147–159`) | 0 | grep for `PHPJava\Packages` under `src/Aot/Runtime` |
+| R4 | Parity cases green | 419 / 419 | all, incl. generated | `oracle_driver.clj` summary line |
+| R5 | Shim-chain methods at depth ≥ 3 | 1 / 1887 (rank 4, 2026-05-05) | ≥ 20% ⇒ fire unified-frontend spike | `bench/shim-chain-profiler.php` |
+
+R1–R4 are ratchets (down only). **R5 is a trigger, not a target** — it
+is expected to *rise* as compositional classes land, and crossing 20%
+is the pre-registered condition for revisiting the unified-frontend
+decision recorded under §What's not on the roadmap. Making it a printed
+number removes the judgment call.
+
+Suite green (641 / 0E / 0F / 2S, rank 1, re-verified 2026-07-24 on
+PHP 8.5.8) is a gate, not a ratchet — it is binary.
+
+### Phase 0 — loop primitives (serial, ~1.5–2 weeks, no fanout)
+
+Everything downstream depends on this. Do not start Phase 1 early.
+
+**0a. Case generator** — `bench/parity/gen.clj`, reusing the existing
+driver and case-spec schema. Input: an FQN. Reflects the real class,
+walks each method signature, emits a battery from a per-type input
+corpus:
+
+| Type | Corpus |
+|---|---|
+| `int` / `long` | 0, ±1, MIN, MAX, MIN+1, MAX−1, powers of two, seeded random |
+| `double` / `float` | 0.0, −0.0, NaN, ±Inf, denormal, 1e308, seeded random |
+| `char` / `String` | "", ASCII, non-ASCII, surrogate pair, CESU-8 trap, 64 KB |
+| reference | null, fresh, aliased, equal-but-distinct |
+
+Cartesian across arity with a per-method cap, plus a seeded-random tail.
+Instance-bearing classes emit op-sequences (`{new: [...], ops: [...]}`)
+— the driver already supports that shape (see §Landed record, driver
+instance-mode dispatch).
+
+The generator is the reuse multiplier. One artifact serves the 67 bb
+classes, the Phase-4 identity battery, the T4 tail, and regression.
+
+**0b. Holdout split.** Every generated battery splits into `seen`
+(committed; the implementer works against it) and `holdout` (different
+seed; withheld until verify). Without this, an implementer that
+special-cases the visible inputs shows green. This is the single
+mechanism that makes fanout trustworthy — everything else is
+scheduling.
+
+**0c. Ratchet harness.** One command prints R1–R5 and exits non-zero on
+regression. Wire into CI alongside the existing contract gate
+(`bench/contract.php`).
+
+**0d. Falsifier for the plan — run before any fanout.** Generate
+batteries for the 12 already-done classes and check they reproduce every
+divergence the hand-written batteries caught:
+
+- `Character.compare` returns raw difference, not sign-only
+- `Long.parseLong` `PHP_INT_MIN` round-trip
+- `Math.IEEEremainder` round-half-to-even
+- `Boolean.hashCode` 1231 / 1237 constants
+- `Arrays.equals` NaN-equals-NaN in-array special case
+- `Math.round` Java half-up vs PHP half-away-from-zero
+
+**If the generated batteries miss any of these, the generator is too
+weak and fanout is unsafe** — it would produce green checkmarks over
+unverified shims, and W4 is the earliest that would surface. Fix the
+generator, re-run, then proceed. This is the cheapest possible test of
+the plan's load-bearing assumption, and it uses already-committed work
+as ground truth.
+
+### Phase 1 — correctness fanout (67 classes)
+
+Per-class unit, four stages, run as a **pipeline** — class A can be at
+verify while class B is still generating. No barrier between stages.
+
+```
+generate battery → implement shim → seen-battery green → verify on holdout + adversarial read
+```
+
+The verify stage uses a **different** agent than the implementer, given
+the shim, the holdout battery, and the JDK spec text, tasked to find an
+input class neither battery covers. Cheap, and it catches "green because
+the corpus was narrow." Per `~/CLAUDE.md` §Peer review, a first-pass
+green is provisional until the adversarial read lands.
+
+Waves exist only where a real dependency does. Barrier between waves,
+parallel within (cap 8 concurrent).
+
+| Wave | Classes | Rationale |
+|---|---|---|
+| **W1** | `Object`, `Class`, `Throwable`, `Number`, `Comparable`, `Iterable`, `Iterator`, `Double`, `Short`, `Byte` | everything downstream references these shapes; also cuts R3's largest edge (see Phase 3) |
+| **W2** | `List` / `Set` / `Map` interfaces, `LinkedList`, `HashSet`, `TreeMap`, `TreeSet`, `LinkedHashMap` / `LinkedHashSet`, `Collections`, `Optional` | depends on W1 shapes; parallel within. `java/util` currently holds 5 files total — this is greenfield, not stub-replacement |
+| **W3** | `java.io` (File, streams, readers, writers), `java.nio.file` | independent of W2; runs concurrently with it. `java/io` currently holds 1 file (`IOException`) |
+| **W4** | `java.time`, `java.text`, `java.math`, remaining `java.util.stream` | where the 89 NIE-bearing files concentrate; mostly stub-replacement rather than greenfield |
+
+**Phase 4 identity rides W1.** Once the generator exists, the
+primitive-wrapper identity battery is a config flag rather than a
+project — generate `identity-{Integer,Long,Double,Float,Boolean,
+Character,Short,Byte}.json`, measure divergence, then build only the
+substrate the measurement justifies (`<Wrapper>_Identity` classes,
+`new+dup+invokespecial<init>` peephole, valueOf-cache-range identity,
+WrapperEscapePass FQN extension). That is the CONTRACTS.md §1
+measure-then-build cadence, and it collapses step 1 from ~3 days of
+hand-authoring to an afternoon. The known pre-Phase-4 defect
+(`new Integer(5).intValue()` emits broken AOT output) should be the
+first divergence the generated battery reports — if it isn't, that is
+another falsifier hit on 0d.
+
+**Open items folded into waves** (detail preserved in §Landed record;
+not duplicated here):
+
+| Item | Wave |
+|---|---|
+| `String_.charAt` / `indexOf` / `substring` / `hashCode` byte-indexed, not UTF-16 (T4 partial) | W1 |
+| `Matcher` has no real parity battery (smoke-validated only) | W1, once generator handles cross-class chained dispatch |
+| `Objects.compare` / `deepEquals` / `checkIndex` family deferred | W1 |
+| `Integer` / `Long` unsigned family deferred | W1 |
+| `Arrays.sort` / `asList` / `deep*` deferred; sort has no battery | W2 |
+| `HashMap.compute` / `merge` / `forEach` / `putAll`; Java-shape `Set` / `Iterator` / `Map.Entry` instead of PHP arrays | W2 |
+| `LinkedHashMap` / `LinkedHashSet` retrofit onto shipped SequencedCollection interfaces | W2 |
+| Multi-interface implementation (PHP trait + interface combo) | W2, when a collection class surfaces it |
+| Runtime record shape (`extends Record` + ObjectMethods-indy equals / hashCode / toString) | W4 |
+| Method-overload fuller arg-shape matching; by-ref auto-detect patterns 2+3 | fix-forward when a wave surfaces a mismatch |
+| Nested / overlapping try-catch — currently warns at `Compiler.php:826`, emit still falls through (T7 partial) | W3, when `java.io` resource handling surfaces it |
+
+**Parity-harness work that Phase 1 forces** (post-MVP items from the
+landed record): FFM transport when generated-battery wall-time bites
+(subprocess is ~100 ms/case; a generated corpus is far larger than the
+hand-written 419), descriptor-mangled overload disambiguation, and the
+CI bridge that surfaces parity divergence as a PHPUnit failure. Take
+each when the wave that needs it arrives, not before.
+
+### Phase 2 — performance loop (serial, barrier between waves)
+
+Cannot be fanned out. Single machine, nothing else running, 5-run
+medians.
+
+- **Per-wave, not per-class**: `bench/contract.php` (emit-drift over the
+  9 fixtures), `bench/bench-aot.php` (iadd / invoke / array),
+  `bench/shim-chain-profiler.php` (depth distribution → R5).
+- **Per-class micro-bench only for hot-path classes** — collections and
+  `String_`, not `java.text`.
+- W2 is the wave expected to move R5: `HashMap.put` walking
+  hash → equals → bucket, `Comparator` dispatch, `Stream` chains are
+  exactly the composition the 2026-05-05 profile found absent (99.2% of
+  1887 indexed methods at depth 1). If R5 crosses 20%, fire the
+  unified-frontend spike per §What's not on the roadmap — and re-read
+  both falsifier benches before deciding, per the anti-context there.
+
+Perf budget is already met (0.18–0.20 ns/op vs a 5 ns/op line), so
+Phase 2's job is **regression detection, not optimisation**. Treat a
+perf finding as a stop-and-fix, not an invitation to tune.
+
+### Phase 3 — consolidation / migration ratchet (fannable, different shape)
+
+Phase D is a graph problem, not a battery problem. The fannable unit is
+"cut one `src/Packages` edge reachable from `src/Aot/Runtime`," verified
+by suite-green plus R3 decreased. N agents cut N edges without
+coordinating, because the ratchet is the only shared state.
+
+Order, largest edge first:
+
+1. **`bootstrap.php:147–159`** — the AOT exception hierarchy currently
+   declares `extends \PHPJava\Packages\java\lang\*`. W1 makes
+   `Throwable` a real AOT class; this edge dies with it. Largest single
+   cut.
+2. **`TypeResolver`** — 8 `Kernel/Types/*` imports.
+3. **`JavaClassInvoker` / `ClassInvokerInterface`** — `Filters/Normalizer`
+   + `Provider/ProviderInterface`.
+4. **`Packages/java/lang/{String_,Integer}`** — import `Char_` / `Int_`.
+5. **Interpreter delete** — `src/Kernel/Mnemonics/`, the
+   `JavaMethodCallable` interpreter half, `Kernel/Types` remainder,
+   `Provider/`, `OperationCache`, `OutputDebugTraceTest`. **Last**, not
+   first: it falls out when R3 hits 0. ~10 kloc.
+
+Fold in the duplicate-surface consolidation while passing through:
+`String_`, `Integer`, `StringBuilder`, `System`, `PrintStream` live
+inside `bootstrap.php` while their siblings are per-file. Move each to a
+file during its own wave so there is one lookup rule, not two.
+
+`src/Packages` is 371 files, 298 of them already `NotImplementedException`
+stubs (rank 3, 2026-07-24) — the tree is mostly dead weight, but the
+live edges above are what block deleting it.
+
+### Critical path and estimate
+
+```
+Phase 0 (2 wks, serial)
+  └─ W1 (2–3 wks, ≤8 wide)
+       ├─ W2 (4–6 wks) ──┐
+       └─ W3 (4–6 wks) ──┤   W2 ∥ W3
+                          └─ W4 (4–6 wks)
+Phase 2: barrier after each wave (serial, ~1 day each)
+Phase 3: continuous, gated on R3, interpreter delete last
+```
+
+~4 months to the v1 gate `[rank 5 — estimate]`, against the existing
+doc's 2–4 months for bb-fill alone. The generator pays for itself
+somewhere around class 20; before that it is a net loss, which is why
+0d exists.
+
+**Anti-context for this plan:**
+
+- **Don't fan out before Phase 0d passes.** The whole design rests on
+  generated batteries being at least as strong as hand-written ones.
+  That is a testable claim with committed ground truth; test it.
+- **Don't fan out performance measurement.** Concurrent agents make
+  0.2 ns/op numbers meaningless.
+- **Don't let the implementer write its own verifier.** The holdout and
+  the second agent are the point.
+- **Don't start the interpreter delete early.** It is the terminal step
+  of Phase 3, not a warm-up; the entanglements are what make it
+  expensive, and W1 removes the biggest one for free.
+- **Don't treat the wave table as fixed.** It encodes dependency, not
+  priority. If W3 (`java.io`) turns out to block a real workload sooner
+  than W2, reorder — the barrier structure survives.
+
+## Landed record (as of HEAD `e878764`, 2026-05-14)
+
+> **Record, not priority.** Forward-work ordering and method live in
+> §Next-work plan above as of 2026-07-24. This section is retained as
+> the audit-verified account of what shipped and what each decision
+> was — including the per-class shim surface notes and deferred-method
+> lists, which are load-bearing for anyone continuing a class. Items
+> here still marked open are mapped into waves in §Phase 1; they are
+> not duplicated there.
+>
+> Originally written as the post-2026-05-04 audit hierarchy. The audit
+> verified all open-work claims across the docs against the code; many
+> items previously listed as TODO had already landed.
 
 ### Testing — correctness gaps surfaced by audit (1–2 days)
 

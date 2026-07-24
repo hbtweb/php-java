@@ -33,7 +33,7 @@ Two things since the SBAR below was written:
    roadmap** — long overflow, float narrowing, NaN comparison,
    `String.length` byte-vs-unit, `iinc` mask, char surrogate pairs,
    nested-try silent fall-through. All listed in
-   [ROADMAP.md §Next-work hierarchy](ROADMAP.md#next-work-hierarchy-post-2026-05-04-audit).
+   [ROADMAP.md §Next-work plan](ROADMAP.md#next-work-plan--validation-loops-2026-07-24).
 
 Forward-work priority lives in ROADMAP from this point on. This file
 is session-scoped (SBAR for the 2026-05-04 contract-compliance batch);
@@ -162,7 +162,7 @@ the architecture is no longer the bottleneck. **JDK shim coverage is**.
 ## Recommendation — next session focus
 
 Priority and ordering of forward work moved to
-[ROADMAP.md §Next-work hierarchy](ROADMAP.md#next-work-hierarchy-post-2026-05-04-audit).
+[ROADMAP.md §Next-work plan](ROADMAP.md#next-work-plan--validation-loops-2026-07-24).
 That section is canonical and reflects the post-audit picture; the
 duplicated priority list that previously lived here drifted between
 sessions and is gone.
