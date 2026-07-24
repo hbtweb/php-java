@@ -1,0 +1,68 @@
+{
+    "R2_nie_files": 89,
+    "R3_packages_coupling": 21,
+    "R4_batteries": 12,
+    "R5_depth3": {
+        "deep": 12,
+        "total": 2050,
+        "pct": 0.5853658536585366
+    },
+    "R1_parity": {
+        "green": 2880,
+        "total": 3601,
+        "perBattery": {
+            "java.lang.Boolean.json": {
+                "green": 29,
+                "total": 29
+            },
+            "java.lang.Character.json": {
+                "green": 52,
+                "total": 52
+            },
+            "java.lang.Integer.gen.json": {
+                "green": 791,
+                "total": 791
+            },
+            "java.lang.Integer.json": {
+                "green": 57,
+                "total": 57
+            },
+            "java.lang.Long.json": {
+                "green": 64,
+                "total": 64
+            },
+            "java.lang.Math.json": {
+                "green": 53,
+                "total": 53
+            },
+            "java.lang.String.gen.json": {
+                "green": 1661,
+                "total": 2382
+            },
+            "java.lang.StringBuilder.json": {
+                "green": 19,
+                "total": 19
+            },
+            "java.util.ArrayList.json": {
+                "green": 19,
+                "total": 19
+            },
+            "java.util.Arrays.json": {
+                "green": 46,
+                "total": 46
+            },
+            "java.util.HashMap.json": {
+                "green": 24,
+                "total": 24
+            },
+            "java.util.Objects.json": {
+                "green": 44,
+                "total": 44
+            },
+            "java.util.regex.Pattern.json": {
+                "green": 21,
+                "total": 21
+            }
+        }
+    }
+}
