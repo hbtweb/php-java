@@ -552,9 +552,18 @@ no static regression. First validation: `StringBuilder` instance battery,
 427 cases, 294/427 vs OpenJDK 25 — the 133 reds are real shim gaps the
 hand-authored battery never probed (null/negative-capacity constructors,
 `append(char[])→"Array"`, unimplemented `insert`/`delete`/`setLength`/
-`getChars` overloads). **Next increment: fill `StringBuilder` to green off
-the generated battery**, converting it from hand-authored — the first
-instance-class fill, and the template for W2 collections.
+`getChars` overloads).
+
+**First instance-class fill — `StringBuilder` (`17d1e60e`).** Filled to
+427/427 seen + 62/62 holdout. Fixed: constructor null/negative-capacity/
+VM-cap; variadic `append`/`insert` overloads; integer-valued floats via
+`Double::toString`; `char[]` via `Utf16::unitsToString`; `appendCodePoint`
+and Java-21 `repeat` added; `indexOf`/`lastIndexOf` delegate to `String_`.
+Suite 641/641. This is the template for the W2 collections. Residual:
+byte-vs-UTF-16 indexing in the untouched readers (`charAt`/`length`/
+`substring`) — the same tracked gap `String_` had, deferred because the
+canonical receiver is empty so the battery doesn't yet index into
+multibyte content.
 
 The generator is the reuse multiplier. One artifact serves the 67 bb
 classes, the Phase-4 identity battery, the T4 tail, and regression.
